@@ -1,17 +1,14 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 
 namespace LogicalOptimizer;
 
 /// <summary>
-/// Exports boolean expressions as compilable C# code
+///     Exports boolean expressions as compilable C# code
 /// </summary>
 public class CSharpExpressionExporter
 {
     /// <summary>
-    /// Convert AST to C# boolean expression
+    ///     Convert AST to C# boolean expression
     /// </summary>
     public static string ToExpression(AstNode node)
     {
@@ -33,20 +30,20 @@ public class CSharpExpressionExporter
     }
 
     /// <summary>
-    /// Generate complete C# method for expression evaluation
+    ///     Generate complete C# method for expression evaluation
     /// </summary>
     public static string GenerateMethod(AstNode node, string methodName = "EvaluateExpression")
     {
         var variables = node.GetVariables().OrderBy(v => v).ToList();
         var expression = ToExpression(node);
-        
+
         var parametersBuilder = new StringBuilder();
-        for (int i = 0; i < variables.Count; i++)
+        for (var i = 0; i < variables.Count; i++)
         {
             if (i > 0) parametersBuilder.Append(", ");
             parametersBuilder.Append($"bool {variables[i]}");
         }
-        
+
         return $@"public static bool {methodName}({parametersBuilder})
 {{
     return {expression};
@@ -54,12 +51,13 @@ public class CSharpExpressionExporter
     }
 
     /// <summary>
-    /// Generate complete C# class with evaluation method
+    ///     Generate complete C# class with evaluation method
     /// </summary>
-    public static string GenerateClass(AstNode node, string className = "BooleanEvaluator", string methodName = "Evaluate")
+    public static string GenerateClass(AstNode node, string className = "BooleanEvaluator",
+        string methodName = "Evaluate")
     {
         var method = GenerateMethod(node, methodName);
-        
+
         return $@"using System;
 
 public static class {className}
@@ -69,20 +67,20 @@ public static class {className}
     }
 
     /// <summary>
-    /// Generate C# lambda expression
+    ///     Generate C# lambda expression
     /// </summary>
     public static string GenerateLambda(AstNode node)
     {
         var variables = node.GetVariables().OrderBy(v => v).ToList();
         var expression = ToExpression(node);
-        
+
         var parametersBuilder = new StringBuilder();
-        for (int i = 0; i < variables.Count; i++)
+        for (var i = 0; i < variables.Count; i++)
         {
             if (i > 0) parametersBuilder.Append(", ");
             parametersBuilder.Append(variables[i]);
         }
-        
+
         return $"({parametersBuilder}) => {expression}";
     }
 }

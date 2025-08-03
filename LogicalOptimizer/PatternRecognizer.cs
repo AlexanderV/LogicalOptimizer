@@ -1,16 +1,12 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace LogicalOptimizer;
 
 /// <summary>
-/// Recognizes and replaces advanced logical patterns in AST (XOR, IMP, etc.)
+///     Recognizes and replaces advanced logical patterns in AST (XOR, IMP, etc.)
 /// </summary>
 public class PatternRecognizer
 {
     /// <summary>
-    /// Replace patterns in an AST with simplified forms
+    ///     Replace patterns in an AST with simplified forms
     /// </summary>
     public AstNode ReplacePatterns(AstNode root)
     {
@@ -36,7 +32,7 @@ public class PatternRecognizer
             case BinaryNode binary:
                 var newLeft = ReplacePatterns(binary.Left);
                 var newRight = ReplacePatterns(binary.Right);
-                
+
                 if (newLeft != binary.Left || newRight != binary.Right)
                 {
                     var newNode = node.Clone();
@@ -45,16 +41,15 @@ public class PatternRecognizer
                         newBinary.Left = newLeft;
                         newBinary.Right = newRight;
                     }
+
                     return newNode;
                 }
+
                 break;
-                
+
             case NotNode not:
                 var newChild = ReplacePatterns(not.Operand);
-                if (newChild != not.Operand)
-                {
-                    return new NotNode(newChild);
-                }
+                if (newChild != not.Operand) return new NotNode(newChild);
                 break;
         }
 
@@ -70,12 +65,8 @@ public class PatternRecognizer
             var rightAnd = or.Right as AndNode;
 
             if (leftAnd != null && rightAnd != null)
-            {
                 if (IsXorPattern(leftAnd, rightAnd, out var variable1, out var variable2))
-                {
                     return new XorNode(variable1, variable2, true);
-                }
-            }
         }
 
         return node;
@@ -83,15 +74,19 @@ public class PatternRecognizer
 
     private AstNode TryReplaceWithImp(AstNode node)
     {
-        // Look for implication pattern: !a | b ≡ a → b
+        // Look for implication pattern: !a | b ≡ a → b or b | !a ≡ a → b
         if (node is OrNode or)
         {
             var leftNot = or.Left as NotNode;
+            var rightNot = or.Right as NotNode;
+
             if (leftNot != null)
-            {
                 // Pattern: !a | b ≡ a → b
                 return new ImpNode(leftNot.Operand, or.Right);
-            }
+
+            if (rightNot != null)
+                // Pattern: b | !a ≡ a → b
+                return new ImpNode(rightNot.Operand, or.Left);
         }
 
         return node;
@@ -111,7 +106,7 @@ public class PatternRecognizer
             return false;
 
         // Variables must be the same (in any order)
-        bool sameVars = (AreEquivalentVariables(leftVar1, rightVar1) && AreEquivalentVariables(leftVar2, rightVar2)) ||
+        var sameVars = (AreEquivalentVariables(leftVar1, rightVar1) && AreEquivalentVariables(leftVar2, rightVar2)) ||
                        (AreEquivalentVariables(leftVar1, rightVar2) && AreEquivalentVariables(leftVar2, rightVar1));
 
         if (!sameVars) return false;
@@ -120,13 +115,13 @@ public class PatternRecognizer
         bool validXorPattern;
         if (AreEquivalentVariables(leftVar1, rightVar1))
         {
-            validXorPattern = (leftNeg1 != rightNeg1) && (leftNeg2 != rightNeg2) && (leftNeg1 != leftNeg2);
+            validXorPattern = leftNeg1 != rightNeg1 && leftNeg2 != rightNeg2 && leftNeg1 != leftNeg2;
             var1 = leftVar1;
             var2 = leftVar2;
         }
         else
         {
-            validXorPattern = (leftNeg1 != rightNeg2) && (leftNeg2 != rightNeg1) && (leftNeg1 != leftNeg2);
+            validXorPattern = leftNeg1 != rightNeg2 && leftNeg2 != rightNeg1 && leftNeg1 != leftNeg2;
             var1 = leftVar1;
             var2 = leftVar2;
         }
@@ -168,15 +163,12 @@ public class PatternRecognizer
 
     private bool AreEquivalentVariables(AstNode node1, AstNode node2)
     {
-        if (node1 is VariableNode var1 && node2 is VariableNode var2)
-        {
-            return var1.Name == var2.Name;
-        }
+        if (node1 is VariableNode var1 && node2 is VariableNode var2) return var1.Name == var2.Name;
         return false;
     }
 
     /// <summary>
-    /// Legacy method for backward compatibility with Program.cs
+    ///     Legacy method for backward compatibility with Program.cs
     /// </summary>
     public string GenerateAdvancedLogicalForms(string expression)
     {

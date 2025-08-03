@@ -170,6 +170,40 @@ The optimization result contains:
 - `(a | b) & c → (a & c) | (b & c)`
 - `a & (b | c) → (a & b) | (a & c)`
 
+### 2.5 Extended Operators (XOR, IMP)
+
+#### 2.5.1 XOR (Exclusive OR) Pattern Recognition
+**Pattern Detection**: XOR patterns are detected using AST-based analysis
+- Standard form: `(a & !b) | (!a & b) → a XOR b`
+- AST-based detection traverses the syntax tree to identify XOR structures
+- No regular expressions used - pure AST node analysis
+
+**Algorithm:**
+1. Parse expression to Abstract Syntax Tree (AST)
+2. Traverse AST nodes to detect OR operations with specific AND patterns
+3. Verify XOR pattern: `(var1 & !var2) | (!var1 & var2)`
+4. Replace detected patterns with XorNode in the AST
+5. Convert back to string representation
+
+#### 2.5.2 IMP (Implication) Pattern Recognition
+**Pattern Detection**: Implication patterns are detected using AST-based analysis
+- Standard form: `!a | b → a → b`
+- AST-based detection examines OR nodes with negation patterns
+- Pure tree-based analysis without regular expressions
+
+**Algorithm:**
+1. Parse expression to Abstract Syntax Tree (AST)
+2. Examine OR nodes for implication patterns
+3. Detect patterns: `!var1 | var2` or `var2 | !var1`
+4. Replace with ImpNode in the AST structure
+5. Generate string output with implication notation
+
+**Implementation Features:**
+- **AST-Only Approach**: All pattern detection based on syntax tree analysis
+- **No Regular Expressions**: Pure structural pattern matching
+- **Node Classes**: XorNode and ImpNode extend existing AST infrastructure
+- **Recursive Processing**: Patterns detected at any depth in the expression tree
+
 ### 2.6 Export Formats
 
 #### 2.6.1 DIMACS Format
@@ -520,7 +554,7 @@ public class OptimizationResult
 - [x] CNF and DNF forms are generated correctly
 - [x] Context-dependent parentheses are displayed correctly
 - [x] All tests pass successfully (290+ tests, 100% pass rate)
-- [x] Extended operators (XOR, IMP) implemented and tested
+- [x] Extended operators (XOR, IMP) implemented and tested with AST-based pattern detection
 - [x] Export formats (DIMACS, BLIF, Verilog, CSV) working correctly
 
 ### 8.2 Non-Functional Criteria

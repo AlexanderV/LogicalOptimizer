@@ -8,8 +8,8 @@ public static class PerformanceValidator
     public const int MAX_EXPRESSION_LENGTH = 10000;
     public const int MAX_VARIABLES = 100;
     public const int MAX_PARENTHESES_DEPTH = 50;
-    public const int MAX_OPTIMIZATION_ITERATIONS = 50;
-    public const int MAX_PROCESSING_TIME_SECONDS = 30;
+    public const int MAX_OPTIMIZATION_ITERATIONS = 20; // Reduced from 50 for better performance
+    public const int MAX_PROCESSING_TIME_SECONDS = 10; // Reduced from 30 for better responsiveness
 
     /// <summary>
     ///     Validates expression for compliance with performance constraints

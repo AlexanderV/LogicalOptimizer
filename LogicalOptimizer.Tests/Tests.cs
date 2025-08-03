@@ -8,6 +8,7 @@ namespace LogicalOptimizer.Tests;
 public class LexerTests
 {
     private readonly BooleanExpressionOptimizer _optimizer = new();
+
     [Theory]
     [InlineData("a", new[] {"a"})]
     [InlineData("a & b", new[] {"a", "&", "b"})]
@@ -154,32 +155,31 @@ public class OptimizerTests
     private readonly BooleanExpressionOptimizer _optimizer = new();
 
     /// <summary>
-    /// Helper method to verify expressions using compiled truth tables
+    ///     Helper method to verify expressions using compiled truth tables
     /// </summary>
     private void VerifyExpressionsWithCompiledTruthTables(string original, string? expectedOptimized = null)
     {
         // Optimize the expression with metrics enabled to get truth tables
-        var result = _optimizer.OptimizeExpression(original, includeMetrics: true);
-        
+        var result = _optimizer.OptimizeExpression(original, true);
+
         // Verify compiled truth tables are generated
         Assert.NotNull(result.CompiledOriginalTruthTable);
         Assert.NotNull(result.CompiledOptimizedTruthTable);
-        
+
         // Verify equivalence using compiled truth tables
-        Assert.True(CompiledTruthTable.AreEquivalent(result.CompiledOriginalTruthTable, result.CompiledOptimizedTruthTable),
+        Assert.True(
+            CompiledTruthTable.AreEquivalent(result.CompiledOriginalTruthTable, result.CompiledOptimizedTruthTable),
             $"Compiled truth tables not equivalent for: {original} -> {result.Optimized}");
-        
+
         // If expected result provided, verify it matches
-        if (expectedOptimized != null)
-        {
-            Assert.Equal(expectedOptimized, result.Optimized);
-        }
-        
+        if (expectedOptimized != null) Assert.Equal(expectedOptimized, result.Optimized);
+
         // Output debug info for verification
-        Console.WriteLine($"=== Compiled Truth Table Verification ===");
+        Console.WriteLine("=== Compiled Truth Table Verification ===");
         Console.WriteLine($"Original: {original}");
         Console.WriteLine($"Optimized: {result.Optimized}");
-        Console.WriteLine($"Equivalent: {CompiledTruthTable.AreEquivalent(result.CompiledOriginalTruthTable, result.CompiledOptimizedTruthTable)}");
+        Console.WriteLine(
+            $"Equivalent: {CompiledTruthTable.AreEquivalent(result.CompiledOriginalTruthTable, result.CompiledOptimizedTruthTable)}");
         Console.WriteLine();
     }
 
@@ -312,7 +312,7 @@ public class OptimizerTests
 
         // Act & Assert
         TruthTableAssert.AssertOptimizationEquivalence(input, expected, _optimizer);
-        
+
         // Also verify exact string format
         var result = _optimizer.OptimizeExpression(input);
         Assert.Equal(expected, result.Optimized);
@@ -330,7 +330,7 @@ public class OptimizerTests
 
         // Act & Assert
         TruthTableAssert.AssertOptimizationEquivalence(input, expected, _optimizer);
-        
+
         // Also verify exact string format
         var result = _optimizer.OptimizeExpression(input);
         Assert.Equal(expected, result.Optimized);
@@ -453,7 +453,7 @@ public class EdgeCaseTests
         {
             // Act & Assert - check both optimization and equivalence
             TruthTableAssert.AssertOptimizationEquivalenceOnly(testCase, _optimizer);
-            
+
             var result = _optimizer.OptimizeExpression(testCase);
             Assert.DoesNotContain("((", result.Optimized);
             Assert.DoesNotContain("))", result.Optimized);
@@ -575,7 +575,7 @@ public class NormalFormTests
 
         // Assert
         Assert.Equal(expectedCNF, result.CNF);
-        
+
         // Also verify equivalence with original
         TruthTableAssert.AssertEquivalence(input, result.CNF);
     }
@@ -592,7 +592,7 @@ public class NormalFormTests
 
         // Assert
         Assert.Equal(expectedDNF, result.DNF);
-        
+
         // Also verify equivalence with original
         TruthTableAssert.AssertEquivalence(input, result.DNF);
     }
@@ -761,15 +761,15 @@ public class ExportTests
 }
 
 /// <summary>
-/// Advanced Logical Forms Testing Suite
-/// Comprehensive testing of XOR, IMP generation with truth table verification
+///     Advanced Logical Forms Testing Suite
+///     Comprehensive testing of XOR, IMP generation with truth table verification
 /// </summary>
 public class AdvancedLogicalFormsTests
 {
     private readonly BooleanExpressionOptimizer _optimizer = new();
 
     /// <summary>
-    /// Helper method to evaluate boolean expression for given variable values
+    ///     Helper method to evaluate boolean expression for given variable values
     /// </summary>
     private bool EvaluateExpression(string expression, Dictionary<string, bool> variables)
     {
@@ -777,7 +777,7 @@ public class AdvancedLogicalFormsTests
         var tokens = lexer.Tokenize();
         var parser = new Parser(tokens);
         var ast = parser.Parse();
-        
+
         return EvaluateAst(ast, variables);
     }
 
@@ -794,20 +794,17 @@ public class AdvancedLogicalFormsTests
     }
 
     /// <summary>
-    /// Helper method to generate all possible truth table combinations for given variables
+    ///     Helper method to generate all possible truth table combinations for given variables
     /// </summary>
     private List<Dictionary<string, bool>> GenerateTruthTableCombinations(List<string> variables)
     {
         var combinations = new List<Dictionary<string, bool>>();
-        var numCombinations = (int)Math.Pow(2, variables.Count);
+        var numCombinations = (int) Math.Pow(2, variables.Count);
 
-        for (int i = 0; i < numCombinations; i++)
+        for (var i = 0; i < numCombinations; i++)
         {
             var combination = new Dictionary<string, bool>();
-            for (int j = 0; j < variables.Count; j++)
-            {
-                combination[variables[j]] = (i & (1 << j)) != 0;
-            }
+            for (var j = 0; j < variables.Count; j++) combination[variables[j]] = (i & (1 << j)) != 0;
             combinations.Add(combination);
         }
 
@@ -815,15 +812,15 @@ public class AdvancedLogicalFormsTests
     }
 
     /// <summary>
-    /// Verifies that advanced forms are logically equivalent to optimized expression
+    ///     Verifies that advanced forms are logically equivalent to optimized expression
     /// </summary>
-    private void VerifyAdvancedFormEquivalence(string originalExpr, string optimizedExpr, 
+    private void VerifyAdvancedFormEquivalence(string originalExpr, string optimizedExpr,
         string xorForm, string impForm)
     {
         var optimizer = new BooleanExpressionOptimizer();
         var result = optimizer.OptimizeExpression(originalExpr);
         var variables = result.Variables.ToList();
-        
+
         var combinations = GenerateTruthTableCombinations(variables);
 
         foreach (var combination in combinations)
@@ -864,7 +861,7 @@ public class AdvancedLogicalFormsTests
 
     [Theory]
     [InlineData("a & b", "a & b")]
-    [InlineData("a | b", "a | b")]  
+    [InlineData("a | b", "a | b")]
     [InlineData("a & a | b & b", "a | b")]
     [InlineData("(a | b) & (a | c)", "a | (b & c)")]
     [InlineData("a & b | a & c", "a & (b | c)")]
@@ -891,7 +888,7 @@ public class AdvancedLogicalFormsTests
     {
         // First verify optimization equivalence
         TruthTableAssert.AssertOptimizationEquivalenceOnly(expression, _optimizer);
-        
+
         // Arrange
         var result = _optimizer.OptimizeExpression(expression);
         var optimized = result.Optimized;
@@ -899,13 +896,9 @@ public class AdvancedLogicalFormsTests
         // Generate NAND form manually
         string nandForm;
         if (optimized.Contains("&"))
-        {
             nandForm = $"!({optimized})";
-        }
         else
-        {
             nandForm = optimized; // If no AND operations, NAND is not applicable
-        }
 
         // Act & Assert - verify truth table equivalence
         if (optimized.Contains("&"))
@@ -935,7 +928,7 @@ public class AdvancedLogicalFormsTests
         var expectedXor = $"({var1} & !{var2}) | (!{var1} & {var2})";
 
         // Act - Generate all combinations for two variables
-        var variables = new List<string> { var1, var2 };
+        var variables = new List<string> {var1, var2};
         var combinations = GenerateTruthTableCombinations(variables);
 
         // Assert - verify XOR truth table
@@ -961,7 +954,7 @@ public class AdvancedLogicalFormsTests
         var expectedImp = $"!{var1} | {var2}";
 
         // Act - Generate all combinations for two variables
-        var variables = new List<string> { var1, var2 };
+        var variables = new List<string> {var1, var2};
         var combinations = GenerateTruthTableCombinations(variables);
 
         // Assert - verify IMP truth table
@@ -1005,26 +998,20 @@ public class AdvancedLogicalFormsTests
     [InlineData("a | b", false, true)] // Should have NOR, not NAND
     [InlineData("a & b | c", true, true)] // Should have both
     [InlineData("(a | b) & c", true, true)] // Should have both
-    public void AdvancedForms_OperatorPresence_ShouldDetermineApplicableForms(string expression, 
+    public void AdvancedForms_OperatorPresence_ShouldDetermineApplicableForms(string expression,
         bool shouldHaveNand, bool shouldHaveNor)
     {
         // First verify optimization equivalence
         TruthTableAssert.AssertOptimizationEquivalenceOnly(expression, _optimizer);
-        
+
         // Arrange
         var result = _optimizer.OptimizeExpression(expression);
         var optimized = result.Optimized;
 
         // Assert
-        if (shouldHaveNand)
-        {
-            Assert.Contains("&", optimized);
-        }
+        if (shouldHaveNand) Assert.Contains("&", optimized);
 
-        if (shouldHaveNor)
-        {
-            Assert.Contains("|", optimized);
-        }
+        if (shouldHaveNor) Assert.Contains("|", optimized);
 
         // Verify that advanced forms can be generated based on operators present
         if (optimized.Contains("&"))
@@ -1042,7 +1029,7 @@ public class AdvancedLogicalFormsTests
 }
 
 /// <summary>
-/// Tests for consensus rule optimization and contradiction detection
+///     Tests for consensus rule optimization and contradiction detection
 /// </summary>
 public class ConsensusRuleTests
 {
@@ -1057,7 +1044,7 @@ public class ConsensusRuleTests
     {
         // First verify optimization equivalence
         TruthTableAssert.AssertOptimizationEquivalenceOnly(input, _optimizer);
-        
+
         // Arrange & Act
         var result = _optimizer.OptimizeExpression(input);
 
@@ -1068,13 +1055,13 @@ public class ConsensusRuleTests
         Assert.DoesNotContain("y & !y", result.Optimized);
         Assert.DoesNotContain("z & !z", result.Optimized);
         Assert.DoesNotContain("c & !c", result.Optimized);
-        
+
         // Verify the result doesn't get worse (more terms than original)
         var originalTermCount = input.Split('|').Length;
         var optimizedTermCount = result.Optimized.Split('|').Length;
-        
+
         // Optimized should have same or fewer terms (not more)
-        Assert.True(optimizedTermCount <= originalTermCount + 1, 
+        Assert.True(optimizedTermCount <= originalTermCount + 1,
             $"Optimization made expression worse: {input} -> {result.Optimized}");
     }
 
@@ -1086,15 +1073,15 @@ public class ConsensusRuleTests
     {
         // First verify optimization equivalence
         TruthTableAssert.AssertOptimizationEquivalenceOnly(xorPattern, _optimizer);
-        
+
         // Arrange & Act
         var result = _optimizer.OptimizeExpression(xorPattern);
 
         // Assert - XOR patterns should not be made worse by consensus rule
         var originalComplexity = CountOperators(xorPattern);
         var optimizedComplexity = CountOperators(result.Optimized);
-        
-        Assert.True(optimizedComplexity <= originalComplexity, 
+
+        Assert.True(optimizedComplexity <= originalComplexity,
             $"XOR pattern made worse: {xorPattern} -> {result.Optimized}");
     }
 
@@ -1104,25 +1091,25 @@ public class ConsensusRuleTests
         // Test that the consensus rule rejects terms that would create contradictions
         var expressions = new[]
         {
-            "a & !b | !a & b",     // Should NOT add "!b & b"
-            "x & y | !x & !y",     // Should NOT add "y & !y" 
-            "p & q & r | !p & s",  // Should NOT add contradictory consensus
+            "a & !b | !a & b", // Should NOT add "!b & b"
+            "x & y | !x & !y", // Should NOT add "y & !y" 
+            "p & q & r | !p & s" // Should NOT add contradictory consensus
         };
 
         foreach (var expr in expressions)
         {
             // First verify optimization equivalence
             TruthTableAssert.AssertOptimizationEquivalenceOnly(expr, _optimizer);
-            
+
             var result = _optimizer.OptimizeExpression(expr);
-            
+
             // Check that no contradictory terms were added
             var variables = result.Variables;
             foreach (var variable in variables)
             {
                 var contradiction = $"{variable} & !{variable}";
                 var contradictionReversed = $"!{variable} & {variable}";
-                
+
                 Assert.DoesNotContain(contradiction, result.Optimized);
                 Assert.DoesNotContain(contradictionReversed, result.Optimized);
             }
@@ -1136,13 +1123,13 @@ public class ConsensusRuleTests
     {
         // First verify optimization equivalence (main goal)
         TruthTableAssert.AssertOptimizationEquivalenceOnly(input, _optimizer);
-        
+
         // Arrange & Act
         var result = _optimizer.OptimizeExpression(input);
 
         // Assert - valid consensus should simplify expressions
         var simplifiedTerms = result.Optimized.Split('|').Select(t => t.Trim()).ToArray();
-        
+
         // Should have fewer or equal terms than original
         Assert.True(simplifiedTerms.Length <= input.Split('|').Length,
             $"Optimization should not increase complexity: {input} -> {result.Optimized}");
@@ -1159,42 +1146,42 @@ public class ConsensusRuleTests
         // Test various expressions that might trigger different optimization rules
         var testExpressions = new[]
         {
-            "a & !b | !a & b",     // XOR pattern for consensus
-            "a & b | a & c",       // For factorization  
-            "a | !a & b",          // For absorption
-            "!!a",                 // For complement law (double negation)
-            "a & (b | c)",         // For distributive law
-            "a | a & b",           // For absorption law
-            "a & !a",              // For complement law
-            "a | !a",              // For complement law (tautology)
+            "a & !b | !a & b", // XOR pattern for consensus
+            "a & b | a & c", // For factorization  
+            "a | !a & b", // For absorption
+            "!!a", // For complement law (double negation)
+            "a & (b | c)", // For distributive law
+            "a | a & b", // For absorption law
+            "a & !a", // For complement law
+            "a | !a" // For complement law (tautology)
         };
 
         foreach (var expr in testExpressions)
         {
             // First verify optimization equivalence
             TruthTableAssert.AssertOptimizationEquivalenceOnly(expr, _optimizer);
-            
+
             var result = _optimizer.OptimizeExpression(expr);
-            
+
             // Extract all variables from the result
             var variables = result.Variables;
-            
+
             foreach (var variable in variables)
             {
                 // Check for contradictory terms like "a & !a" or "!a & a"
                 var contradiction1 = $"{variable} & !{variable}";
                 var contradiction2 = $"!{variable} & {variable}";
-                
+
                 Assert.DoesNotContain(contradiction1, result.Optimized);
                 Assert.DoesNotContain(contradiction2, result.Optimized);
             }
-            
+
             // Verify optimization didn't make expression significantly worse
             var originalComplexity = CountOperators(expr);
             var optimizedComplexity = CountOperators(result.Optimized);
-            
+
             // Allow some flexibility, but expression shouldn't get dramatically worse
-            Assert.True(optimizedComplexity <= originalComplexity + 2, 
+            Assert.True(optimizedComplexity <= originalComplexity + 2,
                 $"Expression became significantly worse: {expr} -> {result.Optimized}");
         }
     }
@@ -1204,35 +1191,32 @@ public class ConsensusRuleTests
     {
         // Test complex expression combining XOR and IMP patterns
         var complexExpr = "((a & !b) | (!a & b)) & ((!c | d) | (e & f))";
-        
+
         // First verify optimization equivalence
         TruthTableAssert.AssertOptimizationEquivalenceOnly(complexExpr, _optimizer);
-        
+
         var result = _optimizer.OptimizeExpression(complexExpr);
 
         // Verify the expression is optimized
         Assert.NotNull(result.Optimized);
         Assert.NotEmpty(result.Optimized);
-        
+
         // Verify Advanced form contains expected patterns
         Assert.NotNull(result.Advanced);
         if (!string.IsNullOrEmpty(result.Advanced))
         {
             Assert.Contains("XOR", result.Advanced);
             // Check for either → symbol or the pattern that suggests implication
-            Assert.True(result.Advanced.Contains("→") || result.Advanced.Contains("(c → d)") || 
-                       (result.Advanced.Contains("d") && result.Advanced.Contains("c")),
-                       $"Expected implication pattern in: {result.Advanced}");
+            Assert.True(result.Advanced.Contains("→") || result.Advanced.Contains("(c → d)") ||
+                        (result.Advanced.Contains("d") && result.Advanced.Contains("c")),
+                $"Expected implication pattern in: {result.Advanced}");
         }
-        
+
         // Verify variables are correct
-        var expectedVariables = new[] { "a", "b", "c", "d", "e", "f" };
+        var expectedVariables = new[] {"a", "b", "c", "d", "e", "f"};
         Assert.Equal(expectedVariables.Length, result.Variables.Count);
-        foreach (var variable in expectedVariables)
-        {
-            Assert.Contains(variable, result.Variables);
-        }
-        
+        foreach (var variable in expectedVariables) Assert.Contains(variable, result.Variables);
+
         // Verify CNF and DNF don't contain advanced operators
         Assert.DoesNotContain("XOR", result.CNF);
         Assert.DoesNotContain("→", result.CNF);
@@ -1242,7 +1226,7 @@ public class ConsensusRuleTests
 }
 
 /// <summary>
-/// Tests for compiled C# expression evaluation and truth table generation
+///     Tests for compiled C# expression evaluation and truth table generation
 /// </summary>
 public class CompiledTruthTableTests
 {
@@ -1252,15 +1236,16 @@ public class CompiledTruthTableTests
     public void CompiledTruthTable_SimpleExpression_ShouldGenerateCorrectly()
     {
         // Test simple expression: a & b
-        var result = _optimizer.OptimizeExpression("a & b", includeMetrics: true);
-        
+        var result = _optimizer.OptimizeExpression("a & b", true);
+
         // Verify compiled truth tables are generated
         Assert.NotNull(result.CompiledOriginalTruthTable);
         Assert.NotNull(result.CompiledOptimizedTruthTable);
-        
+
         // Verify they are equivalent
-        Assert.True(CompiledTruthTable.AreEquivalent(result.CompiledOriginalTruthTable, result.CompiledOptimizedTruthTable));
-        
+        Assert.True(CompiledTruthTable.AreEquivalent(result.CompiledOriginalTruthTable,
+            result.CompiledOptimizedTruthTable));
+
         // Verify truth table has correct structure
         Assert.Equal(2, result.CompiledOriginalTruthTable.Variables.Count);
         Assert.Equal(4, result.CompiledOriginalTruthTable.Rows.Count); // 2^2 = 4 combinations
@@ -1277,13 +1262,14 @@ public class CompiledTruthTableTests
     {
         // Act & Assert
         TruthTableAssert.AssertOptimizationEquivalence(input, expectedOptimized, _optimizer);
-        
-        var result = _optimizer.OptimizeExpression(input, includeMetrics: true);
-        
+
+        var result = _optimizer.OptimizeExpression(input, true);
+
         // Verify compiled truth tables exist and are equivalent
         Assert.NotNull(result.CompiledOriginalTruthTable);
         Assert.NotNull(result.CompiledOptimizedTruthTable);
-        Assert.True(CompiledTruthTable.AreEquivalent(result.CompiledOriginalTruthTable, result.CompiledOptimizedTruthTable),
+        Assert.True(
+            CompiledTruthTable.AreEquivalent(result.CompiledOriginalTruthTable, result.CompiledOptimizedTruthTable),
             $"Truth tables not equivalent for: {input} -> {result.Optimized}");
     }
 
@@ -1292,20 +1278,20 @@ public class CompiledTruthTableTests
     {
         // Test complex expression with multiple variables
         var complexExpr = "((a & !b) | (!a & b)) & (c | d)";
-        var result = _optimizer.OptimizeExpression(complexExpr, includeMetrics: true);
-        
+        var result = _optimizer.OptimizeExpression(complexExpr, true);
+
         var compiledTable = result.CompiledOriginalTruthTable!;
-        
+
         // Verify structure
         Assert.Equal(4, compiledTable.Variables.Count);
         Assert.Equal(16, compiledTable.Rows.Count); // 2^4 = 16 combinations
-        
+
         // Verify specific combinations manually
         // When a=T, b=F, c=T, d=F: (T & !F) | (!T & F) = T | F = T, and (T | F) = T, so result should be T & T = T
-        var testRow = compiledTable.Rows.FirstOrDefault(r => 
-            r.Variables["a"] == true && r.Variables["b"] == false && 
-            r.Variables["c"] == true && r.Variables["d"] == false);
-        
+        var testRow = compiledTable.Rows.FirstOrDefault(r =>
+            r.Variables["a"] && r.Variables["b"] == false &&
+            r.Variables["c"] && r.Variables["d"] == false);
+
         Assert.NotNull(testRow);
         Assert.True(testRow.Result);
     }
@@ -1317,13 +1303,13 @@ public class CompiledTruthTableTests
         var tokens = lexer.Tokenize();
         var parser = new Parser(tokens);
         var ast = parser.Parse();
-        
+
         // Test expression export
         var expression = CSharpExpressionExporter.ToExpression(ast);
         Assert.Contains("&&", expression);
         Assert.Contains("||", expression);
         Assert.Contains("!", expression);
-        
+
         // Test method generation
         var method = CSharpExpressionExporter.GenerateMethod(ast);
         Assert.Contains("public static bool", method);
@@ -1339,13 +1325,13 @@ public class CompiledTruthTableTests
         var tokens = lexer.Tokenize();
         var parser = new Parser(tokens);
         var ast = parser.Parse();
-        
+
         var evaluator = new CompiledExpressionEvaluator(ast);
-        
+
         // Test all combinations for a & b
-        Assert.False(evaluator.Evaluate(new Dictionary<string, bool> { {"a", false}, {"b", false} }));
-        Assert.False(evaluator.Evaluate(new Dictionary<string, bool> { {"a", false}, {"b", true} }));
-        Assert.False(evaluator.Evaluate(new Dictionary<string, bool> { {"a", true}, {"b", false} }));
-        Assert.True(evaluator.Evaluate(new Dictionary<string, bool> { {"a", true}, {"b", true} }));
+        Assert.False(evaluator.Evaluate(new Dictionary<string, bool> {{"a", false}, {"b", false}}));
+        Assert.False(evaluator.Evaluate(new Dictionary<string, bool> {{"a", false}, {"b", true}}));
+        Assert.False(evaluator.Evaluate(new Dictionary<string, bool> {{"a", true}, {"b", false}}));
+        Assert.True(evaluator.Evaluate(new Dictionary<string, bool> {{"a", true}, {"b", true}}));
     }
 }

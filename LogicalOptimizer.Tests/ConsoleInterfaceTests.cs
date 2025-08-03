@@ -84,7 +84,7 @@ public class ConsoleInterfaceTests
 
         // Act & Assert
         TruthTableAssert.AssertOptimizationEquivalence(input, expectedOptimized, optimizer);
-        
+
         var result = optimizer.OptimizeExpression(input);
         Assert.Equal(input, result.Original);
         Assert.Equal(expectedOptimized, result.Optimized);

@@ -1,15 +1,15 @@
 namespace LogicalOptimizer;
 
 /// <summary>
-/// Implication node representing logical implication operation
+///     Implication node representing logical implication operation
 /// </summary>
 public class ImpNode : BinaryNode
 {
-    public override string Operator => "→";
-
     public ImpNode(AstNode left, AstNode right) : base(left, right)
     {
     }
+
+    public override string Operator => "→";
 
     public override string ToString()
     {

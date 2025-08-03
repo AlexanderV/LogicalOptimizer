@@ -1,17 +1,12 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
+using System.Runtime.Loader;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.Emit;
-using System.IO;
-using System.Runtime.Loader;
 
 namespace LogicalOptimizer;
 
 /// <summary>
-/// Compiles and executes C# boolean expressions dynamically
+///     Compiles and executes C# boolean expressions dynamically
 /// </summary>
 public class CompiledExpressionEvaluator
 {
@@ -25,7 +20,7 @@ public class CompiledExpressionEvaluator
     }
 
     /// <summary>
-    /// Evaluate expression with given variable values
+    ///     Evaluate expression with given variable values
     /// </summary>
     public bool Evaluate(Dictionary<string, bool> variableValues)
     {
@@ -33,12 +28,15 @@ public class CompiledExpressionEvaluator
     }
 
     /// <summary>
-    /// Get variables used in expression
+    ///     Get variables used in expression
     /// </summary>
-    public List<string> GetVariables() => _variables.ToList();
+    public List<string> GetVariables()
+    {
+        return _variables.ToList();
+    }
 
     /// <summary>
-    /// Compile AST node to executable function
+    ///     Compile AST node to executable function
     /// </summary>
     private Func<Dictionary<string, bool>, bool> CompileExpression(AstNode node)
     {
@@ -47,11 +45,11 @@ public class CompiledExpressionEvaluator
             // Generate C# source code
             var className = "DynamicEvaluator";
             var methodName = "Evaluate";
-            
+
             // Create parameters for method
             var parameters = string.Join(", ", _variables.Select(v => $"bool {v}"));
             var expression = CSharpExpressionExporter.ToExpression(node);
-            
+
             var sourceCode = $@"
 using System;
 using System.Collections.Generic;
@@ -72,13 +70,13 @@ public static class {className}
 
             // Compile the source code
             var assembly = CompileSourceCode(sourceCode);
-            
+
             // Get the compiled method
             var type = assembly.GetType(className);
             var method = type.GetMethod("EvaluateWithDictionary");
-            
+
             // Return delegate
-            return (variables) => (bool)method.Invoke(null, new object[] { variables });
+            return variables => (bool) method.Invoke(null, new object[] {variables});
         }
         catch (Exception ex)
         {
@@ -87,7 +85,7 @@ public static class {className}
     }
 
     /// <summary>
-    /// Compile C# source code to assembly
+    ///     Compile C# source code to assembly
     /// </summary>
     private Assembly CompileSourceCode(string sourceCode)
     {
@@ -106,7 +104,7 @@ public static class {className}
 
         var compilation = CSharpCompilation.Create(
             assemblyName,
-            new[] { syntaxTree },
+            new[] {syntaxTree},
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 

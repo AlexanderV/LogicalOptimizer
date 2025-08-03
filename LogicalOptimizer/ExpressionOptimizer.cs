@@ -58,10 +58,10 @@ public class ExpressionOptimizer
         node = ApplyAbsorptionLaws(node);
         node = ApplyComplementLaws(node);
         node = ApplyAssociativityLaws(node);
-        node = ApplyConsensusRule(node, metrics);
+        node = ApplyOptimizationRuleWithRollback(node, ApplyConsensusRule, metrics, "Consensus");
         node = SimplifyRedundantTerms(node);
         node = ApplySmartCommutivity(node); // New rule
-        node = ApplyFactorization(node, metrics);
+        node = ApplyOptimizationRuleWithRollback(node, ApplyFactorization, metrics, "Factorization");
         node = SimplifyConsensusRedundancy(node, metrics);
         node = SimplifyComplexExpressions(node);
         // NOTE: NormalizeExpression might affect ForceParentheses, which could break some tests
@@ -905,8 +905,8 @@ public class ExpressionOptimizer
     }
 
     /// <summary>
-    /// Checks if a list of terms contains contradictory pairs (e.g., a & !a)
-    /// which would make the entire AND expression always false
+    ///     Checks if a list of terms contains contradictory pairs (e.g., a & !a)
+    ///     which would make the entire AND expression always false
     /// </summary>
     private bool ContainsContradiction(List<AstNode> terms)
     {
@@ -1052,6 +1052,33 @@ public class ExpressionOptimizer
     private bool AreEqual(AstNode node1, AstNode node2)
     {
         return node1.Equals(node2);
+    }
+
+    /// <summary>
+    ///     Applies an optimization rule with rollback if the rule increases node count
+    /// </summary>
+    private AstNode ApplyOptimizationRuleWithRollback(AstNode node,
+        Func<AstNode, OptimizationMetrics?, AstNode> optimizationRule,
+        OptimizationMetrics? metrics,
+        string ruleName)
+    {
+        var originalNodeCount = AstMetrics.CountNodes(node);
+        var optimizedNode = optimizationRule(node, metrics);
+        var optimizedNodeCount = AstMetrics.CountNodes(optimizedNode);
+
+        // If the rule increased the node count, roll back
+        if (optimizedNodeCount > originalNodeCount)
+        {
+            if (metrics != null)
+            {
+                metrics.RuleApplicationCount.TryAdd($"{ruleName}_Rollback", 0);
+                metrics.RuleApplicationCount[$"{ruleName}_Rollback"]++;
+            }
+
+            return node; // Return original node
+        }
+
+        return optimizedNode;
     }
 
     // Comparer for AST nodes

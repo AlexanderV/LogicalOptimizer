@@ -3,7 +3,7 @@ using Xunit;
 namespace LogicalOptimizer.Tests;
 
 /// <summary>
-/// Tests for verifying TruthTable comparison functionality and tabular output
+///     Tests for verifying TruthTable comparison functionality and tabular output
 /// </summary>
 public class TruthTableComparisonTests
 {

@@ -1,16 +1,12 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace LogicalOptimizer;
 
 /// <summary>
-/// Utility class for generating demonstration expressions and random test cases
+///     Utility class for generating demonstration expressions and random test cases
 /// </summary>
 public static class ExpressionGenerator
 {
     /// <summary>
-    /// Generate a random boolean expression for testing
+    ///     Generate a random boolean expression for testing
     /// </summary>
     public static string GenerateRandomExpression(int variableCount = 3)
     {
@@ -37,7 +33,7 @@ public static class ExpressionGenerator
     }
 
     /// <summary>
-    /// Get demonstration expressions showcasing various features
+    ///     Get demonstration expressions showcasing various features
     /// </summary>
     public static Dictionary<string, string> GetDemonstrationExpressions()
     {
@@ -60,7 +56,7 @@ public static class ExpressionGenerator
     }
 
     /// <summary>
-    /// Get test expressions for performance benchmarking
+    ///     Get test expressions for performance benchmarking
     /// </summary>
     public static Dictionary<string, string> GetBenchmarkExpressions()
     {

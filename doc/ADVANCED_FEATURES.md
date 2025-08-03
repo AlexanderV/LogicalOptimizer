@@ -47,19 +47,30 @@ Console.WriteLine($"Complexity: {metrics.Complexity:F1}");
 Console.WriteLine($"Score: {metrics.OptimalityScore}/100");
 ```
 
-### 3. **Extended Operators (ready for implementation)**
+### 3. **Extended Operators (XOR, IMP) - AST-Based Implementation**
 
-#### XOR, NAND, NOR Support:
+#### XOR and IMP Pattern Recognition:
 ```csharp
-// XOR (exclusive OR)
+// XOR (exclusive OR) - detected via AST analysis
 var xorNode = new XorNode(varA, varB);
+// Pattern: (a & !b) | (!a & b) → a XOR b
 
-// NAND (NOT AND) 
-var nandNode = new NandNode(varA, varB);
-
-// NOR (NOT OR)
-var norNode = new NorNode(varA, varB);
+// IMP (implication) - detected via AST analysis  
+var impNode = new ImpNode(varA, varB);
+// Pattern: !a | b → a → b
 ```
+
+#### AST-Based Pattern Detection:
+- **No Regular Expressions**: Pure syntax tree analysis
+- **Structural Pattern Matching**: Traverses AST nodes to identify patterns
+- **Recursive Detection**: Works at any depth in expression tree
+- **Node Replacement**: Detected patterns replaced with specialized AST nodes
+
+#### Implementation Details:
+- **DetectXorPatternInAst()**: Analyzes OR nodes for XOR structures
+- **DetectImplicationPatternInAst()**: Examines OR nodes for implication patterns  
+- **ConvertAstToAdvancedForms()**: Recursively converts AST with pattern replacement
+- **Pure Tree-Based**: Leverages existing XorNode and ImpNode classes
 
 #### Functional completeness:
 - **NAND-basis**: any expression through NAND

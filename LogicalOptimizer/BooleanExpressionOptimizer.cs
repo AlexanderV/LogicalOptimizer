@@ -24,16 +24,20 @@ public class BooleanExpressionOptimizer
             var optimized = optimizer.Optimize(ast, metrics);
 
             var converter = new NormalFormConverter();
-            var cnf = converter.ConvertToCNF(optimized.Clone());
-            var dnf = converter.ConvertToDNF(optimized.Clone());
+            // Avoid unnecessary cloning - use original optimized node directly
+            var cnf = converter.ConvertToCNF(optimized);
+            var dnf = converter.ConvertToDNF(optimized);
 
-            // Apply pattern recognition and replacement only for display
-            var patternRecognizer = new PatternRecognizer();
-            var optimizedWithPatterns = patternRecognizer.ReplacePatterns(optimized.Clone());
-            
-            // Generate advanced logical forms
-            var advancedForms = patternRecognizer.GenerateAdvancedLogicalForms(optimized.ToString());
-            
+            // Apply pattern recognition only if needed (for small expressions or when requested)
+            var variables = ast.GetVariables().OrderBy(v => v).ToList();
+            var advancedForms = "";
+
+            if (variables.Count <= 5) // Only for small expressions to avoid performance issues
+            {
+                var patternRecognizer = new PatternRecognizer();
+                advancedForms = patternRecognizer.GenerateAdvancedLogicalForms(optimized.ToString());
+            }
+
             var result = new OptimizationResult
             {
                 Original = expression,
@@ -41,12 +45,17 @@ public class BooleanExpressionOptimizer
                 CNF = cnf.ToString(),
                 DNF = dnf.ToString(),
                 Advanced = advancedForms.StartsWith("Optimized:") ? "" : advancedForms,
-                Variables = ast.GetVariables().OrderBy(v => v).ToList(),
+                Variables = variables,
                 Metrics = metrics,
-                OriginalTruthTable = includeMetrics ? TruthTable.Generate(ast) : null,
-                OptimizedTruthTable = includeMetrics ? TruthTable.Generate(optimized) : null,
-                CompiledOriginalTruthTable = includeMetrics ? CompiledTruthTable.Generate(ast, expression) : null,
-                CompiledOptimizedTruthTable = includeMetrics ? CompiledTruthTable.Generate(optimized, optimized.ToString()) : null
+                // Only generate truth tables for small expressions (≤6 variables) to avoid performance issues
+                OriginalTruthTable = includeMetrics && variables.Count <= 6 ? TruthTable.Generate(ast) : null,
+                OptimizedTruthTable = includeMetrics && variables.Count <= 6 ? TruthTable.Generate(optimized) : null,
+                CompiledOriginalTruthTable = includeMetrics && variables.Count <= 6
+                    ? CompiledTruthTable.Generate(ast, expression)
+                    : null,
+                CompiledOptimizedTruthTable = includeMetrics && variables.Count <= 6
+                    ? CompiledTruthTable.Generate(optimized, optimized.ToString())
+                    : null
             };
 
             if (includeDebugInfo && metrics != null)
