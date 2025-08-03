@@ -174,8 +174,8 @@ public class TruthTableMethodTests
         Assert.Contains("a", result);
         Assert.Contains("b", result);
         Assert.Contains("Result", result);
-        Assert.Contains("F", result);
-        Assert.Contains("T", result);
+        Assert.Contains("0", result);
+        Assert.Contains("1", result);
         Assert.Contains("---", result); // Separator
 
         // Should contain 4 data rows (2^2 variables)

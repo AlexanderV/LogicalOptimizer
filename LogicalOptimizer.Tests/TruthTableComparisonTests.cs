@@ -19,8 +19,8 @@ public class TruthTableComparisonTests
 
         // Assert
         Assert.Contains("| a | b | Result |", tableString);
-        Assert.Contains("| F | F | F |", tableString);
-        Assert.Contains("| T | T | T |", tableString);
+        Assert.Contains("| 0 | 0 | 0      |", tableString);
+        Assert.Contains("| 1 | 1 | 1      |", tableString);
     }
 
     [Fact]
@@ -111,9 +111,9 @@ public class TruthTableComparisonTests
         Assert.Contains($"Expression 1: {expr1}", comparison);
         Assert.Contains($"Expression 2: {expr2}", comparison);
         Assert.Contains("| a | b | Expr1 | Expr2 | Match |", comparison);
-        Assert.Contains("| F | F | F | F | ✓ |", comparison); // Both false when a=F, b=F
-        Assert.Contains("| T | T | T | T | ✓ |", comparison); // Both true when a=T, b=T
-        Assert.Contains("| F | T | F | T | ✗ |", comparison); // Different when a=F, b=T
-        Assert.Contains("| T | F | F | T | ✗ |", comparison); // Different when a=T, b=F
+        Assert.Contains("| 0 | 0 | 0     | 0     | ✓     |", comparison); // Both false when a=0, b=0
+        Assert.Contains("| 1 | 1 | 1     | 1     | ✓     |", comparison); // Both true when a=1, b=1
+        Assert.Contains("| 0 | 1 | 0     | 1     | ✗     |", comparison); // Different when a=0, b=1
+        Assert.Contains("| 1 | 0 | 0     | 1     | ✗     |", comparison); // Different when a=1, b=0
     }
 }

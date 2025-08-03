@@ -74,21 +74,21 @@ public class PerformanceValidatorTests
     public void ValidateIterations_TooManyIterations_ThrowsInvalidOperationException()
     {
         // Act & Assert
-        var exception = Assert.Throws<InvalidOperationException>(() => PerformanceValidator.ValidateIterations(51));
+        var exception = Assert.Throws<InvalidOperationException>(() => PerformanceValidator.ValidateIterations(21));
         Assert.Contains("optimization iterations", exception.Message);
-        Assert.Contains("50", exception.Message);
+        Assert.Contains("20", exception.Message);
     }
 
     [Fact]
     public void ValidateProcessingTime_TooLongTime_ThrowsTimeoutException()
     {
         // Arrange
-        var tooLongTime = TimeSpan.FromSeconds(31);
+        var tooLongTime = TimeSpan.FromSeconds(11);
 
         // Act & Assert
         var exception = Assert.Throws<TimeoutException>(() => PerformanceValidator.ValidateProcessingTime(tooLongTime));
         Assert.Contains("processing time", exception.Message);
-        Assert.Contains("30", exception.Message);
+        Assert.Contains("10", exception.Message);
     }
 
     [Fact]

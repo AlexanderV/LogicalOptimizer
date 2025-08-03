@@ -438,8 +438,8 @@ public class TruthTableGenerationTests
         Assert.Contains("a", tableString);
         Assert.Contains("b", tableString);
         Assert.Contains("Result", tableString);
-        Assert.Contains("F", tableString);
-        Assert.Contains("T", tableString);
+        Assert.Contains("0", tableString);
+        Assert.Contains("1", tableString);
 
         // Check that table contains correct number of rows
         var lines = tableString.Split('\n', StringSplitOptions.RemoveEmptyEntries);

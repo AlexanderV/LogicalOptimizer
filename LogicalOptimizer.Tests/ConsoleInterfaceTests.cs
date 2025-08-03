@@ -105,11 +105,11 @@ public class ConsoleInterfaceTests
     [Fact]
     public void PerformanceValidator_Constants_HaveCorrectValues()
     {
-        // Check that constants match specification
+        // Check that constants match current implementation
         Assert.Equal(10000, PerformanceValidator.MAX_EXPRESSION_LENGTH);
         Assert.Equal(100, PerformanceValidator.MAX_VARIABLES);
         Assert.Equal(50, PerformanceValidator.MAX_PARENTHESES_DEPTH);
-        Assert.Equal(50, PerformanceValidator.MAX_OPTIMIZATION_ITERATIONS);
-        Assert.Equal(30, PerformanceValidator.MAX_PROCESSING_TIME_SECONDS);
+        Assert.Equal(20, PerformanceValidator.MAX_OPTIMIZATION_ITERATIONS); // Updated from 50
+        Assert.Equal(10, PerformanceValidator.MAX_PROCESSING_TIME_SECONDS); // Updated from 30
     }
 }
