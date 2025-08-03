@@ -1,4 +1,4 @@
-﻿namespace LogicalOptimizer;
+namespace LogicalOptimizer;
 
 // Console application
 public class Program
@@ -7,6 +7,7 @@ public class Program
     {
         try
         {
+            
             // Command line arguments processing according to specification
             if (args.Length == 0)
             {
@@ -38,6 +39,8 @@ public class Program
             var verbose = false;
             var cnfOnly = false;
             var dnfOnly = false;
+            var advanced = false;
+            var truthTableOnly = false;
             var expression = args[0];
 
             if (args.Length >= 2)
@@ -56,6 +59,14 @@ public class Program
                         dnfOnly = true;
                         expression = args[1];
                         break;
+                    case "--advanced":
+                        advanced = true;
+                        expression = args[1];
+                        break;
+                    case "--truth-table":
+                        truthTableOnly = true;
+                        expression = args[1];
+                        break;
                 }
             }
 
@@ -70,7 +81,21 @@ public class Program
             var result = optimizer.OptimizeExpression(expression, verbose, verbose);
 
             // Standard output format according to specification
-            if (verbose)
+            if (truthTableOnly)
+            {
+                // Show only truth table
+                try
+                {
+                    var truthTable = TruthTable.Generate(expression);
+                    Console.WriteLine(truthTable);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"Error generating truth table: {ex.Message}");
+                    return 1;
+                }
+            }
+            else if (verbose)
             {
                 Console.WriteLine(result); // Full output with metrics
             }
@@ -82,6 +107,30 @@ public class Program
             {
                 Console.WriteLine(result.DNF);
             }
+            else if (advanced)
+            {
+                // Only show advanced forms (like --cnf or --dnf)
+                var patternRecognizer = new PatternRecognizer();
+                var originalAdvanced = patternRecognizer.GenerateAdvancedLogicalForms(result.Original);
+                var optimizedAdvanced = patternRecognizer.GenerateAdvancedLogicalForms(result.Optimized);
+                
+                // Use whichever found actual optimizations (not just "Optimized: ...")
+                string advancedForms;
+                if (!originalAdvanced.StartsWith("Optimized:"))
+                {
+                    advancedForms = originalAdvanced;
+                }
+                else if (!optimizedAdvanced.StartsWith("Optimized:"))
+                {
+                    advancedForms = optimizedAdvanced;
+                }
+                else
+                {
+                    advancedForms = optimizedAdvanced; // Default to optimized result
+                }
+                
+                Console.WriteLine(advancedForms);
+            }
             else
             {
                 Console.WriteLine($"Original: {result.Original}");
@@ -89,6 +138,19 @@ public class Program
                 Console.WriteLine($"CNF: {result.CNF}");
                 Console.WriteLine($"DNF: {result.DNF}");
                 Console.WriteLine($"Variables: [{string.Join(", ", result.Variables)}]");
+                
+                // Show truth table in proper tabular format
+                try
+                {
+                    var truthTable = TruthTable.Generate(result.Original);
+                    Console.WriteLine();
+                    Console.WriteLine("Truth Table:");
+                    Console.WriteLine(truthTable);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error in truth table generation: {ex.Message}");
+                }
             }
 
             return 0;
@@ -117,6 +179,8 @@ public class Program
         Console.WriteLine("  LogicalOptimizer.exe --verbose \"<expression>\" # Detailed output");
         Console.WriteLine("  LogicalOptimizer.exe --cnf \"<expression>\"     # Output only CNF");
         Console.WriteLine("  LogicalOptimizer.exe --dnf \"<expression>\"     # Output only DNF");
+        Console.WriteLine("  LogicalOptimizer.exe --advanced \"<expression>\" # Include advanced logical forms");
+        Console.WriteLine("  LogicalOptimizer.exe --truth-table \"<expression>\" # Output only truth table");
         Console.WriteLine("  LogicalOptimizer.exe --test              # Run tests");
         Console.WriteLine("  LogicalOptimizer.exe --help              # This help");
         Console.WriteLine("  LogicalOptimizer.exe --demo              # Features demonstration");
@@ -399,5 +463,315 @@ public class Program
         }
 
         return string.Join(" | ", terms);
+    }
+
+    /// <summary>
+    /// <summary>
+    /// Generate advanced logical forms for an optimized expression
+    /// </summary>
+    private static string GenerateAdvancedLogicalForms(string optimizedExpression)
+    {
+        try
+        {
+            var forms = new List<string>();
+
+            // Parse expression to AST for proper pattern recognition
+            var lexer = new Lexer(optimizedExpression);
+            var tokens = lexer.Tokenize();
+            var parser = new Parser(tokens);
+            var ast = parser.Parse();
+
+            // Check for XOR pattern using AST
+            var xorResult = DetectXorPattern(ast);
+            if (!string.IsNullOrEmpty(xorResult))
+            {
+                forms.Add($"XOR: {xorResult}");
+            }
+
+            // Check for IMP pattern using AST
+            var impResult = DetectImplicationPattern(ast);
+            if (!string.IsNullOrEmpty(impResult))
+            {
+                forms.Add($"IMP: {impResult}");
+            }
+
+            // If no patterns found, return empty
+            if (forms.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            return string.Join(", ", forms);
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Standard XOR optimization patterns
+    /// Detects and converts standard XOR patterns to simpler forms
+    /// </summary>
+    private static string TryXorOptimization(string expr)
+    {
+        // Normalize expression (remove extra spaces)
+        expr = expr.Trim();
+
+        // Pattern 1: (a & !b) | (!a & b) → a XOR b
+        var xorPattern1 = @"\((\w+) & !(\w+)\) \| \(!(\w+) & (\w+)\)";
+        var match1 = System.Text.RegularExpressions.Regex.Match(expr, xorPattern1);
+        if (match1.Success)
+        {
+            var a1 = match1.Groups[1].Value;
+            var b1 = match1.Groups[2].Value;
+            var a2 = match1.Groups[3].Value;
+            var b2 = match1.Groups[4].Value;
+            
+            if (a1 == a2 && b1 == b2)
+            {
+                return $"{a1} XOR {b1}";
+            }
+        }
+
+        // Pattern 2: a & !b | !a & b → a XOR b (without parentheses)
+        var xorPattern2 = @"(\w+) & !(\w+) \| !(\w+) & (\w+)";
+        var match2 = System.Text.RegularExpressions.Regex.Match(expr, xorPattern2);
+        if (match2.Success)
+        {
+            var a1 = match2.Groups[1].Value;
+            var b1 = match2.Groups[2].Value;
+            var a2 = match2.Groups[3].Value;
+            var b2 = match2.Groups[4].Value;
+            
+            if (a1 == a2 && b1 == b2)
+            {
+                return $"{a1} XOR {b1}";
+            }
+        }
+
+        // Pattern 3: !a & b | a & !b → a XOR b (reversed order)
+        var xorPattern3 = @"!(\w+) & (\w+) \| (\w+) & !(\w+)";
+        var match3 = System.Text.RegularExpressions.Regex.Match(expr, xorPattern3);
+        if (match3.Success)
+        {
+            var a1 = match3.Groups[1].Value;
+            var b1 = match3.Groups[2].Value;
+            var a2 = match3.Groups[3].Value;
+            var b2 = match3.Groups[4].Value;
+            
+            if (a1 == a2 && b1 == b2)
+            {
+                return $"{a1} XOR {b1}";
+            }
+        }
+
+        // Pattern 4: !(a & b | !a & !b) → a XOR b (negated equivalence)
+        var xorPattern4 = @"!\((\w+) & (\w+) \| !(\w+) & !(\w+)\)";
+        var match4 = System.Text.RegularExpressions.Regex.Match(expr, xorPattern4);
+        if (match4.Success)
+        {
+            var a1 = match4.Groups[1].Value;
+            var b1 = match4.Groups[2].Value;
+            var a2 = match4.Groups[3].Value;
+            var b2 = match4.Groups[4].Value;
+            
+            if (a1 == a2 && b1 == b2)
+            {
+                return $"{a1} XOR {b1}";
+            }
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// Standard Implication optimization patterns
+    /// Detects and converts standard implication patterns
+    /// </summary>
+    private static string TryImplicationOptimization(string expr)
+    {
+        // Normalize expression
+        expr = expr.Trim();
+
+        // Pattern 1: !a | b → a → b (standard implication)
+        var impPattern1 = @"^!(\w+) \| (\w+)$";
+        var match1 = System.Text.RegularExpressions.Regex.Match(expr, impPattern1);
+        if (match1.Success)
+        {
+            var a = match1.Groups[1].Value;
+            var b = match1.Groups[2].Value;
+            return $"{a} → {b}";
+        }
+
+        // Pattern 2: b | !a → a → b (reversed order)
+        var impPattern2 = @"^(\w+) \| !(\w+)$";
+        var match2 = System.Text.RegularExpressions.Regex.Match(expr, impPattern2);
+        if (match2.Success)
+        {
+            var b = match2.Groups[1].Value;
+            var a = match2.Groups[2].Value;
+            return $"{a} → {b}";
+        }
+
+        // Pattern 3: !(a & !b) → a → b (negated form)
+        var impPattern3 = @"^!\((\w+) & !(\w+)\)$";
+        var match3 = System.Text.RegularExpressions.Regex.Match(expr, impPattern3);
+        if (match3.Success)
+        {
+            var a = match3.Groups[1].Value;
+            var b = match3.Groups[2].Value;
+            return $"{a} → {b}";
+        }
+
+        // DO NOT try to convert complex expressions like XOR patterns to implications
+        return string.Empty;
+    }
+
+    private static bool IsXorPattern(string expr, List<string> variables)
+    {
+        // This method is now obsolete, using regex-based TryXorOptimization instead
+        return false;
+    }
+
+    /// <summary>
+    /// Detects XOR pattern in AST: (a & !b) | (!a & b)
+    /// </summary>
+    private static string DetectXorPattern(AstNode node)
+    {
+        if (node is not OrNode orNode) return string.Empty;
+
+        // Get the two terms of OR
+        var leftTerm = orNode.Left;
+        var rightTerm = orNode.Right;
+
+        // Both terms must be AND nodes
+        if (leftTerm is not AndNode leftAnd || rightTerm is not AndNode rightAnd)
+            return string.Empty;
+
+        // Extract variables from both AND terms
+        var leftVars = ExtractAndTermVariables(leftAnd);
+        var rightVars = ExtractAndTermVariables(rightAnd);
+
+        // XOR pattern: one term has (a & !b), other has (!a & b)
+        if (leftVars.Count == 2 && rightVars.Count == 2)
+        {
+            var (var1Left, neg1Left) = leftVars[0];
+            var (var2Left, neg2Left) = leftVars[1];
+            var (var1Right, neg1Right) = rightVars[0];
+            var (var2Right, neg2Right) = rightVars[1];
+
+            // Check if it's XOR pattern: a & !b | !a & b
+            if (IsXorPattern(var1Left, neg1Left, var2Left, neg2Left, var1Right, neg1Right, var2Right, neg2Right))
+            {
+                var varA = neg1Left ? var2Left : var1Left;
+                var varB = neg1Left ? var1Left : var2Left;
+                return $"{varA} XOR {varB}";
+            }
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// Detects implication pattern in AST: !a | b
+    /// </summary>
+    private static string DetectImplicationPattern(AstNode node)
+    {
+        if (node is not OrNode orNode) return string.Empty;
+
+        var leftTerm = orNode.Left;
+        var rightTerm = orNode.Right;
+
+        // Pattern 1: !a | b
+        if (leftTerm is NotNode notLeft && rightTerm is VariableNode varRight)
+        {
+            if (notLeft.Operand is VariableNode varLeftInner)
+            {
+                return $"{varLeftInner.Name} → {varRight.Name}";
+            }
+        }
+
+        // Pattern 2: b | !a  
+        if (rightTerm is NotNode notRight && leftTerm is VariableNode varLeft)
+        {
+            if (notRight.Operand is VariableNode varRightInner)
+            {
+                return $"{varRightInner.Name} → {varLeft.Name}";
+            }
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// Extract variables and their negation status from an AND term
+    /// </summary>
+    private static List<(string variable, bool isNegated)> ExtractAndTermVariables(AndNode andNode)
+    {
+        var variables = new List<(string, bool)>();
+        
+        // Handle left side
+        if (andNode.Left is VariableNode varLeft)
+        {
+            variables.Add((varLeft.Name, false));
+        }
+        else if (andNode.Left is NotNode notLeft && notLeft.Operand is VariableNode varLeftNeg)
+        {
+            variables.Add((varLeftNeg.Name, true));
+        }
+
+        // Handle right side
+        if (andNode.Right is VariableNode varRight)
+        {
+            variables.Add((varRight.Name, false));
+        }
+        else if (andNode.Right is NotNode notRight && notRight.Operand is VariableNode varRightNeg)
+        {
+            variables.Add((varRightNeg.Name, true));
+        }
+
+        return variables;
+    }
+
+    /// <summary>
+    /// Check if the variable pattern matches XOR: a & !b | !a & b
+    /// </summary>
+    private static bool IsXorPattern(string var1Left, bool neg1Left, string var2Left, bool neg2Left,
+                                   string var1Right, bool neg1Right, string var2Right, bool neg2Right)
+    {
+        // Sort variables to handle different orders
+        var leftVars = new[] { (var1Left, neg1Left), (var2Left, neg2Left) }.OrderBy(x => x.Item1).ToArray();
+        var rightVars = new[] { (var1Right, neg1Right), (var2Right, neg2Right) }.OrderBy(x => x.Item1).ToArray();
+
+        // Both sides must have same variables
+        if (leftVars[0].Item1 != rightVars[0].Item1 || leftVars[1].Item1 != rightVars[1].Item1)
+            return false;
+
+        // XOR pattern: (a & !b) | (!a & b)
+        // First var: left=false, right=true OR left=true, right=false
+        // Second var: left=true, right=false OR left=false, right=true
+        var firstVarXor = leftVars[0].Item2 != rightVars[0].Item2;
+        var secondVarXor = leftVars[1].Item2 != rightVars[1].Item2;
+        
+        return firstVarXor && secondVarXor && (leftVars[0].Item2 != leftVars[1].Item2);
+    }
+
+    private static string ConvertToXor(string expr, List<string> variables)
+    {
+        // This method is now obsolete, using AST-based DetectXorPattern instead
+        return string.Empty;
+    }
+
+    private static bool IsImplicationPattern(string expr, List<string> variables)
+    {
+        // This method is now obsolete, using AST-based DetectImplicationPattern instead
+        return false;
+    }
+
+    private static string ConvertToImplication(string expr, List<string> variables)
+    {
+        // This method is now obsolete, using AST-based DetectImplicationPattern instead
+        return string.Empty;
     }
 }

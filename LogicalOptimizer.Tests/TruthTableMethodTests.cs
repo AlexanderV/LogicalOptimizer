@@ -193,7 +193,7 @@ public class TruthTableMethodTests
         var result = emptyTable.ToString();
 
         // Assert
-        Assert.Equal("Empty truth table", result);
+        Assert.Equal("Constant: False", result);
     }
 
     [Fact]

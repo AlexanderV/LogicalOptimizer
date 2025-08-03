@@ -82,10 +82,10 @@ public class ConsoleInterfaceTests
         // Arrange
         var optimizer = new BooleanExpressionOptimizer();
 
-        // Act
+        // Act & Assert
+        TruthTableAssert.AssertOptimizationEquivalence(input, expectedOptimized, optimizer);
+        
         var result = optimizer.OptimizeExpression(input);
-
-        // Assert
         Assert.Equal(input, result.Original);
         Assert.Equal(expectedOptimized, result.Optimized);
         Assert.NotNull(result.CNF);

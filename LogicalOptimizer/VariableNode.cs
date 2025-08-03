@@ -21,6 +21,9 @@ public class VariableNode : AstNode
 
     public override HashSet<string> GetVariables()
     {
+        // Constants 0 and 1 are not variables
+        if (Name == "0" || Name == "1")
+            return new HashSet<string>();
         return new HashSet<string> {Name};
     }
 

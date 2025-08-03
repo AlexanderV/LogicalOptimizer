@@ -442,6 +442,9 @@ public class ExpressionOptimizer
 
                     var allRemaining = remaining1.Concat(remaining2).Distinct(new NodeComparer()).ToList();
 
+                    // Check if the consensus term contains contradictions (always false)
+                    if (ContainsContradiction(allRemaining)) return null;
+
                     if (allRemaining.Count == 0) return CreateTrue();
                     if (allRemaining.Count == 1) return allRemaining[0];
                     return allRemaining.Aggregate((a, b) => new AndNode(a, b));
@@ -898,6 +901,19 @@ public class ExpressionOptimizer
             return AreEqual(notNode1.Operand, node2);
         if (node2 is NotNode notNode2)
             return AreEqual(node1, notNode2.Operand);
+        return false;
+    }
+
+    /// <summary>
+    /// Checks if a list of terms contains contradictory pairs (e.g., a & !a)
+    /// which would make the entire AND expression always false
+    /// </summary>
+    private bool ContainsContradiction(List<AstNode> terms)
+    {
+        for (var i = 0; i < terms.Count; i++)
+        for (var j = i + 1; j < terms.Count; j++)
+            if (AreComplementary(terms[i], terms[j]))
+                return true;
         return false;
     }
 

@@ -486,7 +486,7 @@ public class OptimizationResult
 - Maximum number of variables: 100 (theoretical, tested up to 50)
 - Maximum parentheses nesting depth: 50
 - Maximum processing time: 30 seconds
-- Extended operators (XOR, NAND, NOR) may increase complexity
+- Extended operators (XOR) may increase complexity
 
 ### 7.2 Assumptions  
 - All variables have boolean type
@@ -520,7 +520,7 @@ public class OptimizationResult
 - [x] CNF and DNF forms are generated correctly
 - [x] Context-dependent parentheses are displayed correctly
 - [x] All tests pass successfully (290+ tests, 100% pass rate)
-- [x] Extended operators (XOR, NAND, NOR) implemented and tested
+- [x] Extended operators (XOR, IMP) implemented and tested
 - [x] Export formats (DIMACS, BLIF, Verilog, CSV) working correctly
 
 ### 8.2 Non-Functional Criteria

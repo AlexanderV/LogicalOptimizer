@@ -19,7 +19,8 @@ LogicalOptimizer is a powerful tool for parsing, optimizing and transforming boo
 
 - ✅ **Core Boolean Operations**: AND (`&`), OR (`|`), NOT (`!`) with proper precedence
 - ✅ **Smart Optimization**: All basic laws of boolean algebra with factorization
-- ✅ **Normal Forms**: Conversion to CNF (Conjunctive) and DNF (Disjunctive) 
+- ✅ **Normal Forms**: Conversion to CNF (Conjunctive) and DNF (Disjunctive)
+- ✅ **Advanced Logic Forms**: Extended operators (XOR, IMP) generation 
 - ✅ **Context-Aware Formatting**: Intelligent parentheses placement
 - ✅ **Truth Table Generation**: Up to 20 variables with equivalence verification
 - ✅ **Multiple Export Formats**: DIMACS, BLIF, Verilog, CSV, Mathematical notation, LaTeX
@@ -46,6 +47,27 @@ dotnet run --project LogicalOptimizer -- "a & b | a & c"
 # CNF: a & (b | c)
 # DNF: a & b | a & c
 # Variables: [a, b, c]
+# Advanced: (empty - no advanced patterns found)
+
+# Expression with XOR pattern
+dotnet run --project LogicalOptimizer -- "a & !b | !a & b"
+# Output:
+# Original: a & !b | !a & b
+# Optimized: a & !b | b & !a
+# CNF: (a | b) & (!b | !a)
+# DNF: a & !b | b & !a
+# Variables: [a, b]
+# Advanced: a XOR b
+
+# Complex expression with multiple patterns (XOR + IMP)
+dotnet run --project LogicalOptimizer -- "((a & !b) | (!a & b)) & ((!c | d) | (e & f))"
+# Output:
+# Original: ((a & !b) | (!a & b)) & ((!c | d) | (e & f))
+# Optimized: (d | !c | e & f) & (a & !b | b & !a)
+# CNF: (d | !c | e) & (d | !c | f) & (a | b) & (!b | !a)
+# DNF: d & a & !b | d & b & !a | !c & a & !b | !c & b & !a | e & f & a & !b | e & f & b & !a
+# Variables: [a, b, c, d, e, f]
+# Advanced: (a XOR b) & ((c → d) | e & f)
 
 # Get only CNF (Conjunctive Normal Form)
 dotnet run --project LogicalOptimizer -- --cnf "a & b | c"
@@ -54,6 +76,26 @@ dotnet run --project LogicalOptimizer -- --cnf "a & b | c"
 # Get only DNF (Disjunctive Normal Form)  
 dotnet run --project LogicalOptimizer -- --dnf "(a | b) & c"
 # Result: a & c | b & c
+
+# Get only Advanced logical forms
+dotnet run --project LogicalOptimizer -- --advanced "a & !b | !a & b"
+# Result: XOR: a XOR b
+
+dotnet run --project LogicalOptimizer -- --advanced "!a | b"
+# Result: IMP: a → b
+
+# Examples showing advanced forms (XOR, IMP):
+# XOR pattern expression:
+dotnet run --project LogicalOptimizer -- "a & !b | !a & b"
+# Output includes: Advanced: XOR: a XOR b
+
+# Implication pattern expression:
+dotnet run --project LogicalOptimizer -- "!a | b"
+# Output includes: Advanced: IMP: a → b
+
+# Expression without advanced patterns:
+dotnet run --project LogicalOptimizer -- "a & b | a & c"  
+# Output includes: Advanced: (empty)
 
 # Detailed output with metrics
 dotnet run --project LogicalOptimizer -- --verbose "!(a & b)"
@@ -73,6 +115,7 @@ dotnet run --project LogicalOptimizer -- --help
 
 ## Supported Operators
 
+### Core Operators
 | Operator | Description | Priority | Example |
 |----------|-------------|----------|---------|
 | `!` | Logical NOT (negation) | 1 (Highest) | `!a` |
@@ -80,6 +123,14 @@ dotnet run --project LogicalOptimizer -- --help
 | `\|` | Logical OR (disjunction) | 3 (Lowest) | `a \| b` |
 | `()` | Grouping | - | `(a \| b) & c` |
 | `0`, `1` | Logical constants | - | `a & 1` |
+
+### Advanced Logical Forms
+| Form | Description | Pattern | Advanced Display |
+|------|-------------|---------|------------------|
+| **XOR** | Exclusive OR | `a & !b \| !a & b` | `a XOR b` |
+| **IMP** | Implication | `!a \| b` | `a → b` |
+
+**Note**: Advanced forms are generated for display purposes and logical clarity. All internal processing uses core operators only.
 
 ## Usage Examples
 
@@ -105,6 +156,21 @@ Output: "a"
 ```bash
 Input: "a & b | !a & c | b & c"
 Output: "a & b | !a & c"
+```
+
+### Advanced Pattern Recognition
+```bash
+# XOR Pattern Detection
+Input: "a & !b | !a & b"
+Output: "a XOR b"
+
+# Implication Pattern Detection  
+Input: "!a | b"
+Output: "a → b"
+
+# Complex Mixed Patterns
+Input: "((a & !b) | (!a & b)) & ((!c | d) | (e & f))"
+Output: "(a XOR b) & ((c → d) | e & f)"
 ```
 
 ## Programming Interface (API)
@@ -245,12 +311,13 @@ Built-in optimization quality analyzer provides detailed metrics:
 
 ## Project Statistics
 
-- **Total tests**: 290+ (100% pass rate)
+- **Total tests**: 295+ (100% pass rate)
 - **Code coverage**: 95%+ comprehensive coverage
 - **Optimization algorithms**: 15+ (factorization, De Morgan, absorption, consensus, etc.)
 - **Supported optimization rules**: 20+ boolean algebra transformations
-- **Export formats**: 5 (DIMACS, BLIF, Verilog, Mathematical, CSV)
-- **Operator support**: 3 core operators (AND, OR, NOT) + constants and grouping
+- **Pattern recognition**: XOR and IMP pattern detection and replacement
+- **Export formats**: 6 (DIMACS, BLIF, Verilog, Mathematical, LaTeX, CSV)
+- **Operator support**: 3 core operators (AND, OR, NOT) + 2 advanced forms (XOR, IMP)
 - **Performance**: < 1sec for expressions up to 50 variables
 - **Truth table capacity**: Up to 20 variables (1M+ combinations)
 - **Platform support**: Cross-platform (.NET 8.0)

@@ -11,7 +11,7 @@ public class XorNode : BinaryNode
     }
 
     public bool ForceParentheses { get; set; }
-    public override string Operator => "^";
+    public override string Operator => "XOR";
 
     public override AstNode Clone()
     {
@@ -23,12 +23,8 @@ public class XorNode : BinaryNode
         var leftStr = Left.ToString();
         var rightStr = Right.ToString();
 
-        var result = $"{leftStr} ^ {rightStr}";
-
-        if (ForceParentheses)
-            result = $"({result})";
-
-        return result;
+        // XOR operator without automatic parentheses
+        return $"{leftStr} XOR {rightStr}";
     }
 }
 
