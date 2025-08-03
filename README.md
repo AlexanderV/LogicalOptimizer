@@ -40,7 +40,20 @@ dotnet build
 ```bash
 # Expression optimization
 dotnet run --project LogicalOptimizer -- "a & b | a & c"
-# Result: a & (b | c)
+# Output:
+# Original: a & b | a & c
+# Optimized: a & (b | c)
+# CNF: a & (b | c)
+# DNF: a & b | a & c
+# Variables: [a, b, c]
+
+# Get only CNF (Conjunctive Normal Form)
+dotnet run --project LogicalOptimizer -- --cnf "a & b | c"
+# Result: (a | c) & (b | c)
+
+# Get only DNF (Disjunctive Normal Form)  
+dotnet run --project LogicalOptimizer -- --dnf "(a | b) & c"
+# Result: a & c | b & c
 
 # Detailed output with metrics
 dotnet run --project LogicalOptimizer -- --verbose "!(a & b)"

@@ -36,12 +36,27 @@ public class Program
 
             // Expression processing with options
             var verbose = false;
+            var cnfOnly = false;
+            var dnfOnly = false;
             var expression = args[0];
 
-            if (args.Length >= 2 && args[0] == "--verbose")
+            if (args.Length >= 2)
             {
-                verbose = true;
-                expression = args[1];
+                switch (args[0])
+                {
+                    case "--verbose":
+                        verbose = true;
+                        expression = args[1];
+                        break;
+                    case "--cnf":
+                        cnfOnly = true;
+                        expression = args[1];
+                        break;
+                    case "--dnf":
+                        dnfOnly = true;
+                        expression = args[1];
+                        break;
+                }
             }
 
             // Expression length validation
@@ -58,6 +73,14 @@ public class Program
             if (verbose)
             {
                 Console.WriteLine(result); // Full output with metrics
+            }
+            else if (cnfOnly)
+            {
+                Console.WriteLine(result.CNF);
+            }
+            else if (dnfOnly)
+            {
+                Console.WriteLine(result.DNF);
             }
             else
             {
@@ -92,6 +115,8 @@ public class Program
         Console.WriteLine("Usage:");
         Console.WriteLine("  LogicalOptimizer.exe \"<expression>\"       # Optimize expression");
         Console.WriteLine("  LogicalOptimizer.exe --verbose \"<expression>\" # Detailed output");
+        Console.WriteLine("  LogicalOptimizer.exe --cnf \"<expression>\"     # Output only CNF");
+        Console.WriteLine("  LogicalOptimizer.exe --dnf \"<expression>\"     # Output only DNF");
         Console.WriteLine("  LogicalOptimizer.exe --test              # Run tests");
         Console.WriteLine("  LogicalOptimizer.exe --help              # This help");
         Console.WriteLine("  LogicalOptimizer.exe --demo              # Features demonstration");
