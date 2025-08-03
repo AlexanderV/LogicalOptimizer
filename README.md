@@ -218,16 +218,16 @@ Built-in optimization quality analyzer provides detailed metrics:
 ## Architecture
 
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────────┐
+┌─────────────────┐    ┌──────────────────┐    ┌──────────────────────┐
 │     Lexer       │───▶│     Parser       │───▶│  ExpressionOptimizer │
-│ (tokenization)  │    │ (AST building)   │    │   (optimization)    │
-└─────────────────┘    └──────────────────┘    └─────────────────────┘
+│ (tokenization)  │    │ (AST building)   │    │   (optimization)     │
+└─────────────────┘    └──────────────────┘    └──────────────────────┘
                                                             │
                                                             ▼
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────────┐
+┌─────────────────┐    ┌─────────────────────┐    ┌───────────────────────┐
 │  TruthTable     │◀───│ NormalFormConverter │◀───│   FormattingController│
-│ (verification)  │    │   (CNF/DNF)      │    │   (parentheses)     │
-└─────────────────┘    └──────────────────┘    └─────────────────────┘
+│ (verification)  │    │   (CNF/DNF)         │    │   (parentheses)       │
+└─────────────────┘    └─────────────────────┘    └───────────────────────┘
 ```
 
 ## Project Statistics
@@ -252,8 +252,8 @@ Built-in optimization quality analyzer provides detailed metrics:
 
 ## License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the Apache 2.0 License. See [LICENSE](https://github.com/AlexanderV/LogicalOptimizer#Apache-2.0-1-ov-file) for more information.
 
 ## Contact
 
-Project: [https://github.com/your-repo/LogicalOptimizer](https://github.com/your-repo/LogicalOptimizer)
+Project: [https://github.com/AlexanderV/LogicalOptimizer](https://github.com/AlexanderV/LogicalOptimizer)
