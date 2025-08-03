@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36327.8
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogicalOptimizer", "LogicalOptimizer\LogicalOptimizer.csproj", "{A5E34626-3754-45D6-828D-9CF19DF52BAE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogicalOptimizer.Tests", "LogicalOptimizer.Tests\LogicalOptimizer.Tests.csproj", "{47C5BD9F-C610-041F-5767-E1C68850CBE3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A5E34626-3754-45D6-828D-9CF19DF52BAE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A5E34626-3754-45D6-828D-9CF19DF52BAE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A5E34626-3754-45D6-828D-9CF19DF52BAE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A5E34626-3754-45D6-828D-9CF19DF52BAE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{47C5BD9F-C610-041F-5767-E1C68850CBE3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{47C5BD9F-C610-041F-5767-E1C68850CBE3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{47C5BD9F-C610-041F-5767-E1C68850CBE3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{47C5BD9F-C610-041F-5767-E1C68850CBE3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {8A08A6A2-6739-49D3-A55E-55DB8B991817}
+	EndGlobalSection
+EndGlobal
