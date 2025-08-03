@@ -1,4 +1,3 @@
-using System;
 using System.Diagnostics;
 using LogicalOptimizer.Optimizers;
 using static LogicalOptimizer.Optimizers.AstUtilities;
@@ -8,7 +7,7 @@ namespace LogicalOptimizer;
 /// <summary>
 /// Main expression optimizer that coordinates specialized optimization algorithms
 /// </summary>
-public class ExpressionOptimizer
+public class ExpressionOptimizerRefactored
 {
     private readonly int _maxIterations = PerformanceValidator.MAX_OPTIMIZATION_ITERATIONS;
     
@@ -69,7 +68,7 @@ public class ExpressionOptimizer
 
     private AstNode ApplyOptimizations(AstNode node, OptimizationMetrics? metrics = null)
     {
-        // Apply optimizations in logical order using specialized optimizers
+        // Apply optimizations in logical order
         node = _deMorganOptimizer.Optimize(node, metrics);
         node = _constantsOptimizer.Optimize(node, metrics);
         node = _absorptionOptimizer.Optimize(node, metrics);
