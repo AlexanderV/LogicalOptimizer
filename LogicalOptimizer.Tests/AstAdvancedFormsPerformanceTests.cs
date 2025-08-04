@@ -16,6 +16,7 @@ public class AstAdvancedFormsPerformanceTests
     /// </summary>
     [Theory]
     [InlineData(5)]
+    [InlineData(8)]
     [InlineData(10)]
     [InlineData(15)]
     [InlineData(20)]
@@ -131,6 +132,7 @@ public class AstAdvancedFormsPerformanceTests
     /// </summary>
     [Theory]
     [InlineData(8)]
+    [InlineData(10)]
     [InlineData(12)]
     [InlineData(16)]
     public void AstAdvancedForms_CliAdvancedFlag_ShouldWorkWithLargeExpressions(int variableCount)
@@ -169,7 +171,7 @@ public class AstAdvancedFormsPerformanceTests
     [Fact]
     public void AstAdvancedForms_StressTest_ShouldHandleVeryLargeExpressions()
     {
-        // Arrange - create a very large expression (30+ variables)
+        // Arrange - create a very large expression (14+ variables)
         var expr = GenerateXorExpression(30);
 
         // Act

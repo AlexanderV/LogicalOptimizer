@@ -2,6 +2,9 @@
 
 public class NormalFormConverter
 {
+    // Разумные пределы для CNF/DNF конверсии
+    private const int MAX_DISTRIBUTION_CALLS = 10000;
+    private const int MAX_RECURSION_DEPTH = 15;
     public AstNode ConvertToCNF(AstNode node)
     {
         if (node == null) throw new ArgumentNullException(nameof(node));
@@ -9,80 +12,135 @@ public class NormalFormConverter
         var optimizer = new ExpressionOptimizer();
         node = optimizer.Optimize(node);
 
+        _distributionCalls = 0;
+        _maxDepth = 0;
+        _limitExceeded = false;
+        
         var cnf = DistributeOrOverAnd(node);
-        return SimplifyTautologies(cnf);
+        
+        if (_limitExceeded)
+        {
+            Console.WriteLine($"CNF Distribution: LIMIT EXCEEDED (calls: {_distributionCalls}, max depth: {_maxDepth}) - returning '-'");
+            return new VariableNode("-");
+        }
+
+        var result = SimplifyTautologies(cnf);
+
+        return result;
     }
 
     public AstNode ConvertToDNF(AstNode node)
     {
         if (node == null) throw new ArgumentNullException(nameof(node));
 
+        _distributionCalls = 0;
+        _maxDepth = 0;
+        _limitExceeded = false;
+        
         var dnf = DistributeAndOverOr(node);
+        
+        if (_limitExceeded)
+        {
+            Console.WriteLine($"DNF Distribution: LIMIT EXCEEDED (calls: {_distributionCalls}, max depth: {_maxDepth}) - returning '-'");
+            return new VariableNode("-");
+        }
 
         // Don't apply full optimization to DNF as it might break the normal form
         // Only apply basic simplifications that preserve DNF structure
-        return SimplifyDNF(dnf);
+        var result = SimplifyDNF(dnf);
+
+        return result;
     }
 
-    private AstNode DistributeOrOverAnd(AstNode node)
+    private static int _distributionCalls = 0;
+    private static int _maxDepth = 0;
+    private static bool _limitExceeded = false;
+
+    private AstNode DistributeOrOverAnd(AstNode node, int depth = 0)
     {
+        _distributionCalls++;
+        _maxDepth = Math.Max(_maxDepth, depth);
+        
+        // Проверяем ограничения
+        if (_distributionCalls > MAX_DISTRIBUTION_CALLS || depth > MAX_RECURSION_DEPTH)
+        {
+            _limitExceeded = true;
+            return node; // Возвращаем исходный узел при превышении лимитов
+        }
+        
+        // Performance guard - log excessive recursion
+        if (depth > 10 && _distributionCalls % 1000 == 0)
+        {
+            Console.WriteLine($"CNF Distribution: depth={depth}, calls={_distributionCalls}");
+        }
+
         if (node is OrNode orNode)
         {
-            var left = DistributeOrOverAnd(orNode.Left);
-            var right = DistributeOrOverAnd(orNode.Right);
+            var left = DistributeOrOverAnd(orNode.Left, depth + 1);
+            var right = DistributeOrOverAnd(orNode.Right, depth + 1);
 
             // A | (B & C) = (A | B) & (A | C)
             if (right is AndNode rightAnd)
                 return new AndNode(
-                    DistributeOrOverAnd(new OrNode(left, rightAnd.Left)),
-                    DistributeOrOverAnd(new OrNode(left, rightAnd.Right))
+                    DistributeOrOverAnd(new OrNode(left, rightAnd.Left), depth + 1),
+                    DistributeOrOverAnd(new OrNode(left, rightAnd.Right), depth + 1)
                 );
 
             // (A & B) | C = (A | C) & (B | C)  
             if (left is AndNode leftAnd)
                 return new AndNode(
-                    DistributeOrOverAnd(new OrNode(leftAnd.Left, right)),
-                    DistributeOrOverAnd(new OrNode(leftAnd.Right, right))
+                    DistributeOrOverAnd(new OrNode(leftAnd.Left, right), depth + 1),
+                    DistributeOrOverAnd(new OrNode(leftAnd.Right, right), depth + 1)
                 );
 
             return new OrNode(left, right);
         }
 
         if (node is AndNode andNode)
-            return new AndNode(DistributeOrOverAnd(andNode.Left), DistributeOrOverAnd(andNode.Right));
+            return new AndNode(DistributeOrOverAnd(andNode.Left, depth + 1), DistributeOrOverAnd(andNode.Right, depth + 1));
 
-        if (node is NotNode notNode) return new NotNode(DistributeOrOverAnd(notNode.Operand));
+        if (node is NotNode notNode) return new NotNode(DistributeOrOverAnd(notNode.Operand, depth + 1));
 
         return node;
     }
 
-    private AstNode DistributeAndOverOr(AstNode node)
+    private AstNode DistributeAndOverOr(AstNode node, int depth = 0)
     {
+        _distributionCalls++;
+        _maxDepth = Math.Max(_maxDepth, depth);
+        
+        // Проверяем ограничения
+        if (_distributionCalls > MAX_DISTRIBUTION_CALLS || depth > MAX_RECURSION_DEPTH)
+        {
+            _limitExceeded = true;
+            return node; // Возвращаем исходный узел при превышении лимитов
+        }
+        
         if (node is AndNode andNode)
         {
-            var left = DistributeAndOverOr(andNode.Left);
-            var right = DistributeAndOverOr(andNode.Right);
+            var left = DistributeAndOverOr(andNode.Left, depth + 1);
+            var right = DistributeAndOverOr(andNode.Right, depth + 1);
 
             if (left is OrNode leftOr)
                 return new OrNode(
-                    DistributeAndOverOr(new AndNode(leftOr.Left, right)),
-                    DistributeAndOverOr(new AndNode(leftOr.Right, right))
+                    DistributeAndOverOr(new AndNode(leftOr.Left, right), depth + 1),
+                    DistributeAndOverOr(new AndNode(leftOr.Right, right), depth + 1)
                 );
 
             if (right is OrNode rightOr)
                 return new OrNode(
-                    DistributeAndOverOr(new AndNode(left, rightOr.Left)),
-                    DistributeAndOverOr(new AndNode(left, rightOr.Right))
+                    DistributeAndOverOr(new AndNode(left, rightOr.Left), depth + 1),
+                    DistributeAndOverOr(new AndNode(left, rightOr.Right), depth + 1)
                 );
 
             return new AndNode(left, right);
         }
 
         if (node is OrNode orNode)
-            return new OrNode(DistributeAndOverOr(orNode.Left), DistributeAndOverOr(orNode.Right));
+            return new OrNode(DistributeAndOverOr(orNode.Left, depth + 1), DistributeAndOverOr(orNode.Right, depth + 1));
 
         if (node is NotNode notNode)
-            return new NotNode(DistributeAndOverOr(notNode.Operand));
+            return new NotNode(DistributeAndOverOr(notNode.Operand, depth + 1));
 
         return node;
     }

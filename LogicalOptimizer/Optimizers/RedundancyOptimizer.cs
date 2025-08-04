@@ -21,7 +21,7 @@ public class RedundancyOptimizer : IOptimizer
         if (node is AndNode andNode)
         {
             var terms = FlattenAnd(andNode);
-            var simplified = new List<AstNode>();
+            var simplified = new List<AstNode>(terms.Count);
 
             foreach (var term in terms)
             {
@@ -59,7 +59,7 @@ public class RedundancyOptimizer : IOptimizer
         if (node is OrNode orNode)
         {
             var terms = FlattenOr(orNode);
-            var simplified = new List<AstNode>();
+            var simplified = new List<AstNode>(terms.Count);
 
             foreach (var term in terms)
             {
@@ -105,7 +105,7 @@ public class RedundancyOptimizer : IOptimizer
         if (node is OrNode orNode)
         {
             var terms = FlattenOr(orNode);
-            var simplified = new List<AstNode>();
+            var simplified = new List<AstNode>(terms.Count);
             var rulesApplied = 0;
 
             foreach (var term in terms)
@@ -189,18 +189,38 @@ public class RedundancyOptimizer : IOptimizer
             for (var j = 0; j < factors2.Count; j++)
                 if (AreComplementary(factors1[i], factors2[j]))
                 {
-                    // Create consensus from remaining factors
-                    var remaining1 = factors1.Where((_, idx) => idx != i).ToList();
-                    var remaining2 = factors2.Where((_, idx) => idx != j).ToList();
-
-                    var allRemaining = remaining1.Concat(remaining2).Distinct(new NodeComparer()).ToList();
+                    // Create consensus from remaining factors more efficiently
+                    var remaining = new List<AstNode>(factors1.Count + factors2.Count - 2);
+                    
+                    // Add remaining factors from first list
+                    for (var k = 0; k < factors1.Count; k++)
+                        if (k != i) remaining.Add(factors1[k]);
+                    
+                    // Add remaining factors from second list, avoiding duplicates
+                    for (var k = 0; k < factors2.Count; k++)
+                    {
+                        if (k != j)
+                        {
+                            var factor = factors2[k];
+                            bool isDuplicate = false;
+                            for (var l = 0; l < remaining.Count; l++)
+                            {
+                                if (AreEqual(remaining[l], factor))
+                                {
+                                    isDuplicate = true;
+                                    break;
+                                }
+                            }
+                            if (!isDuplicate) remaining.Add(factor);
+                        }
+                    }
 
                     // Check if the consensus term contains contradictions (always false)
-                    if (ContainsContradiction(allRemaining)) return null;
+                    if (ContainsContradiction(remaining)) return null;
 
-                    if (allRemaining.Count == 0) return CreateTrue();
-                    if (allRemaining.Count == 1) return allRemaining[0];
-                    return allRemaining.Aggregate((a, b) => new AndNode(a, b));
+                    if (remaining.Count == 0) return CreateTrue();
+                    if (remaining.Count == 1) return remaining[0];
+                    return remaining.Aggregate((a, b) => new AndNode(a, b));
                 }
         }
 

@@ -69,24 +69,31 @@ public class ExpressionOptimizer
 
     private AstNode ApplyOptimizations(AstNode node, OptimizationMetrics? metrics = null)
     {
+        var initialNodes = AstMetrics.CountNodes(node);
+        
         // Apply optimizations in logical order using specialized optimizers
-        node = _deMorganOptimizer.Optimize(node, metrics);
-        node = _constantsOptimizer.Optimize(node, metrics);
-        node = _absorptionOptimizer.Optimize(node, metrics);
-        node = _complementOptimizer.Optimize(node, metrics);
-        node = _associativityOptimizer.Optimize(node, metrics);
+        node = ProfileOptimizer("DeMorgan", _deMorganOptimizer, node, metrics);
+        node = ProfileOptimizer("Constants", _constantsOptimizer, node, metrics);
+        node = ProfileOptimizer("Absorption", _absorptionOptimizer, node, metrics);
+        node = ProfileOptimizer("Complement", _complementOptimizer, node, metrics);
+        node = ProfileOptimizer("Associativity", _associativityOptimizer, node, metrics);
         
         // Apply consensus with rollback protection
         node = ApplyOptimizationRuleWithRollback(node, 
             (n, m) => _consensusOptimizer.Optimize(n, m), metrics, "Consensus");
         
-        node = _redundancyOptimizer.Optimize(node, metrics);
-        node = _commutativityOptimizer.Optimize(node, metrics);
+        node = ProfileOptimizer("Redundancy", _redundancyOptimizer, node, metrics);
+        node = ProfileOptimizer("Commutativity", _commutativityOptimizer, node, metrics);
         
         // Apply factorization with rollback protection
         node = ApplyOptimizationRuleWithRollback(node, 
             (n, m) => _factorizationOptimizer.Optimize(n, m), metrics, "Factorization");
 
         return node;
+    }
+    
+    private AstNode ProfileOptimizer(string name, IOptimizer optimizer, AstNode node, OptimizationMetrics? metrics)
+    {
+        return optimizer.Optimize(node, metrics);
     }
 }

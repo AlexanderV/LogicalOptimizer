@@ -24,7 +24,7 @@ public class CommutativityOptimizer : IOptimizer
             var sortedTerms = terms
                 .Select(ApplySmartCommutivity)
                 .OrderBy(GetComplexityScore)
-                .ThenBy(t => t.ToString())
+                .ThenBy(GetNodeComparisonKey)
                 .ToList();
 
             if (sortedTerms.Count == 1) return sortedTerms[0];
@@ -43,7 +43,7 @@ public class CommutativityOptimizer : IOptimizer
             var sortedTerms = terms
                 .Select(ApplySmartCommutivity)
                 .OrderBy(GetComplexityScore)
-                .ThenBy(t => t.ToString())
+                .ThenBy(GetNodeComparisonKey)
                 .ToList();
 
             if (sortedTerms.Count == 1) return sortedTerms[0];
@@ -76,5 +76,30 @@ public class CommutativityOptimizer : IOptimizer
             return 3 + GetComplexityScore(orNode.Left) + GetComplexityScore(orNode.Right);
 
         return 100; // Unknown nodes go to the end
+    }
+
+    /// <summary>
+    /// Get a stable comparison key for sorting nodes efficiently
+    /// </summary>
+    private static string GetNodeComparisonKey(AstNode node)
+    {
+        return node switch
+        {
+            VariableNode varNode => "1_" + varNode.Name,
+            NotNode notNode => "2_" + GetNodeComparisonKey(notNode.Operand),
+            AndNode andNode => CreateBinaryKey("3", andNode.Left, andNode.Right),
+            OrNode orNode => CreateBinaryKey("4", orNode.Left, orNode.Right),
+            _ => "9_" + node.GetType().Name
+        };
+    }
+
+    private static string CreateBinaryKey(string prefix, AstNode left, AstNode right)
+    {
+        var leftKey = GetNodeComparisonKey(left);
+        var rightKey = GetNodeComparisonKey(right);
+        
+        return string.Compare(leftKey, rightKey, StringComparison.Ordinal) <= 0 
+            ? prefix + "_" + leftKey + "_" + rightKey
+            : prefix + "_" + rightKey + "_" + leftKey;
     }
 }

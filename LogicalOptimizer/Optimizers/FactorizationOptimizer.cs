@@ -113,11 +113,14 @@ public class FactorizationOptimizer : IOptimizer
 
                     if (containsInAll)
                     {
-                        // Factor out common factor
-                        var remainingTerms = terms
-                            .Select(term => RemoveFactor(term, factor))
-                            .Where(remaining => !IsTrue(remaining))
-                            .ToList();
+                        // Factor out common factor more efficiently
+                        var remainingTerms = new List<AstNode>(terms.Count);
+                        foreach (var term in terms)
+                        {
+                            var remainingTerm = RemoveFactor(term, factor);
+                            if (!IsTrue(remainingTerm))
+                                remainingTerms.Add(remainingTerm);
+                        }
 
                         if (remainingTerms.Count == 0) return factor;
 
@@ -163,9 +166,14 @@ public class FactorizationOptimizer : IOptimizer
 
         if (term is AndNode andTerm)
         {
-            var factors = FlattenAnd(andTerm)
-                .Where(f => !AreEqual(f, factor))
-                .ToList();
+            var allFactors = FlattenAnd(andTerm);
+            var factors = new List<AstNode>(allFactors.Count);
+            
+            foreach (var f in allFactors)
+            {
+                if (!AreEqual(f, factor))
+                    factors.Add(f);
+            }
 
             if (factors.Count == 0)
                 return CreateTrue();

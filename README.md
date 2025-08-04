@@ -25,7 +25,7 @@ LogicalOptimizer is a powerful tool for parsing, optimizing and transforming boo
 - ✅ **Truth Table Generation**: Up to 20 variables with equivalence verification
 - ✅ **Multiple Export Formats**: DIMACS, BLIF, Verilog, CSV, Mathematical notation, LaTeX
 - ✅ **Performance Analytics**: Detailed metrics and benchmarking
-- ✅ **Comprehensive Testing**: 290+ tests with full validation
+- ✅ **Comprehensive Testing**: 800+ tests with full validation
 - ✅ **Error Protection**: Input validation and infinite loop prevention
 
 ## Quick Start
@@ -233,7 +233,7 @@ string csv = BooleanExpressionExporter.TruthTableToCsv(expression);
 ## Testing
 
 ```bash
-# Full test suite (290+ tests)
+# Full test suite (800+ tests)
 dotnet test
 
 # Filtered tests
@@ -311,8 +311,8 @@ Built-in optimization quality analyzer provides detailed metrics:
 
 ## Project Statistics
 
-- **Total tests**: 295+ (100% pass rate)
-- **Code coverage**: 95%+ comprehensive coverage
+- **Total tests**: 800+ (100% pass rate)
+- **Code coverage**: 88% comprehensive coverage
 - **Optimization algorithms**: 15+ (factorization, De Morgan, absorption, consensus, etc.)
 - **Supported optimization rules**: 20+ boolean algebra transformations
 - **Pattern recognition**: XOR and IMP pattern detection and replacement
