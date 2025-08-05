@@ -84,18 +84,16 @@ public class OutputFormatter
         Console.WriteLine($"Variables: [{string.Join(", ", result.Variables)}]");
 
         // Check for advanced forms (XOR, IMP, etc.)
-        var advancedFromOriginal = _patternDetector.ConvertToAdvancedForms(result.Original);
         var advancedFromOptimized = _patternDetector.ConvertToAdvancedForms(result.Optimized);
-
-        // Choose the best result (prefer the one that actually found patterns)
-        string? advancedExpression = null;
-        if (!string.IsNullOrEmpty(advancedFromOriginal) && advancedFromOriginal != result.Original)
-            advancedExpression = advancedFromOriginal;
-        else if (!string.IsNullOrEmpty(advancedFromOptimized) && advancedFromOptimized != result.Optimized)
-            advancedExpression = advancedFromOptimized;
-
-        if (!string.IsNullOrEmpty(advancedExpression)) 
-            Console.WriteLine($"Advanced: {advancedExpression}");
+        
+        // Only show advanced patterns if they are found in the optimized expression
+        // and are meaningfully different from the optimized form
+        if (!string.IsNullOrEmpty(advancedFromOptimized) && 
+            advancedFromOptimized != result.Optimized &&
+            advancedFromOptimized.Length < result.Optimized.Length * 2) // Don't show if much longer
+        {
+            Console.WriteLine($"Advanced: {advancedFromOptimized}");
+        }
 
         DisplayTruthTableIfSmall(result);
     }
