@@ -5,7 +5,7 @@ namespace LogicalOptimizer.Optimizers;
 /// <summary>
 /// Optimizer for constants simplification and double negation removal
 /// </summary>
-public class ConstantsOptimizer : IOptimizer
+internal class ConstantsOptimizer : IOptimizer
 {
     public AstNode Optimize(AstNode node, OptimizationMetrics? metrics = null)
     {

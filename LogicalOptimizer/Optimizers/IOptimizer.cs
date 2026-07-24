@@ -3,7 +3,7 @@ namespace LogicalOptimizer.Optimizers;
 /// <summary>
 /// Interface for specific optimization algorithms
 /// </summary>
-public interface IOptimizer
+internal interface IOptimizer
 {
     /// <summary>
     /// Apply specific optimization to the AST node

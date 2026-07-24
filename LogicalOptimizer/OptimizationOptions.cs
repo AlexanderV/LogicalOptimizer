@@ -1,0 +1,80 @@
+namespace LogicalOptimizer;
+
+/// <summary>
+///     Which artifacts <see cref="BooleanExpressionOptimizer.OptimizeExpression(string, OptimizationOptions)" />
+///     should produce. The optimized expression itself is always computed; everything
+///     else is opt-in so callers do not pay for normal forms they never read.
+/// </summary>
+public sealed class OptimizationOptions
+{
+    public bool ComputeCnf { get; init; } = true;
+    public bool ComputeDnf { get; init; } = true;
+    public CnfMode CnfMode { get; init; } = CnfMode.Equivalent;
+    public bool ComputeAdvancedForms { get; init; } = true;
+    public bool IncludeMetrics { get; init; }
+    public bool IncludeTruthTables { get; init; }
+    public bool IncludeDebugInfo { get; init; }
+
+    /// <summary>Work budgets for the expensive engines (exact minimizer, SAT guard).</summary>
+    public ResourceBudget Budget { get; init; } = ResourceBudget.Default;
+
+    /// <summary>
+    ///     Cooperative cancellation for the whole call; observed between optimization
+    ///     iterations and inside the exact/SAT engines. Throws OperationCanceledException.
+    /// </summary>
+    public CancellationToken CancellationToken { get; init; }
+
+    public static OptimizationOptions Default { get; } = new();
+
+    public static OptimizationOptions Everything { get; } = new()
+    {
+        IncludeMetrics = true,
+        IncludeTruthTables = true,
+        IncludeDebugInfo = true
+    };
+}
+
+/// <summary>How the CNF artifact is produced.</summary>
+public enum CnfMode
+{
+    /// <summary>
+    ///     Equivalent CNF over the original variables: provably minimal POS for expressions
+    ///     within the exact-minimization threshold, budgeted distribution beyond it
+    ///     (may end as <see cref="ComputationStatus.TooLarge" />).
+    /// </summary>
+    Equivalent,
+
+    /// <summary>
+    ///     Equisatisfiable CNF via Tseitin transformation: always linear in expression size,
+    ///     introduces auxiliary _tN variables. Never <see cref="ComputationStatus.TooLarge" />.
+    /// </summary>
+    Tseitin
+}
+
+/// <summary>
+///     Provenance of the minimality claim for an optimization result. Refers to the
+///     two-level cover cost model: total literals first, then term count. The returned
+///     optimized (multi-level) expression never has more literals than that cover.
+/// </summary>
+public enum MinimizationStatus
+{
+    /// <summary>The minimum cover search completed: the result is provably minimal.</summary>
+    MinimalProven,
+
+    /// <summary>
+    ///     Exact search ran but exceeded its work budget: the result is sound and usually
+    ///     minimal, but optimality was not proven.
+    /// </summary>
+    BudgetExceeded,
+
+    /// <summary>Outside the exact range (or the exact attempt fell back): rule-based simplification only.</summary>
+    Heuristic
+}
+
+/// <summary>Outcome of a potentially expensive computation on the result object.</summary>
+public enum ComputationStatus
+{
+    Computed,
+    TooLarge,
+    NotRequested
+}

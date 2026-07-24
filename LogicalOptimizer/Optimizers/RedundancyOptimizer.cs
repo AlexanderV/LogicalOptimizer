@@ -7,7 +7,7 @@ namespace LogicalOptimizer.Optimizers;
 /// <summary>
 /// Optimizer for redundant terms and complex expression simplification
 /// </summary>
-public class RedundancyOptimizer : IOptimizer
+internal class RedundancyOptimizer : IOptimizer
 {
     public AstNode Optimize(AstNode node, OptimizationMetrics? metrics = null)
     {
@@ -104,24 +104,29 @@ public class RedundancyOptimizer : IOptimizer
     {
         if (node is OrNode orNode)
         {
-            var terms = FlattenOr(orNode);
-            var simplified = new List<AstNode>(terms.Count);
+            // The consensus theorem only licenses dropping a term while BOTH of its
+            // parent terms are still present. Removing all candidates in one pass is
+            // unsound: two terms that justify each other's removal would both vanish,
+            // losing minterms. Remove one term at a time, re-checking against the
+            // CURRENT list after every removal.
+            var simplified = FlattenOr(orNode);
             var rulesApplied = 0;
 
-            foreach (var term in terms)
+            var removedSomething = true;
+            while (removedSomething && simplified.Count > 1)
             {
-                var isRedundant = false;
+                removedSomething = false;
 
-                // Check if this term is redundant consensus
-                foreach (var other in terms)
-                    if (!AreEqual(term, other) && IsRedundantConsensus(term, other, terms))
-                    {
-                        isRedundant = true;
-                        rulesApplied++;
-                        break;
-                    }
+                for (var i = 0; i < simplified.Count; i++)
+                {
+                    if (simplified[i] is not AndNode) continue;
+                    if (!IsConsensusOfOtherTerms(i, simplified)) continue;
 
-                if (!isRedundant) simplified.Add(term);
+                    simplified.RemoveAt(i);
+                    rulesApplied++;
+                    removedSomething = true;
+                    break;
+                }
             }
 
             if (rulesApplied > 0 && metrics != null)
@@ -141,10 +146,43 @@ public class RedundancyOptimizer : IOptimizer
 
         if (node is AndNode andNode)
         {
-            var left = SimplifyConsensusRedundancy(andNode.Left, metrics);
-            var right = SimplifyConsensusRedundancy(andNode.Right, metrics);
-            var result = new AndNode(left, right);
-            result.ForceParentheses = andNode.ForceParentheses;
+            // Dual (clause-side) consensus: in a conjunction, a clause that is the
+            // resolvent of two other present clauses is redundant. Same one-at-a-time
+            // removal discipline as the OR side: both parents must remain.
+            var clauses = FlattenAnd(andNode)
+                .Select(clause => SimplifyConsensusRedundancy(clause, metrics))
+                .ToList();
+            var rulesApplied = 0;
+
+            var removedSomething = true;
+            while (removedSomething && clauses.Count > 1)
+            {
+                removedSomething = false;
+
+                for (var i = 0; i < clauses.Count; i++)
+                {
+                    if (clauses[i] is not OrNode) continue;
+                    if (!IsResolventOfOtherClauses(i, clauses)) continue;
+
+                    clauses.RemoveAt(i);
+                    rulesApplied++;
+                    removedSomething = true;
+                    break;
+                }
+            }
+
+            if (rulesApplied > 0 && metrics != null)
+            {
+                metrics.RuleApplicationCount.TryAdd("ConsensusSimplification", 0);
+                metrics.RuleApplicationCount["ConsensusSimplification"] += rulesApplied;
+                metrics.AppliedRules += rulesApplied;
+            }
+
+            if (clauses.Count == 0) return CreateTrue();
+            if (clauses.Count == 1) return clauses[0];
+
+            var result = clauses.Aggregate((a, b) => new AndNode(a, b));
+            if (result is AndNode resultAnd && andNode.ForceParentheses) resultAnd.ForceParentheses = true;
             return result;
         }
 
@@ -154,80 +192,38 @@ public class RedundancyOptimizer : IOptimizer
         return node;
     }
 
-    private bool IsRedundantConsensus(AstNode term, AstNode other, List<AstNode> allTerms)
+    private static bool IsResolventOfOtherClauses(int clauseIndex, List<AstNode> allClauses)
     {
-        // Term is redundant if it's consensus of two other terms in the list
-        if (!(term is AndNode termAnd) || !(other is AndNode))
-            return false;
+        var clause = allClauses[clauseIndex];
 
-        var termFactors = FlattenAnd(termAnd);
+        for (var i = 0; i < allClauses.Count; i++)
+            for (var j = i + 1; j < allClauses.Count; j++)
+            {
+                if (i == clauseIndex || j == clauseIndex)
+                    continue;
 
-        // Look for two terms whose consensus gives current term
-        for (var i = 0; i < allTerms.Count; i++)
-        for (var j = i + 1; j < allTerms.Count; j++)
-        {
-            if (AreEqual(allTerms[i], term) || AreEqual(allTerms[j], term))
-                continue;
-
-            var consensus = FindConsensus(allTerms[i], allTerms[j]);
-            if (consensus != null && AreEqual(consensus, term)) return true;
-        }
+                var resolvent = FindResolvent(allClauses[i], allClauses[j]);
+                if (resolvent != null && SameClauseSet(resolvent, clause)) return true;
+            }
 
         return false;
     }
 
-    private AstNode? FindConsensus(AstNode term1, AstNode term2)
+    private static bool IsConsensusOfOtherTerms(int termIndex, List<AstNode> allTerms)
     {
-        // Consensus for AND-terms: (A & B) + (!A & C) → (B & C)
-        if (term1 is AndNode and1 && term2 is AndNode and2)
-        {
-            var factors1 = FlattenAnd(and1);
-            var factors2 = FlattenAnd(and2);
+        var term = allTerms[termIndex];
 
-            // Look for complementary pair
-            for (var i = 0; i < factors1.Count; i++)
-            for (var j = 0; j < factors2.Count; j++)
-                if (AreComplementary(factors1[i], factors2[j]))
-                {
-                    // Create consensus from remaining factors more efficiently
-                    var remaining = new List<AstNode>(factors1.Count + factors2.Count - 2);
-                    
-                    // Add remaining factors from first list
-                    for (var k = 0; k < factors1.Count; k++)
-                        if (k != i) remaining.Add(factors1[k]);
-                    
-                    // Add remaining factors from second list, avoiding duplicates
-                    for (var k = 0; k < factors2.Count; k++)
-                    {
-                        if (k != j)
-                        {
-                            var factor = factors2[k];
-                            bool isDuplicate = false;
-                            for (var l = 0; l < remaining.Count; l++)
-                            {
-                                if (AreEqual(remaining[l], factor))
-                                {
-                                    isDuplicate = true;
-                                    break;
-                                }
-                            }
-                            if (!isDuplicate) remaining.Add(factor);
-                        }
-                    }
+        for (var i = 0; i < allTerms.Count; i++)
+            for (var j = i + 1; j < allTerms.Count; j++)
+            {
+                if (i == termIndex || j == termIndex)
+                    continue;
 
-                    // Check if the consensus term contains contradictions (always false)
-                    if (ContainsContradiction(remaining)) return null;
+                var consensus = FindConsensus(allTerms[i], allTerms[j]);
+                if (consensus != null && SameTermSet(consensus, term)) return true;
+            }
 
-                    if (remaining.Count == 0) return CreateTrue();
-                    if (remaining.Count == 1) return remaining[0];
-                    return remaining.Aggregate((a, b) => new AndNode(a, b));
-                }
-        }
-
-        // Simple variables: A + !A → 1 (tautology)
-        if (AreComplementary(term1, term2)) return CreateTrue();
-
-        return null;
+        return false;
     }
 
     private AstNode SimplifyComplexExpressions(AstNode node)

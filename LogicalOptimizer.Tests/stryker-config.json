@@ -1,0 +1,29 @@
+{
+  "stryker-config": {
+    "project": "LogicalOptimizer.csproj",
+    "test-projects": [
+      "./LogicalOptimizer.Tests.csproj"
+    ],
+    "mutation-level": "Standard",
+    "thresholds": {
+      "high": 80,
+      "low": 60,
+      "break": 0
+    },
+    "reporters": [
+      "html",
+      "progress",
+      "cleartext"
+    ],
+    "ignore-mutations": [
+      "string"
+    ],
+    "mutate": [
+      "!**/obj/**",
+      "!**/bin/**"
+    ],
+    "concurrency": 4,
+    "additional-timeout": 10000,
+    "language-version": "latest"
+  }
+}

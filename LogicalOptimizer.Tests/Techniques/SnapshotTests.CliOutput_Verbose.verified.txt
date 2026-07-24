@@ -1,0 +1,6 @@
+﻿Original: a & b | !a & c
+Optimized: a & b | c & !a
+CNF: (a | c) & (b | !a)
+DNF: a & b | c & !a
+Variables: [a, b, c]
+Minimality: MinimalProven

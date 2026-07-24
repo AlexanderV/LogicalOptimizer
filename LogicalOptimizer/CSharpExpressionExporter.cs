@@ -14,17 +14,16 @@ public class CSharpExpressionExporter
     {
         return node switch
         {
-            VariableNode varNode => varNode.Name switch
-            {
-                "1" => "true",
-                "0" => "false",
-                _ => varNode.Name
-            },
+            ConstantNode constant => constant.Value ? "true" : "false",
+            VariableNode varNode => varNode.Name,
             NotNode notNode => $"!({ToExpression(notNode.Operand)})",
             AndNode andNode => $"({ToExpression(andNode.Left)} && {ToExpression(andNode.Right)})",
             OrNode orNode => $"({ToExpression(orNode.Left)} || {ToExpression(orNode.Right)})",
             XorNode xorNode => $"({ToExpression(xorNode.Left)} ^ {ToExpression(xorNode.Right)})",
             ImpNode impNode => $"(!{ToExpression(impNode.Left)} || {ToExpression(impNode.Right)})",
+            EqvNode eqvNode => $"({ToExpression(eqvNode.Left)} == {ToExpression(eqvNode.Right)})",
+            NandNode nandNode => $"!({ToExpression(nandNode.Left)} && {ToExpression(nandNode.Right)})",
+            NorNode norNode => $"!({ToExpression(norNode.Left)} || {ToExpression(norNode.Right)})",
             _ => throw new ArgumentException($"Unknown node type: {node.GetType()}")
         };
     }

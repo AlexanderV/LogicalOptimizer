@@ -1,0 +1,258 @@
+# Golden master of the optimizer's observable behavior.
+# Regenerate with LOGICALOPTIMIZER_REGENERATE_GOLDEN=1 and review the diff.
+expr: a
+  optimized: a
+  cnf: a [Computed]
+  dnf: a [Computed]
+  advanced: a
+  minimality: MinimalProven
+  variables: [a]
+
+expr: !a
+  optimized: !a
+  cnf: !a [Computed]
+  dnf: !a [Computed]
+  advanced: !a
+  minimality: MinimalProven
+  variables: [a]
+
+expr: !!a
+  optimized: a
+  cnf: a [Computed]
+  dnf: a [Computed]
+  advanced: a
+  minimality: MinimalProven
+  variables: [a]
+
+expr: 0
+  optimized: 0
+  cnf: 0 [Computed]
+  dnf: 0 [Computed]
+  advanced: 0
+  minimality: MinimalProven
+  variables: []
+
+expr: 1
+  optimized: 1
+  cnf: 1 [Computed]
+  dnf: 1 [Computed]
+  advanced: 1
+  minimality: MinimalProven
+  variables: []
+
+expr: a & b
+  optimized: a & b
+  cnf: a & b [Computed]
+  dnf: a & b [Computed]
+  advanced: a & b
+  minimality: MinimalProven
+  variables: [a, b]
+
+expr: a | b
+  optimized: a | b
+  cnf: a | b [Computed]
+  dnf: a | b [Computed]
+  advanced: a | b
+  minimality: MinimalProven
+  variables: [a, b]
+
+expr: a & !a
+  optimized: 0
+  cnf: 0 [Computed]
+  dnf: 0 [Computed]
+  advanced: 0
+  minimality: MinimalProven
+  variables: [a]
+
+expr: a | !a
+  optimized: 1
+  cnf: 1 [Computed]
+  dnf: 1 [Computed]
+  advanced: 1
+  minimality: MinimalProven
+  variables: [a]
+
+expr: a & 1
+  optimized: a
+  cnf: a [Computed]
+  dnf: a [Computed]
+  advanced: a
+  minimality: MinimalProven
+  variables: [a]
+
+expr: a | 0
+  optimized: a
+  cnf: a [Computed]
+  dnf: a [Computed]
+  advanced: a
+  minimality: MinimalProven
+  variables: [a]
+
+expr: a & b | a & c
+  optimized: a & (b | c)
+  cnf: a & (b | c) [Computed]
+  dnf: a & b | a & c [Computed]
+  advanced: a & (b | c)
+  minimality: MinimalProven
+  variables: [a, b, c]
+
+expr: a | a & b
+  optimized: a
+  cnf: a [Computed]
+  dnf: a [Computed]
+  advanced: a
+  minimality: MinimalProven
+  variables: [a, b]
+
+expr: !(a & b)
+  optimized: !a | !b
+  cnf: !a | !b [Computed]
+  dnf: !a | !b [Computed]
+  advanced: a → !b
+  minimality: MinimalProven
+  variables: [a, b]
+
+expr: !(a | b)
+  optimized: !a & !b
+  cnf: !a & !b [Computed]
+  dnf: !a & !b [Computed]
+  advanced: !a & !b
+  minimality: MinimalProven
+  variables: [a, b]
+
+expr: a & !b | !a & b
+  optimized: a & !b | b & !a
+  cnf: (a | b) & (!a | !b) [Computed]
+  dnf: a & !b | b & !a [Computed]
+  advanced: (a XOR b)
+  minimality: MinimalProven
+  variables: [a, b]
+
+expr: a & b | !a & c
+  optimized: a & b | c & !a
+  cnf: (a | c) & (b | !a) [Computed]
+  dnf: a & b | c & !a [Computed]
+  advanced: a & b | c & !a
+  minimality: MinimalProven
+  variables: [a, b, c]
+
+expr: a & b | !a & c | b & c
+  optimized: a & b | c & !a
+  cnf: (a | c) & (b | !a) [Computed]
+  dnf: a & b | c & !a [Computed]
+  advanced: a & b | c & !a
+  minimality: MinimalProven
+  variables: [a, b, c]
+
+expr: (a | b) & (!a | c)
+  optimized: (a | b) & (c | !a)
+  cnf: (a | b) & (c | !a) [Computed]
+  dnf: a & c | b & !a [Computed]
+  advanced: (a | b) & (a → c)
+  minimality: MinimalProven
+  variables: [a, b, c]
+
+expr: s & a | !s & b
+  optimized: a & s | b & !s
+  cnf: (b | s) & (a | !s) [Computed]
+  dnf: a & s | b & !s [Computed]
+  advanced: a & s | b & !s
+  minimality: MinimalProven
+  variables: [a, b, s]
+
+expr: a & b | a & c | b & c
+  optimized: b & c | a & (b | c)
+  cnf: (a | b) & (a | c) & (b | c) [Computed]
+  dnf: a & b | a & c | b & c [Computed]
+  advanced: b & c | a & (b | c)
+  minimality: MinimalProven
+  variables: [a, b, c]
+
+expr: a & !b & !c | !a & b & !c | !a & !b & c | a & b & c
+  optimized: c & (a & b | !a & !b) | !c & (a & !b | b & !a)
+  cnf: (a | b | c) & (c | !a | !b) & (a | !b | !c) & (b | !a | !c) [Computed]
+  dnf: a & b & c | c & !a & !b | a & !b & !c | b & !a & !c [Computed]
+  advanced: c & (a ↔ b) | !c & (a XOR b)
+  minimality: MinimalProven
+  variables: [a, b, c]
+
+expr: (a | b) & (c | d) & (a | d)
+  optimized: (c | d) & (a | (b & d))
+  cnf: (a | b) & (a | d) & (c | d) [Computed]
+  dnf: a & c | a & d | b & d [Computed]
+  advanced: (c | d) & (a | (b & d))
+  minimality: MinimalProven
+  variables: [a, b, c, d]
+
+expr: a & (b | c) & !d | e
+  optimized: e | a & !d & (b | c)
+  cnf: (a | e) & (e | !d) & (b | c | e) [Computed]
+  dnf: e | a & b & !d | a & c & !d [Computed]
+  advanced: e | a & !d & (b | c)
+  minimality: MinimalProven
+  variables: [a, b, c, d, e]
+
+expr: ((a | b) & c) | (d & (e | f))
+  optimized: c & (a | b) | d & (e | f)
+  cnf: (c | d) & (a | b | d) & (c | e | f) & (a | b | e | f) [Computed]
+  dnf: a & c | b & c | d & e | d & f [Computed]
+  advanced: c & (a | b) | d & (e | f)
+  minimality: MinimalProven
+  variables: [a, b, c, d, e, f]
+
+expr: !c & !d | c & !d | !c & d
+  optimized: !c | !d
+  cnf: !c | !d [Computed]
+  dnf: !c | !d [Computed]
+  advanced: c → !d
+  minimality: MinimalProven
+  variables: [c, d]
+
+expr: x & y | !x & z | y & z
+  optimized: x & y | z & !x
+  cnf: (x | z) & (y | !x) [Computed]
+  dnf: x & y | z & !x [Computed]
+  advanced: x & y | z & !x
+  minimality: MinimalProven
+  variables: [x, y, z]
+
+expr: (a | b) & (a | !b) & (!a | b)
+  optimized: a & b
+  cnf: a & b [Computed]
+  dnf: a & b [Computed]
+  advanced: a & b
+  minimality: MinimalProven
+  variables: [a, b]
+
+expr: a & b & c | a & b & !c | a & !b & c | !a & b & c
+  optimized: b & c | a & (b | c)
+  cnf: (a | b) & (a | c) & (b | c) [Computed]
+  dnf: a & b | a & c | b & c [Computed]
+  advanced: b & c | a & (b | c)
+  minimality: MinimalProven
+  variables: [a, b, c]
+
+expr: v01 & v02 | !v01 & v03 | v02 & v03 | v04 & v05 | v06 & v07 | v08 & v09 | v10 & v11 | v12 & v01
+  optimized: v04 & v05 | v06 & v07 | v08 & v09 | v10 & v11 | v03 & !v01 | v01 & (v02 | v12)
+  cnf: (v04 | v06 | v08 | v10 | v03 | v01) & (v05 | v06 | v08 | v10 | v03 | v01) & (v04 | v07 | v08 | v10 | v03 | v01) & (v05 | v07 | v08 | v10 | v03 | v01) & (v04 | v06 | v09 | v10 | v03 | v01) & (v05 | v06 | v09 | v10 | v03 | v01) & (v04 | v07 | v09 | v10 | v03 | v01) & (v05 | v07 | v09 | v10 | v03 | v01) & (v04 | v06 | v08 | v11 | v03 | v01) & (v05 | v06 | v08 | v11 | v03 | v01) & (v04 | v07 | v08 | v11 | v03 | v01) & (v05 | v07 | v08 | v11 | v03 | v01) & (v04 | v06 | v09 | v11 | v03 | v01) & (v05 | v06 | v09 | v11 | v03 | v01) & (v04 | v07 | v09 | v11 | v03 | v01) & (v05 | v07 | v09 | v11 | v03 | v01) & (v04 | v06 | v08 | v10 | v03 | v02 | v12) & (v05 | v06 | v08 | v10 | v03 | v02 | v12) & (v04 | v07 | v08 | v10 | v03 | v02 | v12) & (v05 | v07 | v08 | v10 | v03 | v02 | v12) & (v04 | v06 | v09 | v10 | v03 | v02 | v12) & (v05 | v06 | v09 | v10 | v03 | v02 | v12) & (v04 | v07 | v09 | v10 | v03 | v02 | v12) & (v05 | v07 | v09 | v10 | v03 | v02 | v12) & (v04 | v06 | v08 | v11 | v03 | v02 | v12) & (v05 | v06 | v08 | v11 | v03 | v02 | v12) & (v04 | v07 | v08 | v11 | v03 | v02 | v12) & (v05 | v07 | v08 | v11 | v03 | v02 | v12) & (v04 | v06 | v09 | v11 | v03 | v02 | v12) & (v05 | v06 | v09 | v11 | v03 | v02 | v12) & (v04 | v07 | v09 | v11 | v03 | v02 | v12) & (v05 | v07 | v09 | v11 | v03 | v02 | v12) & (v04 | v06 | v08 | v10 | !v01 | v02 | v12) & (v05 | v06 | v08 | v10 | !v01 | v02 | v12) & (v04 | v07 | v08 | v10 | !v01 | v02 | v12) & (v05 | v07 | v08 | v10 | !v01 | v02 | v12) & (v04 | v06 | v09 | v10 | !v01 | v02 | v12) & (v05 | v06 | v09 | v10 | !v01 | v02 | v12) & (v04 | v07 | v09 | v10 | !v01 | v02 | v12) & (v05 | v07 | v09 | v10 | !v01 | v02 | v12) & (v04 | v06 | v08 | v11 | !v01 | v02 | v12) & (v05 | v06 | v08 | v11 | !v01 | v02 | v12) & (v04 | v07 | v08 | v11 | !v01 | v02 | v12) & (v05 | v07 | v08 | v11 | !v01 | v02 | v12) & (v04 | v06 | v09 | v11 | !v01 | v02 | v12) & (v05 | v06 | v09 | v11 | !v01 | v02 | v12) & (v04 | v07 | v09 | v11 | !v01 | v02 | v12) & (v05 | v07 | v09 | v11 | !v01 | v02 | v12) [Computed]
+  dnf: v01 & v02 | v01 & v12 | v04 & v05 | v06 & v07 | v08 & v09 | v10 & v11 | v03 & !v01 [Computed]
+  advanced: v04 & v05 | v06 & v07 | v08 & v09 | v10 & v11 | v03 & !v01 | v01 & (v02 | v12)
+  minimality: Heuristic
+  variables: [v01, v02, v03, v04, v05, v06, v07, v08, v09, v10, v11, v12]
+
+expr: x1 & y1 | x2 & y2 | x3 & y3 | x4 & y4 | x5 & y5 | x6 & y6 | x7 & y7 | x1 & y1 & x2
+  optimized: x1 & y1 | x2 & y2 | x3 & y3 | x4 & y4 | x5 & y5 | x6 & y6 | x7 & y7
+  cnf: (x1 | x2 | x3 | x4 | x5 | x6 | x7) & (y1 | x2 | x3 | x4 | x5 | x6 | x7) & (x1 | y2 | x3 | x4 | x5 | x6 | x7) & (y1 | y2 | x3 | x4 | x5 | x6 | x7) & (x1 | x2 | y3 | x4 | x5 | x6 | x7) & (y1 | x2 | y3 | x4 | x5 | x6 | x7) & (x1 | y2 | y3 | x4 | x5 | x6 | x7) & (y1 | y2 | y3 | x4 | x5 | x6 | x7) & (x1 | x2 | x3 | y4 | x5 | x6 | x7) & (y1 | x2 | x3 | y4 | x5 | x6 | x7) & (x1 | y2 | x3 | y4 | x5 | x6 | x7) & (y1 | y2 | x3 | y4 | x5 | x6 | x7) & (x1 | x2 | y3 | y4 | x5 | x6 | x7) & (y1 | x2 | y3 | y4 | x5 | x6 | x7) & (x1 | y2 | y3 | y4 | x5 | x6 | x7) & (y1 | y2 | y3 | y4 | x5 | x6 | x7) & (x1 | x2 | x3 | x4 | y5 | x6 | x7) & (y1 | x2 | x3 | x4 | y5 | x6 | x7) & (x1 | y2 | x3 | x4 | y5 | x6 | x7) & (y1 | y2 | x3 | x4 | y5 | x6 | x7) & (x1 | x2 | y3 | x4 | y5 | x6 | x7) & (y1 | x2 | y3 | x4 | y5 | x6 | x7) & (x1 | y2 | y3 | x4 | y5 | x6 | x7) & (y1 | y2 | y3 | x4 | y5 | x6 | x7) & (x1 | x2 | x3 | y4 | y5 | x6 | x7) & (y1 | x2 | x3 | y4 | y5 | x6 | x7) & (x1 | y2 | x3 | y4 | y5 | x6 | x7) & (y1 | y2 | x3 | y4 | y5 | x6 | x7) & (x1 | x2 | y3 | y4 | y5 | x6 | x7) & (y1 | x2 | y3 | y4 | y5 | x6 | x7) & (x1 | y2 | y3 | y4 | y5 | x6 | x7) & (y1 | y2 | y3 | y4 | y5 | x6 | x7) & (x1 | x2 | x3 | x4 | x5 | y6 | x7) & (y1 | x2 | x3 | x4 | x5 | y6 | x7) & (x1 | y2 | x3 | x4 | x5 | y6 | x7) & (y1 | y2 | x3 | x4 | x5 | y6 | x7) & (x1 | x2 | y3 | x4 | x5 | y6 | x7) & (y1 | x2 | y3 | x4 | x5 | y6 | x7) & (x1 | y2 | y3 | x4 | x5 | y6 | x7) & (y1 | y2 | y3 | x4 | x5 | y6 | x7) & (x1 | x2 | x3 | y4 | x5 | y6 | x7) & (y1 | x2 | x3 | y4 | x5 | y6 | x7) & (x1 | y2 | x3 | y4 | x5 | y6 | x7) & (y1 | y2 | x3 | y4 | x5 | y6 | x7) & (x1 | x2 | y3 | y4 | x5 | y6 | x7) & (y1 | x2 | y3 | y4 | x5 | y6 | x7) & (x1 | y2 | y3 | y4 | x5 | y6 | x7) & (y1 | y2 | y3 | y4 | x5 | y6 | x7) & (x1 | x2 | x3 | x4 | y5 | y6 | x7) & (y1 | x2 | x3 | x4 | y5 | y6 | x7) & (x1 | y2 | x3 | x4 | y5 | y6 | x7) & (y1 | y2 | x3 | x4 | y5 | y6 | x7) & (x1 | x2 | y3 | x4 | y5 | y6 | x7) & (y1 | x2 | y3 | x4 | y5 | y6 | x7) & (x1 | y2 | y3 | x4 | y5 | y6 | x7) & (y1 | y2 | y3 | x4 | y5 | y6 | x7) & (x1 | x2 | x3 | y4 | y5 | y6 | x7) & (y1 | x2 | x3 | y4 | y5 | y6 | x7) & (x1 | y2 | x3 | y4 | y5 | y6 | x7) & (y1 | y2 | x3 | y4 | y5 | y6 | x7) & (x1 | x2 | y3 | y4 | y5 | y6 | x7) & (y1 | x2 | y3 | y4 | y5 | y6 | x7) & (x1 | y2 | y3 | y4 | y5 | y6 | x7) & (y1 | y2 | y3 | y4 | y5 | y6 | x7) & (x1 | x2 | x3 | x4 | x5 | x6 | y7) & (y1 | x2 | x3 | x4 | x5 | x6 | y7) & (x1 | y2 | x3 | x4 | x5 | x6 | y7) & (y1 | y2 | x3 | x4 | x5 | x6 | y7) & (x1 | x2 | y3 | x4 | x5 | x6 | y7) & (y1 | x2 | y3 | x4 | x5 | x6 | y7) & (x1 | y2 | y3 | x4 | x5 | x6 | y7) & (y1 | y2 | y3 | x4 | x5 | x6 | y7) & (x1 | x2 | x3 | y4 | x5 | x6 | y7) & (y1 | x2 | x3 | y4 | x5 | x6 | y7) & (x1 | y2 | x3 | y4 | x5 | x6 | y7) & (y1 | y2 | x3 | y4 | x5 | x6 | y7) & (x1 | x2 | y3 | y4 | x5 | x6 | y7) & (y1 | x2 | y3 | y4 | x5 | x6 | y7) & (x1 | y2 | y3 | y4 | x5 | x6 | y7) & (y1 | y2 | y3 | y4 | x5 | x6 | y7) & (x1 | x2 | x3 | x4 | y5 | x6 | y7) & (y1 | x2 | x3 | x4 | y5 | x6 | y7) & (x1 | y2 | x3 | x4 | y5 | x6 | y7) & (y1 | y2 | x3 | x4 | y5 | x6 | y7) & (x1 | x2 | y3 | x4 | y5 | x6 | y7) & (y1 | x2 | y3 | x4 | y5 | x6 | y7) & (x1 | y2 | y3 | x4 | y5 | x6 | y7) & (y1 | y2 | y3 | x4 | y5 | x6 | y7) & (x1 | x2 | x3 | y4 | y5 | x6 | y7) & (y1 | x2 | x3 | y4 | y5 | x6 | y7) & (x1 | y2 | x3 | y4 | y5 | x6 | y7) & (y1 | y2 | x3 | y4 | y5 | x6 | y7) & (x1 | x2 | y3 | y4 | y5 | x6 | y7) & (y1 | x2 | y3 | y4 | y5 | x6 | y7) & (x1 | y2 | y3 | y4 | y5 | x6 | y7) & (y1 | y2 | y3 | y4 | y5 | x6 | y7) & (x1 | x2 | x3 | x4 | x5 | y6 | y7) & (y1 | x2 | x3 | x4 | x5 | y6 | y7) & (x1 | y2 | x3 | x4 | x5 | y6 | y7) & (y1 | y2 | x3 | x4 | x5 | y6 | y7) & (x1 | x2 | y3 | x4 | x5 | y6 | y7) & (y1 | x2 | y3 | x4 | x5 | y6 | y7) & (x1 | y2 | y3 | x4 | x5 | y6 | y7) & (y1 | y2 | y3 | x4 | x5 | y6 | y7) & (x1 | x2 | x3 | y4 | x5 | y6 | y7) & (y1 | x2 | x3 | y4 | x5 | y6 | y7) & (x1 | y2 | x3 | y4 | x5 | y6 | y7) & (y1 | y2 | x3 | y4 | x5 | y6 | y7) & (x1 | x2 | y3 | y4 | x5 | y6 | y7) & (y1 | x2 | y3 | y4 | x5 | y6 | y7) & (x1 | y2 | y3 | y4 | x5 | y6 | y7) & (y1 | y2 | y3 | y4 | x5 | y6 | y7) & (x1 | x2 | x3 | x4 | y5 | y6 | y7) & (y1 | x2 | x3 | x4 | y5 | y6 | y7) & (x1 | y2 | x3 | x4 | y5 | y6 | y7) & (y1 | y2 | x3 | x4 | y5 | y6 | y7) & (x1 | x2 | y3 | x4 | y5 | y6 | y7) & (y1 | x2 | y3 | x4 | y5 | y6 | y7) & (x1 | y2 | y3 | x4 | y5 | y6 | y7) & (y1 | y2 | y3 | x4 | y5 | y6 | y7) & (x1 | x2 | x3 | y4 | y5 | y6 | y7) & (y1 | x2 | x3 | y4 | y5 | y6 | y7) & (x1 | y2 | x3 | y4 | y5 | y6 | y7) & (y1 | y2 | x3 | y4 | y5 | y6 | y7) & (x1 | x2 | y3 | y4 | y5 | y6 | y7) & (y1 | x2 | y3 | y4 | y5 | y6 | y7) & (x1 | y2 | y3 | y4 | y5 | y6 | y7) & (y1 | y2 | y3 | y4 | y5 | y6 | y7) [Computed]
+  dnf: x1 & y1 | x2 & y2 | x3 & y3 | x4 & y4 | x5 & y5 | x6 & y6 | x7 & y7 [Computed]
+  advanced: x1 & y1 | x2 & y2 | x3 & y3 | x4 & y4 | x5 & y5 | x6 & y6 | x7 & y7
+  minimality: Heuristic
+  variables: [x1, x2, x3, x4, x5, x6, x7, y1, y2, y3, y4, y5, y6, y7]
+
+expr: a01 & b01 | a01 & b01 & a02 | !a01 & a02 | b01 & a02 | a03 & b03 | a03 & b03 & a04 | !a03 & a04 | b03 & a04 | a05 & b05 | a06 & b06 | a07 & b07 | a08 & b08 | a09 & b09 | a10 & b10 | a11 & b11 | a12 & b12 | a13 & b13
+  optimized: a01 & b01 | a03 & b03 | a05 & b05 | a06 & b06 | a07 & b07 | a08 & b08 | a09 & b09 | a10 & b10 | a11 & b11 | a12 & b12 | a13 & b13 | a02 & !a01 | a04 & !a03
+  cnf: - [TooLarge]
+  dnf: a01 & b01 | a03 & b03 | a05 & b05 | a06 & b06 | a07 & b07 | a08 & b08 | a09 & b09 | a10 & b10 | a11 & b11 | a12 & b12 | a13 & b13 | a02 & !a01 | a04 & !a03 [Computed]
+  advanced: a01 & b01 | a03 & b03 | a05 & b05 | a06 & b06 | a07 & b07 | a08 & b08 | a09 & b09 | a10 & b10 | a11 & b11 | a12 & b12 | a13 & b13 | a02 & !a01 | a04 & !a03
+  minimality: Heuristic
+  variables: [a01, a02, a03, a04, a05, a06, a07, a08, a09, a10, a11, a12, a13, b01, b03, b05, b06, b07, b08, b09, b10, b11, b12, b13]
+

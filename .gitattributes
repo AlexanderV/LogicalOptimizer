@@ -1,0 +1,17 @@
+# Normalize all text files to LF in the repository; checkout uses native EOL
+* text=auto
+
+# Explicit text files
+*.cs text
+*.csproj text
+*.sln text
+*.md text
+*.json text
+*.yml text
+*.yaml text
+
+# Windows scripts always CRLF, shell scripts always LF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.sh text eol=lf

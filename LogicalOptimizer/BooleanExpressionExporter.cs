@@ -8,28 +8,27 @@ namespace LogicalOptimizer;
 public static class BooleanExpressionExporter
 {
     /// <summary>
-    ///     Export to DIMACS format (for SAT solvers)
+    ///     Export to DIMACS format (for SAT solvers). Uses the equivalent CNF when the
+    ///     distribution stays within budget; falls back to the linear-size equisatisfiable
+    ///     Tseitin CNF for expressions where distribution would blow up.
     /// </summary>
     public static string ToDimacs(string expression, Dictionary<string, int>? variableMapping = null)
     {
-        var lexer = new Lexer(expression);
-        var tokens = lexer.Tokenize();
-        var parser = new Parser(tokens);
-        var ast = parser.Parse();
-
-        // Convert to CNF using optimizer
-        var optimizer = new BooleanExpressionOptimizer();
-        var result = optimizer.OptimizeExpression(expression);
-        var cnfExpression = result.CNF;
-
-        // Parse CNF to get structure
-        var cnfTokens = new Lexer(cnfExpression).Tokenize();
-        var cnfParser = new Parser(cnfTokens);
-        var cnfAst = cnfParser.Parse();
+        var ast = ParseExpression(expression);
+        AstNode cnfAst;
+        try
+        {
+            cnfAst = new NormalFormConverter().ConvertToCNF(ast);
+        }
+        catch (InvalidOperationException)
+        {
+            var tseitin = TseitinConverter.Convert(ast);
+            return $"c Boolean expression: {expression}\nc Equisatisfiable Tseitin CNF\n{tseitin.ToDimacs()}";
+        }
 
         // Get variables and create mapping
-        var variables = ast.GetVariables().Where(v => v != "0" && v != "1").OrderBy(v => v).ToList();
-        var varMap = variableMapping ?? variables.Select((v, i) => new {Var = v, Index = i + 1})
+        var variables = ast.GetVariables().OrderBy(v => v).ToList();
+        var varMap = variableMapping ?? variables.Select((v, i) => new { Var = v, Index = i + 1 })
             .ToDictionary(x => x.Var, x => x.Index);
 
         var clauses = new List<string>();
@@ -57,44 +56,47 @@ public static class BooleanExpressionExporter
         {
             // This should be a disjunction or literal
             var literals = new List<string>();
-            ExtractLiterals(node, varMap, literals);
-            clauses.Add(string.Join(" ", literals));
+            var isTautology = CollectLiterals(node, varMap, literals);
+            // A clause containing constant 1 is always satisfied and can be dropped;
+            // an empty clause (constant 0) stays: it marks the formula unsatisfiable
+            if (!isTautology)
+                clauses.Add(string.Join(" ", literals));
         }
     }
 
-    private static void ExtractLiterals(AstNode node, Dictionary<string, int> varMap, List<string> literals)
+    /// <summary>Collect DIMACS literals of one clause; returns true if the clause is a tautology.</summary>
+    private static bool CollectLiterals(AstNode node, Dictionary<string, int> varMap, List<string> literals)
     {
         switch (node)
         {
             case OrNode orNode:
-                ExtractLiterals(orNode.Left, varMap, literals);
-                ExtractLiterals(orNode.Right, varMap, literals);
-                break;
+                // Non-short-circuit: both sides must contribute their literals
+                return CollectLiterals(orNode.Left, varMap, literals) |
+                       CollectLiterals(orNode.Right, varMap, literals);
 
-            case NotNode notNode when notNode.Operand is VariableNode varNode:
-                if (varMap.TryGetValue(varNode.Name, out var varIndex))
-                    literals.Add($"-{varIndex}");
-                break;
+            case NotNode { Operand: ConstantNode negatedConstant }:
+                return !negatedConstant.Value; // !0 = 1 makes the clause true; !1 contributes nothing
+
+            case NotNode { Operand: VariableNode negated }:
+                literals.Add($"-{varMap[negated.Name]}");
+                return false;
+
+            case ConstantNode constant:
+                return constant.Value; // 1 makes the clause true; 0 contributes nothing
 
             case VariableNode varNode:
-                if (varNode.Name == "1")
-                {
-                    // Tautology - add all variables to disjunction
-                    literals.AddRange(varMap.Values.Select(v => v.ToString()));
-                    literals.AddRange(varMap.Values.Select(v => $"-{v}"));
-                }
-                else if (varNode.Name == "0")
-                {
-                    // Contradiction - empty clause (unsatisfiable)
-                    literals.Clear();
-                }
-                else if (varMap.TryGetValue(varNode.Name, out var varIdx))
-                {
-                    literals.Add(varIdx.ToString());
-                }
+                literals.Add(varMap[varNode.Name].ToString());
+                return false;
 
-                break;
+            default:
+                throw new NotSupportedException($"Unexpected node in CNF clause: {node.GetType()}");
         }
+    }
+
+    private static AstNode ParseExpression(string expression)
+    {
+        var tokens = new Lexer(expression).Tokenize();
+        return new Parser(tokens).Parse();
     }
 
     /// <summary>
@@ -102,12 +104,8 @@ public static class BooleanExpressionExporter
     /// </summary>
     public static string ToBlif(string expression, string? modelName = null)
     {
-        var lexer = new Lexer(expression);
-        var tokens = lexer.Tokenize();
-        var parser = new Parser(tokens);
-        var ast = parser.Parse();
-
-        var variables = ast.GetVariables().Where(v => v != "0" && v != "1").OrderBy(v => v).ToList();
+        var ast = ParseExpression(expression);
+        var variables = ast.GetVariables().OrderBy(v => v).ToList();
         var sb = new StringBuilder();
 
         sb.AppendLine($".model {modelName ?? "boolean_expr"}");
@@ -166,12 +164,8 @@ public static class BooleanExpressionExporter
     /// </summary>
     public static string ToVerilog(string expression, string? moduleName = null)
     {
-        var lexer = new Lexer(expression);
-        var tokens = lexer.Tokenize();
-        var parser = new Parser(tokens);
-        var ast = parser.Parse();
-
-        var variables = ast.GetVariables().Where(v => v != "0" && v != "1").OrderBy(v => v).ToList();
+        var ast = ParseExpression(expression);
+        var variables = ast.GetVariables().OrderBy(v => v).ToList();
         var sb = new StringBuilder();
 
         var module = moduleName ?? "boolean_expr";
@@ -198,8 +192,11 @@ public static class BooleanExpressionExporter
     {
         switch (node)
         {
+            case ConstantNode constant:
+                return constant.Value ? "1'b1" : "1'b0";
+
             case VariableNode varNode:
-                return varNode.Name == "1" ? "1'b1" : varNode.Name == "0" ? "1'b0" : varNode.Name;
+                return varNode.Name;
 
             case NotNode notNode:
                 var inputWire = ConvertToVerilogLogic(notNode.Operand, assignments, ref gateCounter);
@@ -234,41 +231,42 @@ public static class BooleanExpressionExporter
     /// </summary>
     public static string ToMathematicalNotation(string expression)
     {
-        var lexer = new Lexer(expression);
-        var tokens = lexer.Tokenize();
-        var parser = new Parser(tokens);
-        var ast = parser.Parse();
-
-        return ConvertToMathNotation(ast);
+        return FormatNode(ParseExpression(expression), "¬", "∧", "∨");
     }
 
-    private static string ConvertToMathNotation(AstNode node)
+    /// <summary>
+    ///     Shared tree walk for text notations that differ only in operator tokens
+    /// </summary>
+    private static string FormatNode(AstNode node, string notOp, string andOp, string orOp)
     {
         switch (node)
         {
+            case ConstantNode constant:
+                return constant.Value ? "1" : "0";
+
             case VariableNode varNode:
                 return varNode.Name;
 
             case NotNode notNode:
-                var operand = ConvertToMathNotation(notNode.Operand);
-                return notNode.Operand is VariableNode ? $"¬{operand}" : $"¬({operand})";
+                var operand = FormatNode(notNode.Operand, notOp, andOp, orOp);
+                return notNode.Operand is VariableNode ? $"{notOp}{operand}" : $"{notOp}({operand})";
 
             case AndNode andNode:
-                var left = ConvertToMathNotation(andNode.Left);
-                var right = ConvertToMathNotation(andNode.Right);
+                var left = FormatNode(andNode.Left, notOp, andOp, orOp);
+                var right = FormatNode(andNode.Right, notOp, andOp, orOp);
 
                 if (andNode.Left is OrNode)
                     left = $"({left})";
                 if (andNode.Right is OrNode)
                     right = $"({right})";
 
-                return $"{left} ∧ {right}";
+                return $"{left} {andOp} {right}";
 
             case OrNode orNode:
-                var leftOr = ConvertToMathNotation(orNode.Left);
-                var rightOr = ConvertToMathNotation(orNode.Right);
+                var leftOr = FormatNode(orNode.Left, notOp, andOp, orOp);
+                var rightOr = FormatNode(orNode.Right, notOp, andOp, orOp);
 
-                var result = $"{leftOr} ∨ {rightOr}";
+                var result = $"{leftOr} {orOp} {rightOr}";
 
                 if (orNode.ForceParentheses)
                     result = $"({result})";
@@ -289,14 +287,14 @@ public static class BooleanExpressionExporter
         var sb = new StringBuilder();
 
         // Header
-        sb.AppendLine(string.Join(",", truthTable.Variables.Concat(new[] {"Result"})));
+        sb.AppendLine(string.Join(",", truthTable.Variables.Concat(new[] { "Result" })));
 
         // Data
         for (var i = 0; i < truthTable.Rows.Count; i++)
         {
             var row = truthTable.Rows[i];
             var values = truthTable.Variables.Select(v => row[v] ? "1" : "0")
-                .Concat(new[] {truthTable.Results[i] ? "1" : "0"});
+                .Concat(new[] { truthTable.Results[i] ? "1" : "0" });
             sb.AppendLine(string.Join(",", values));
         }
 
@@ -308,49 +306,6 @@ public static class BooleanExpressionExporter
     /// </summary>
     public static string ToLatex(string expression)
     {
-        var lexer = new Lexer(expression);
-        var tokens = lexer.Tokenize();
-        var parser = new Parser(tokens);
-        var ast = parser.Parse();
-
-        return ConvertToLatex(ast);
-    }
-
-    private static string ConvertToLatex(AstNode node)
-    {
-        switch (node)
-        {
-            case VariableNode varNode:
-                return varNode.Name;
-
-            case NotNode notNode:
-                var operand = ConvertToLatex(notNode.Operand);
-                return notNode.Operand is VariableNode ? $"\\neg {operand}" : $"\\neg ({operand})";
-
-            case AndNode andNode:
-                var left = ConvertToLatex(andNode.Left);
-                var right = ConvertToLatex(andNode.Right);
-
-                if (andNode.Left is OrNode)
-                    left = $"({left})";
-                if (andNode.Right is OrNode)
-                    right = $"({right})";
-
-                return $"{left} \\land {right}";
-
-            case OrNode orNode:
-                var leftOr = ConvertToLatex(orNode.Left);
-                var rightOr = ConvertToLatex(orNode.Right);
-
-                var result = $"{leftOr} \\lor {rightOr}";
-
-                if (orNode.ForceParentheses)
-                    result = $"({result})";
-
-                return result;
-
-            default:
-                throw new NotSupportedException($"Unsupported node type: {node.GetType()}");
-        }
+        return FormatNode(ParseExpression(expression), "\\neg ", "\\land", "\\lor");
     }
 }

@@ -1,0 +1,26 @@
+﻿└─ OR (|) 
+   ├─ NOT (!)
+   │  └─ AND (&) 
+   │     ├─ Variable: 'a'
+   │     └─ Variable: 'b'
+   └─ AND (&) 
+      ├─ Variable: 'c'
+      └─ OR (|) 
+         ├─ Variable: 'd'
+         └─ NOT (!)
+            └─ Variable: 'e'
+
+---
+AST: !(a & b) | c & (d | !e)
+Tree:
+└─ OR (|) 
+   ├─ NOT (!)
+   │  └─ AND (&) 
+   │     ├─ Variable: 'a'
+   │     └─ Variable: 'b'
+   └─ AND (&) 
+      ├─ Variable: 'c'
+      └─ OR (|) 
+         ├─ Variable: 'd'
+         └─ NOT (!)
+            └─ Variable: 'e'

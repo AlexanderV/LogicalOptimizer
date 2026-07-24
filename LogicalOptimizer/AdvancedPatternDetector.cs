@@ -1,17 +1,21 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
+using LogicalOptimizer.Optimizers;
 
 namespace LogicalOptimizer;
 
 /// <summary>
-/// Handles detection and conversion of advanced logical patterns (XOR, IMP)
+/// Detection and conversion of advanced logical patterns (XOR, IMP, EQV) in multi-term
+/// OR expressions. The pattern-matching primitives live in <see cref="PatternRecognizer" />;
+/// this class contributes the pair-scan strategy over flattened OR terms.
 /// </summary>
-public class AdvancedPatternDetector
+internal class AdvancedPatternDetector
 {
+    private readonly PatternRecognizer _recognizer = new();
+
     /// <summary>
-    /// Convert expression by replacing patterns with advanced forms (XOR, IMP) using AST
+    /// Convert expression by replacing patterns with advanced forms (XOR, IMP, EQV) using AST
     /// </summary>
     public string ConvertToAdvancedForms(string expr)
     {
@@ -26,9 +30,7 @@ public class AdvancedPatternDetector
             // Try to convert the AST to advanced forms
             var convertedAst = ConvertAstToAdvancedForms(ast);
 
-            // Convert back to string and simplify
-            var result = convertedAst.ToString();
-            return SimplifyStringRepresentation(result);
+            return convertedAst.ToString();
         }
         catch
         {
@@ -46,12 +48,60 @@ public class AdvancedPatternDetector
     }
 
     /// <summary>
+    /// Detect equivalence pattern in AST
+    /// </summary>
+    public string DetectEquivalencePattern(AstNode node)
+    {
+        var result = DetectEquivalencePatternInAst(node);
+        return result?.ToString() ?? string.Empty;
+    }
+
+    /// <summary>
     /// Detect implication pattern in AST
     /// </summary>
     public string DetectImplicationPattern(AstNode node)
     {
         var result = DetectImplicationPatternInAst(node);
         return result?.ToString() ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Detect and convert advanced forms in AST node
+    /// </summary>
+    public AstNode? DetectAdvancedForms(AstNode node)
+    {
+        var result = DetectAndReplacePatterns(node);
+
+        // If pattern was found and replaced, return new node
+        if (result != node) return result;
+
+        // Try specific EQV detection
+        var eqvResult = DetectEquivalencePatternInAst(node);
+        if (eqvResult != node) return eqvResult;
+
+        return result;
+    }
+
+    /// <summary>
+    /// Check if node matches EQV pattern
+    /// </summary>
+    public bool IsEqvPattern(AstNode node)
+    {
+        if (node is OrNode orNode)
+        {
+            return TryFindDirectEqvPattern(orNode) != null;
+        }
+        return false;
+    }
+
+    /// <summary>
+    ///     Check if two AND nodes form an EQV pattern. Single source of truth:
+    ///     <see cref="PatternRecognizer.IsEqvPattern(AndNode, AndNode, out AstNode, out AstNode)" /> —
+    ///     this overload exists only as a facade convenience and must stay a delegation.
+    /// </summary>
+    public bool IsEqvPattern(AndNode left, AndNode right, out AstNode var1, out AstNode var2)
+    {
+        return _recognizer.IsEqvPattern(left, right, out var1, out var2);
     }
 
     /// <summary>
@@ -99,116 +149,12 @@ public class AdvancedPatternDetector
     }
 
     /// <summary>
-    /// Unified pattern detection for both XOR and IMP patterns in OR expressions
+    /// Unified pattern detection for XOR, IMP, and EQV patterns in OR expressions
     /// </summary>
     private AstNode? DetectAllPatternsInAst(OrNode orNode)
     {
-        // Try direct patterns first (two-term OR)
-        var directXor = TryFindDirectXorPattern(orNode);
-        if (directXor != null) return directXor;
-
-        var directImp = TryFindDirectImpPattern(orNode);
-        if (directImp != null) return directImp;
-
-        // For complex OR expressions with multiple terms, find all patterns
-        var orTerms = CollectOrTerms(orNode);
-        if (orTerms.Count < 2) return null;
-
-        // First pass: check each individual OR term for IMP patterns
-        var processedTerms = new List<AstNode>();
-        foreach (var term in orTerms)
-        {
-            if (term is OrNode termOr)
-            {
-                var impResult = TryFindDirectImpPattern(termOr);
-                if (impResult != null)
-                    processedTerms.Add(impResult);
-                else
-                    processedTerms.Add(term);
-            }
-            else
-            {
-                processedTerms.Add(term);
-            }
-        }
-
-        // Second pass: find XOR and IMP patterns between terms
-        var patternNodes = new List<AstNode>();
-        var remainingTerms = new List<AstNode>(processedTerms);
-
-        // Collect already converted IMP nodes
-        for (var i = remainingTerms.Count - 1; i >= 0; i--)
-        {
-            if (remainingTerms[i] is ImpNode)
-            {
-                patternNodes.Add(remainingTerms[i]);
-                remainingTerms.RemoveAt(i);
-            }
-        }
-
-        // Continue searching for both XOR and IMP patterns
-        var foundAnyPattern = patternNodes.Count > 0;
-        while (remainingTerms.Count >= 2)
-        {
-            var foundPatternInThisIteration = false;
-
-            for (var i = 0; i < remainingTerms.Count - 1 && !foundPatternInThisIteration; i++)
-            {
-                for (var j = i + 1; j < remainingTerms.Count && !foundPatternInThisIteration; j++)
-                {
-                    var term1 = remainingTerms[i];
-                    var term2 = remainingTerms[j];
-
-                    // Create a temporary OR node to test patterns
-                    var tempOr = new OrNode(term1, term2);
-
-                    // Try XOR pattern first (it's more specific)
-                    var xorResult = TryFindDirectXorPattern(tempOr);
-                    if (xorResult != null)
-                    {
-                        patternNodes.Add(xorResult);
-
-                        // Remove the two terms that formed the XOR
-                        remainingTerms.RemoveAt(j); // Remove j first (higher index)
-                        remainingTerms.RemoveAt(i); // Then remove i
-
-                        foundPatternInThisIteration = true;
-                        foundAnyPattern = true;
-                        continue;
-                    }
-
-                    // Try IMP pattern
-                    var impResult = TryFindDirectImpPattern(tempOr);
-                    if (impResult != null)
-                    {
-                        patternNodes.Add(impResult);
-
-                        // Remove the two terms that formed the IMP
-                        remainingTerms.RemoveAt(j); // Remove j first (higher index)
-                        remainingTerms.RemoveAt(i); // Then remove i
-
-                        foundPatternInThisIteration = true;
-                        foundAnyPattern = true;
-                    }
-                }
-            }
-
-            if (!foundPatternInThisIteration) break; // No more patterns found
-        }
-
-        if (!foundAnyPattern) return null;
-
-        // Combine all pattern nodes and remaining terms
-        var allNodes = new List<AstNode>();
-        allNodes.AddRange(patternNodes);
-        allNodes.AddRange(remainingTerms);
-
-        if (allNodes.Count == 1) return allNodes[0];
-
-        // Combine all nodes with OR
-        var result = allNodes[0];
-        for (var i = 1; i < allNodes.Count; i++) result = new OrNode(result, allNodes[i]);
-        return result;
+        return ExtractPairwisePatterns(orNode,
+            TryFindDirectXorPattern, TryFindDirectImpPattern, TryFindDirectEqvPattern);
     }
 
     /// <summary>
@@ -216,68 +162,113 @@ public class AdvancedPatternDetector
     /// </summary>
     private AstNode? DetectXorPatternInAst(AstNode node)
     {
-        if (node is not OrNode orNode) return null;
+        return node is OrNode orNode ? ExtractPairwisePatterns(orNode, TryFindDirectXorPattern) : null;
+    }
 
-        // Try to find XOR pattern in direct children first
-        var directXor = TryFindDirectXorPattern(orNode);
-        if (directXor != null) return directXor;
-
-        // For complex OR expressions with multiple terms, iteratively find and replace XOR patterns
-        var orTerms = CollectOrTerms(orNode);
-        if (orTerms.Count < 2) return null;
-
-        // Find all XOR patterns and collect them
-        var xorNodes = new List<AstNode>();
-        var remainingTerms = new List<AstNode>(orTerms);
-
-        // Continue searching for XOR patterns until no more found
-        var foundAnyXor = false;
-        while (remainingTerms.Count >= 2)
+    /// <summary>
+    /// Generic pair-scan: repeatedly combine pairs of OR-terms that match one of the
+    /// given patterns, then reassemble the remaining terms with OR.
+    /// Returns null when nothing matched.
+    /// </summary>
+    private static AstNode? ExtractPairwisePatterns(OrNode orNode, params Func<OrNode, AstNode?>[] matchers)
+    {
+        // Direct two-term pattern on the node itself first
+        foreach (var matcher in matchers)
         {
-            var foundXorInThisIteration = false;
-
-            for (var i = 0; i < remainingTerms.Count - 1 && !foundXorInThisIteration; i++)
-            {
-                for (var j = i + 1; j < remainingTerms.Count && !foundXorInThisIteration; j++)
-                {
-                    var term1 = remainingTerms[i];
-                    var term2 = remainingTerms[j];
-
-                    // Create a temporary OR node to test XOR pattern
-                    var tempOr = new OrNode(term1, term2);
-                    var xorResult = TryFindDirectXorPattern(tempOr);
-
-                    if (xorResult != null)
-                    {
-                        // Found XOR pattern!
-                        xorNodes.Add(xorResult);
-
-                        // Remove the two terms that formed the XOR
-                        remainingTerms.RemoveAt(j); // Remove j first (higher index)
-                        remainingTerms.RemoveAt(i); // Then remove i
-
-                        foundXorInThisIteration = true;
-                        foundAnyXor = true;
-                    }
-                }
-            }
-
-            if (!foundXorInThisIteration) break; // No more XOR patterns found
+            var direct = matcher(orNode);
+            if (direct != null) return direct;
         }
 
-        if (!foundAnyXor) return null;
+        var remaining = AstUtilities.FlattenOr(orNode);
+        if (remaining.Count < 2) return null;
 
-        // Combine all XOR nodes and remaining terms
-        var allNodes = new List<AstNode>();
-        allNodes.AddRange(xorNodes);
-        allNodes.AddRange(remainingTerms);
+        // Terms already converted to advanced forms count as found patterns
+        var patterns = new List<AstNode>();
+        for (var i = remaining.Count - 1; i >= 0; i--)
+            if (remaining[i] is ImpNode or XorNode or EqvNode)
+            {
+                patterns.Add(remaining[i]);
+                remaining.RemoveAt(i);
+            }
 
-        if (allNodes.Count == 1) return allNodes[0];
+        var foundAny = patterns.Count > 0;
+        var foundThisRound = true;
+        while (remaining.Count >= 2 && foundThisRound)
+        {
+            foundThisRound = false;
 
-        // Combine all nodes with OR
-        var result = allNodes[0];
-        for (var i = 1; i < allNodes.Count; i++) result = new OrNode(result, allNodes[i]);
-        return result;
+            for (var i = 0; i < remaining.Count - 1 && !foundThisRound; i++)
+                for (var j = i + 1; j < remaining.Count && !foundThisRound; j++)
+                {
+                    var pair = new OrNode(remaining[i], remaining[j]);
+
+                    foreach (var matcher in matchers)
+                    {
+                        var match = matcher(pair);
+                        if (match == null) continue;
+
+                        patterns.Add(match);
+                        remaining.RemoveAt(j); // higher index first
+                        remaining.RemoveAt(i);
+                        foundThisRound = true;
+                        foundAny = true;
+                        break;
+                    }
+                }
+        }
+
+        if (!foundAny) return null;
+
+        var allNodes = patterns.Concat(remaining).ToList();
+        return allNodes.Count == 1 ? allNodes[0] : allNodes.Aggregate((a, b) => new OrNode(a, b));
+    }
+
+    /// <summary>
+    /// Detect equivalence pattern in AST and return equivalence node if found
+    /// </summary>
+    public AstNode? DetectEquivalencePatternInAst(AstNode node)
+    {
+        // Handle OrNode - check for direct EQV pattern
+        if (node is OrNode orNode)
+        {
+            // Try to find EQV pattern in direct children first
+            var directEqv = TryFindDirectEqvPattern(orNode);
+            if (directEqv != null) return directEqv;
+
+            // Recursively process children
+            var leftProcessed = DetectEquivalencePatternInAst(orNode.Left);
+            var rightProcessed = DetectEquivalencePatternInAst(orNode.Right);
+
+            // If any child was transformed, create new OR node
+            if (leftProcessed != orNode.Left || rightProcessed != orNode.Right)
+            {
+                return new OrNode(leftProcessed!, rightProcessed!);
+            }
+        }
+        // Handle AndNode - recursively process children
+        else if (node is AndNode andNode)
+        {
+            var leftProcessed = DetectEquivalencePatternInAst(andNode.Left);
+            var rightProcessed = DetectEquivalencePatternInAst(andNode.Right);
+
+            // If any child was transformed, create new AND node
+            if (leftProcessed != andNode.Left || rightProcessed != andNode.Right)
+            {
+                return new AndNode(leftProcessed!, rightProcessed!);
+            }
+        }
+        // Handle NotNode - recursively process child
+        else if (node is NotNode notNode)
+        {
+            var childProcessed = DetectEquivalencePatternInAst(notNode.Operand);
+            if (childProcessed != notNode.Operand)
+            {
+                return new NotNode(childProcessed!);
+            }
+        }
+
+        // If no pattern found, return original node
+        return node;
     }
 
     /// <summary>
@@ -285,128 +276,17 @@ public class AdvancedPatternDetector
     /// </summary>
     private AstNode? DetectImplicationPatternInAst(AstNode node)
     {
-        if (node is not OrNode orNode) return null;
-
-        // Try to find IMP pattern in direct children first
-        var directImp = TryFindDirectImpPattern(orNode);
-        if (directImp != null) return directImp;
-
-        // For complex OR expressions with multiple terms, find and replace IMP patterns
-        var orTerms = CollectOrTerms(orNode);
-        if (orTerms.Count < 2) return null;
-
-        // First, check each individual term to see if it's already an IMP pattern
-        var processedTerms = new List<AstNode>();
-        foreach (var term in orTerms)
-        {
-            if (term is OrNode termOr)
-            {
-                var impResult = TryFindDirectImpPattern(termOr);
-                if (impResult != null)
-                    processedTerms.Add(impResult);
-                else
-                    processedTerms.Add(term);
-            }
-            else
-            {
-                processedTerms.Add(term);
-            }
-        }
-
-        // Now find IMP patterns between remaining non-IMP terms
-        var impNodes = new List<AstNode>();
-        var remainingTerms = new List<AstNode>(processedTerms);
-
-        // Collect already converted IMP nodes
-        for (var i = remainingTerms.Count - 1; i >= 0; i--)
-        {
-            if (remainingTerms[i] is ImpNode)
-            {
-                impNodes.Add(remainingTerms[i]);
-                remainingTerms.RemoveAt(i);
-            }
-        }
-
-        // Continue searching for IMP patterns until no more found
-        var foundAnyImp = impNodes.Count > 0;
-        while (remainingTerms.Count >= 2)
-        {
-            var foundImpInThisIteration = false;
-
-            for (var i = 0; i < remainingTerms.Count - 1 && !foundImpInThisIteration; i++)
-            {
-                for (var j = i + 1; j < remainingTerms.Count && !foundImpInThisIteration; j++)
-                {
-                    var term1 = remainingTerms[i];
-                    var term2 = remainingTerms[j];
-
-                    // Create a temporary OR node to test IMP pattern
-                    var tempOr = new OrNode(term1, term2);
-                    var impResult = TryFindDirectImpPattern(tempOr);
-
-                    if (impResult != null)
-                    {
-                        // Found IMP pattern!
-                        impNodes.Add(impResult);
-
-                        // Remove the two terms that formed the IMP
-                        remainingTerms.RemoveAt(j); // Remove j first (higher index)
-                        remainingTerms.RemoveAt(i); // Then remove i
-
-                        foundImpInThisIteration = true;
-                        foundAnyImp = true;
-                    }
-                }
-            }
-
-            if (!foundImpInThisIteration) break; // No more IMP patterns found
-        }
-
-        if (!foundAnyImp) return null;
-
-        // Combine all IMP nodes and remaining terms
-        var allNodes = new List<AstNode>();
-        allNodes.AddRange(impNodes);
-        allNodes.AddRange(remainingTerms);
-
-        if (allNodes.Count == 1) return allNodes[0];
-
-        // Combine all nodes with OR
-        var result = allNodes[0];
-        for (var i = 1; i < allNodes.Count; i++) result = new OrNode(result, allNodes[i]);
-        return result;
+        return node is OrNode orNode ? ExtractPairwisePatterns(orNode, TryFindDirectImpPattern) : null;
     }
 
     /// <summary>
-    /// Try to find direct XOR pattern in a simple OR node: (a & !b) | (!a & b)
+    /// Try to find direct XOR pattern in a simple OR node: (a & !b) | (!a & b) → a XOR b
     /// </summary>
     private AstNode? TryFindDirectXorPattern(OrNode orNode)
     {
-        // Pattern: (a & !b) | (!a & b) → a XOR b
-        if (orNode.Left is AndNode leftAnd && orNode.Right is AndNode rightAnd)
-        {
-            var leftVars = ExtractAndTermVariables(leftAnd);
-            var rightVars = ExtractAndTermVariables(rightAnd);
-
-            if (leftVars.Count == 2 && rightVars.Count == 2)
-            {
-                var (var1Left, neg1Left) = leftVars[0];
-                var (var2Left, neg2Left) = leftVars[1];
-                var (var1Right, neg1Right) = rightVars[0];
-                var (var2Right, neg2Right) = rightVars[1];
-
-                // Check if it's XOR pattern: a & !b | !a & b
-                if (IsXorPattern(var1Left, neg1Left, var2Left, neg2Left, var1Right, neg1Right, var2Right, neg2Right))
-                {
-                    var varA = neg1Left ? var2Left : var1Left;
-                    var varB = neg1Left ? var1Left : var2Left;
-                    return new XorNode(
-                        new VariableNode(varA),
-                        new VariableNode(varB)
-                    );
-                }
-            }
-        }
+        if (orNode.Left is AndNode leftAnd && orNode.Right is AndNode rightAnd &&
+            _recognizer.IsXorPattern(leftAnd, rightAnd, out var var1, out var var2))
+            return new XorNode(var1, var2);
 
         return null;
     }
@@ -416,114 +296,18 @@ public class AdvancedPatternDetector
     /// </summary>
     private AstNode? TryFindDirectImpPattern(OrNode orNode)
     {
-        var leftTerm = orNode.Left;
-        var rightTerm = orNode.Right;
+        return _recognizer.TryMatchStrictImp(orNode);
+    }
 
-        // Pattern 1: !a | b → a → b
-        if (leftTerm is NotNode notLeft && rightTerm is VariableNode varRight)
-        {
-            if (notLeft.Operand is VariableNode varLeftInner)
-                return new ImpNode(varLeftInner, varRight);
-        }
-
-        // Pattern 2: b | !a → a → b  
-        if (rightTerm is NotNode notRight && leftTerm is VariableNode varLeft)
-        {
-            if (notRight.Operand is VariableNode varRightInner)
-                return new ImpNode(varRightInner, varLeft);
-        }
+    /// <summary>
+    /// Try to find direct EQV pattern in a simple OR node: (a & b) | (!a & !b) → a ↔ b
+    /// </summary>
+    public AstNode? TryFindDirectEqvPattern(OrNode orNode)
+    {
+        if (orNode.Left is AndNode leftAnd && orNode.Right is AndNode rightAnd &&
+            _recognizer.IsEqvPattern(leftAnd, rightAnd, out var var1, out var var2))
+            return new EqvNode(var1, var2);
 
         return null;
-    }
-
-    /// <summary>
-    /// Collect all terms from a nested OR expression into a flat list
-    /// </summary>
-    private List<AstNode> CollectOrTerms(OrNode orNode)
-    {
-        var terms = new List<AstNode>();
-        CollectOrTermsRecursive(orNode, terms);
-        return terms;
-    }
-
-    /// <summary>
-    /// Recursively collect OR terms
-    /// </summary>
-    private void CollectOrTermsRecursive(AstNode node, List<AstNode> terms)
-    {
-        if (node is OrNode orNode)
-        {
-            CollectOrTermsRecursive(orNode.Left, terms);
-            CollectOrTermsRecursive(orNode.Right, terms);
-        }
-        else
-        {
-            terms.Add(node);
-        }
-    }
-
-    /// <summary>
-    /// Extract variables and their negation status from AND terms
-    /// </summary>
-    private List<(string variable, bool isNegated)> ExtractAndTermVariables(AndNode andNode)
-    {
-        var variables = new List<(string, bool)>();
-        ExtractAndTermVariablesRecursive(andNode, variables);
-        return variables;
-    }
-
-    /// <summary>
-    /// Recursively extract variables from AND terms
-    /// </summary>
-    private void ExtractAndTermVariablesRecursive(AstNode node, List<(string, bool)> variables)
-    {
-        switch (node)
-        {
-            case AndNode andNode:
-                ExtractAndTermVariablesRecursive(andNode.Left, variables);
-                ExtractAndTermVariablesRecursive(andNode.Right, variables);
-                break;
-            case NotNode notNode when notNode.Operand is VariableNode varNode:
-                variables.Add((varNode.Name, true));
-                break;
-            case VariableNode varNode:
-                variables.Add((varNode.Name, false));
-                break;
-        }
-    }
-
-    /// <summary>
-    /// Check if the variables form a XOR pattern
-    /// </summary>
-    private bool IsXorPattern(string var1Left, bool neg1Left, string var2Left, bool neg2Left,
-        string var1Right, bool neg1Right, string var2Right, bool neg2Right)
-    {
-        // XOR pattern: (a & !b) | (!a & b)
-        // Left side: one var normal, one negated
-        // Right side: opposite pattern with same variables
-
-        if (neg1Left == neg2Left || neg1Right == neg2Right) return false; // Both same polarity
-
-        // Extract the positive and negative variables from each side
-        var leftPos = neg1Left ? var2Left : var1Left;
-        var leftNeg = neg1Left ? var1Left : var2Left;
-        var rightPos = neg1Right ? var2Right : var1Right;
-        var rightNeg = neg1Right ? var1Right : var2Right;
-
-        // Check if patterns are opposite: left positive = right negative, left negative = right positive
-        return leftPos == rightNeg && leftNeg == rightPos;
-    }
-
-    /// <summary>
-    /// Simplify string representation by removing redundant parentheses and spaces
-    /// </summary>
-    private string SimplifyStringRepresentation(string result)
-    {
-        // Remove extra spaces around operators
-        result = Regex.Replace(result, @"\s+", " ");
-        result = Regex.Replace(result, @"\s*([&|])\s*", " $1 ");
-        
-        // Trim
-        return result.Trim();
     }
 }

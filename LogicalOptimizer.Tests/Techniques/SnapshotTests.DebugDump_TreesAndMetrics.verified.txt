@@ -1,0 +1,23 @@
+﻿=== Debug Information ===
+Original AST:
+└─ OR (|) 
+   ├─ AND (&) 
+   │  ├─ Variable: 'a'
+   │  └─ Variable: 'b'
+   └─ AND (&) 
+      ├─ Variable: 'a'
+      └─ NOT (!)
+         └─ Variable: 'b'
+
+Optimized AST:
+└─ Variable: 'a'
+
+=== Optimization Metrics ===
+Original nodes: 8
+Optimized nodes: 1
+Compression ratio: 12.5%
+Iterations: 2
+Applied rules: 1
+[scrubbed timing]
+Rule applications:
+  Consensus: 1

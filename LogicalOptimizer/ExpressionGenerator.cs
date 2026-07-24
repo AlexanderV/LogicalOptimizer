@@ -3,7 +3,7 @@ namespace LogicalOptimizer;
 /// <summary>
 ///     Utility class for generating demonstration expressions and random test cases
 /// </summary>
-public static class ExpressionGenerator
+internal static class ExpressionGenerator
 {
     /// <summary>
     ///     Generate a random boolean expression for testing

@@ -55,4 +55,21 @@ nunit-*.xml
 /.vs
 
 TestResults/
-/CoverageReport
+[Cc]overage[Rr]eport/
+
+# Per-user IDE settings
+*.user
+
+artifacts/
+coverage.json
+
+# Mutation testing output
+StrykerOutput/
+
+# Verify/approval: unapproved snapshots
+*.received.txt
+
+
+# BenchmarkDotNet run artifacts (summary published in doc/BENCHMARKS.md)
+BenchmarkDotNet.Artifacts/
+

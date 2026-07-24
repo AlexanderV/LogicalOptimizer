@@ -3,9 +3,13 @@ using static LogicalOptimizer.Optimizers.AstUtilities;
 namespace LogicalOptimizer.Optimizers;
 
 /// <summary>
-/// Optimizer for absorption laws: A & (A | B) = A, A | (A & B) = A, and extended versions
+/// Optimizer for absorption laws over flattened term lists:
+///   standard   A | A&amp;B → A            and dually  A &amp; (A|B) → A
+///   extended   A | !A&amp;B → A | B       and dually  A &amp; (!A|B) → A &amp; B
+/// The complement check is polarity-agnostic (!X | X&amp;Y → !X | Y also fires) and
+/// deep (a compound absorber like a&amp;b cancels a De Morgan-spread !a|!b factor).
 /// </summary>
-public class AbsorptionOptimizer : IOptimizer
+internal class AbsorptionOptimizer : IOptimizer
 {
     public AstNode Optimize(AstNode node, OptimizationMetrics? metrics = null)
     {
@@ -14,89 +18,109 @@ public class AbsorptionOptimizer : IOptimizer
 
     private AstNode ApplyAbsorptionLaws(AstNode node)
     {
-        if (node is AndNode andNode)
-        {
-            // Standard absorption: A & (A | B) → A
-            if (andNode.Right is OrNode rightOr && AreEqual(andNode.Left, rightOr.Left))
-                return ApplyAbsorptionLaws(andNode.Left);
-            if (andNode.Right is OrNode rightOr2 && AreEqual(andNode.Left, rightOr2.Right))
-                return ApplyAbsorptionLaws(andNode.Left);
-            if (andNode.Left is OrNode leftOr && AreEqual(andNode.Right, leftOr.Left))
-                return ApplyAbsorptionLaws(andNode.Right);
-            if (andNode.Left is OrNode leftOr2 && AreEqual(andNode.Right, leftOr2.Right))
-                return ApplyAbsorptionLaws(andNode.Right);
-
-            // Extended absorption: A & (!A | B) → A & B
-            if (andNode.Right is OrNode rightOrExt)
-            {
-                if (rightOrExt.Left is NotNode leftNot && AreEqual(andNode.Left, leftNot.Operand))
-                {
-                    // A & (!A | B) → A & B
-                    var result = new AndNode(andNode.Left, ApplyAbsorptionLaws(rightOrExt.Right));
-                    result.ForceParentheses = andNode.ForceParentheses;
-                    return result;
-                }
-
-                if (rightOrExt.Right is NotNode rightNot && AreEqual(andNode.Left, rightNot.Operand))
-                {
-                    // A & (B | !A) → A & B  
-                    var result = new AndNode(andNode.Left, ApplyAbsorptionLaws(rightOrExt.Left));
-                    result.ForceParentheses = andNode.ForceParentheses;
-                    return result;
-                }
-            }
-
-            if (AreEqual(andNode.Left, andNode.Right))
-                return ApplyAbsorptionLaws(andNode.Left);
-
-            var finalResult = new AndNode(ApplyAbsorptionLaws(andNode.Left), ApplyAbsorptionLaws(andNode.Right));
-            finalResult.ForceParentheses = andNode.ForceParentheses;
-            return finalResult;
-        }
-
         if (node is OrNode orNode)
         {
-            // Standard absorption: A | (A & B) → A
-            if (orNode.Right is AndNode rightAnd && AreEqual(orNode.Left, rightAnd.Left))
-                return ApplyAbsorptionLaws(orNode.Left);
-            if (orNode.Right is AndNode rightAnd2 && AreEqual(orNode.Left, rightAnd2.Right))
-                return ApplyAbsorptionLaws(orNode.Left);
-            if (orNode.Left is AndNode leftAnd && AreEqual(orNode.Right, leftAnd.Left))
-                return ApplyAbsorptionLaws(orNode.Right);
-            if (orNode.Left is AndNode leftAnd2 && AreEqual(orNode.Right, leftAnd2.Right))
-                return ApplyAbsorptionLaws(orNode.Right);
+            var terms = FlattenOr(orNode).Select(ApplyAbsorptionLaws).ToList();
+            terms = AbsorbDisjunction(terms);
 
-            // Extended absorption: A | (!A & B) → A | B
-            if (orNode.Right is AndNode rightAndExt)
-            {
-                if (rightAndExt.Left is NotNode leftNot && AreEqual(orNode.Left, leftNot.Operand))
-                {
-                    // A | (!A & B) → A | B
-                    var result = new OrNode(orNode.Left, ApplyAbsorptionLaws(rightAndExt.Right));
-                    result.ForceParentheses = orNode.ForceParentheses;
-                    return result;
-                }
+            if (terms.Count == 0) return CreateFalse();
+            if (terms.Count == 1) return terms[0];
 
-                if (rightAndExt.Right is NotNode rightNot && AreEqual(orNode.Left, rightNot.Operand))
-                {
-                    // A | (B & !A) → A | B
-                    var result = new OrNode(orNode.Left, ApplyAbsorptionLaws(rightAndExt.Left));
-                    result.ForceParentheses = orNode.ForceParentheses;
-                    return result;
-                }
-            }
+            var result = terms.Aggregate((a, b) => new OrNode(a, b));
+            if (result is OrNode resultOr && orNode.ForceParentheses) resultOr.ForceParentheses = true;
+            return result;
+        }
 
-            if (AreEqual(orNode.Left, orNode.Right))
-                return ApplyAbsorptionLaws(orNode.Left);
+        if (node is AndNode andNode)
+        {
+            var clauses = FlattenAnd(andNode).Select(ApplyAbsorptionLaws).ToList();
+            clauses = AbsorbConjunction(clauses);
 
-            var finalResult = new OrNode(ApplyAbsorptionLaws(orNode.Left), ApplyAbsorptionLaws(orNode.Right));
-            finalResult.ForceParentheses = orNode.ForceParentheses;
-            return finalResult;
+            if (clauses.Count == 0) return CreateTrue();
+            if (clauses.Count == 1) return clauses[0];
+
+            var result = clauses.Aggregate((a, b) => new AndNode(a, b));
+            if (result is AndNode resultAnd && andNode.ForceParentheses) resultAnd.ForceParentheses = true;
+            return result;
         }
 
         if (node is NotNode notNode)
             return new NotNode(ApplyAbsorptionLaws(notNode.Operand));
 
         return node;
+    }
+
+    /// <summary>Absorption inside OR: drop subsumed terms, cancel complementary factors.</summary>
+    private static List<AstNode> AbsorbDisjunction(List<AstNode> terms)
+    {
+        var result = RemoveAbsorbedTerms(terms);
+
+        var changed = true;
+        while (changed)
+        {
+            changed = false;
+
+            // Extended absorption: absorber A cancels a factor f ≡ !A inside another term
+            for (var i = 0; i < result.Count && !changed; i++)
+            {
+                if (result[i] is not AndNode andTerm) continue;
+                var factors = FlattenAnd(andTerm);
+
+                for (var j = 0; j < result.Count && !changed; j++)
+                {
+                    if (i == j) continue;
+                    var absorber = result[j];
+
+                    var remaining = factors.Where(f => !AreComplementaryDeep(f, absorber)).ToList();
+                    if (remaining.Count == factors.Count) continue;
+
+                    result[i] = remaining.Count == 0
+                        ? CreateTrue()
+                        : remaining.Aggregate((a, b) => new AndNode(a, b));
+                    changed = true;
+                }
+            }
+
+            if (changed) result = RemoveAbsorbedTerms(result);
+        }
+
+        return result;
+    }
+
+    /// <summary>Dual absorption inside AND: drop subsumed clauses, cancel complementary literals.</summary>
+    private static List<AstNode> AbsorbConjunction(List<AstNode> clauses)
+    {
+        var result = RemoveAbsorbedClauses(clauses);
+
+        var changed = true;
+        while (changed)
+        {
+            changed = false;
+
+            // Extended absorption: absorber A cancels a literal d ≡ !A inside another clause
+            for (var i = 0; i < result.Count && !changed; i++)
+            {
+                if (result[i] is not OrNode orClause) continue;
+                var literals = FlattenOr(orClause);
+
+                for (var j = 0; j < result.Count && !changed; j++)
+                {
+                    if (i == j) continue;
+                    var absorber = result[j];
+
+                    var remaining = literals.Where(d => !AreComplementaryDeep(d, absorber)).ToList();
+                    if (remaining.Count == literals.Count) continue;
+
+                    result[i] = remaining.Count == 0
+                        ? CreateFalse()
+                        : remaining.Aggregate((a, b) => new OrNode(a, b));
+                    changed = true;
+                }
+            }
+
+            if (changed) result = RemoveAbsorbedClauses(result);
+        }
+
+        return result;
     }
 }

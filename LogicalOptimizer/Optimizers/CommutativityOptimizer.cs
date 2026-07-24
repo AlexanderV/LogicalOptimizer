@@ -6,7 +6,7 @@ namespace LogicalOptimizer.Optimizers;
 /// <summary>
 /// Optimizer for smart commutativity - rearranges terms for better factorization
 /// </summary>
-public class CommutativityOptimizer : IOptimizer
+internal class CommutativityOptimizer : IOptimizer
 {
     public AstNode Optimize(AstNode node, OptimizationMetrics? metrics = null)
     {
@@ -97,8 +97,8 @@ public class CommutativityOptimizer : IOptimizer
     {
         var leftKey = GetNodeComparisonKey(left);
         var rightKey = GetNodeComparisonKey(right);
-        
-        return string.Compare(leftKey, rightKey, StringComparison.Ordinal) <= 0 
+
+        return string.Compare(leftKey, rightKey, StringComparison.Ordinal) <= 0
             ? prefix + "_" + leftKey + "_" + rightKey
             : prefix + "_" + rightKey + "_" + leftKey;
     }

@@ -6,7 +6,7 @@ namespace LogicalOptimizer.Optimizers;
 /// <summary>
 /// Optimizer for associativity laws and term flattening
 /// </summary>
-public class AssociativityOptimizer : IOptimizer
+internal class AssociativityOptimizer : IOptimizer
 {
     public AstNode Optimize(AstNode node, OptimizationMetrics? metrics = null)
     {
@@ -18,7 +18,7 @@ public class AssociativityOptimizer : IOptimizer
         if (node is AndNode andNode)
         {
             var terms = FlattenAnd(andNode);
-            terms = terms.Select(ApplyAssociativityLaws).Distinct(new NodeComparer()).ToList();
+            terms = terms.Select(ApplyAssociativityLaws).Distinct(NodeComparer.Instance).ToList();
 
             if (terms.Count == 1) return terms[0];
             if (terms.Count == 0) return CreateTrue();
@@ -32,7 +32,7 @@ public class AssociativityOptimizer : IOptimizer
         if (node is OrNode orNode)
         {
             var terms = FlattenOr(orNode);
-            terms = terms.Select(ApplyAssociativityLaws).Distinct(new NodeComparer()).ToList();
+            terms = terms.Select(ApplyAssociativityLaws).Distinct(NodeComparer.Instance).ToList();
 
             if (terms.Count == 1) return terms[0];
             if (terms.Count == 0) return CreateFalse();

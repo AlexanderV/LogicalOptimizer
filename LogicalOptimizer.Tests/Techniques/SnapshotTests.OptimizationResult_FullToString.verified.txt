@@ -1,0 +1,30 @@
+﻿Original: a & b | !a & c
+Optimized: a & b | c & !a
+CNF: (a | c) & (b | !a)
+DNF: a & b | c & !a
+Variables: [a, b, c]
+Equivalent: True
+
+Original Truth Table:
+| a | b | c | Result |
+| - | - | - | ------ |
+| 0 | 0 | 0 | 0      |
+| 0 | 0 | 1 | 1      |
+| 0 | 1 | 0 | 0      |
+| 0 | 1 | 1 | 1      |
+| 1 | 0 | 0 | 0      |
+| 1 | 0 | 1 | 0      |
+| 1 | 1 | 0 | 1      |
+| 1 | 1 | 1 | 1      |
+
+Optimized Truth Table:
+| a | b | c | Result |
+| - | - | - | ------ |
+| 0 | 0 | 0 | 0      |
+| 0 | 0 | 1 | 1      |
+| 0 | 1 | 0 | 0      |
+| 0 | 1 | 1 | 1      |
+| 1 | 0 | 0 | 0      |
+| 1 | 0 | 1 | 0      |
+| 1 | 1 | 0 | 1      |
+| 1 | 1 | 1 | 1      |

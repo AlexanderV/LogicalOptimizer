@@ -5,7 +5,7 @@ namespace LogicalOptimizer.Optimizers;
 /// <summary>
 /// Optimizer for complement laws: A & !A = 0, A | !A = 1
 /// </summary>
-public class ComplementOptimizer : IOptimizer
+internal class ComplementOptimizer : IOptimizer
 {
     public AstNode Optimize(AstNode node, OptimizationMetrics? metrics = null)
     {
@@ -28,9 +28,16 @@ public class ComplementOptimizer : IOptimizer
 
             // Check all pairs of terms for complementarity
             for (var i = 0; i < terms.Count; i++)
-            for (var j = i + 1; j < terms.Count; j++)
-                if (AreComplementary(terms[i], terms[j]))
-                    return CreateFalse(); // A & !A = 0
+                for (var j = i + 1; j < terms.Count; j++)
+                    if (AreComplementary(terms[i], terms[j]))
+                        return CreateFalse(); // A & !A = 0
+
+            // Compound complement: (a | b) & !a & !b = 0
+            // (De Morgan has already expanded !(a | b) into separate !a & !b terms)
+            foreach (var term in terms)
+                if (term is OrNode orTerm &&
+                    FlattenOr(orTerm).All(literal => terms.Any(other => AreComplementary(literal, other))))
+                    return CreateFalse();
 
             var result = new AndNode(left, right);
             result.ForceParentheses = andNode.ForceParentheses;
@@ -51,9 +58,16 @@ public class ComplementOptimizer : IOptimizer
 
             // Check all pairs of terms for complementarity
             for (var i = 0; i < terms.Count; i++)
-            for (var j = i + 1; j < terms.Count; j++)
-                if (AreComplementary(terms[i], terms[j]))
-                    return CreateTrue(); // A | !A = 1
+                for (var j = i + 1; j < terms.Count; j++)
+                    if (AreComplementary(terms[i], terms[j]))
+                        return CreateTrue(); // A | !A = 1
+
+            // Compound complement: (a & b) | !a | !b = 1
+            // (De Morgan has already expanded !(a & b) into separate !a | !b terms)
+            foreach (var term in terms)
+                if (term is AndNode andTerm &&
+                    FlattenAnd(andTerm).All(factor => terms.Any(other => AreComplementary(factor, other))))
+                    return CreateTrue();
 
             var result = new OrNode(left, right);
             result.ForceParentheses = orNode.ForceParentheses;

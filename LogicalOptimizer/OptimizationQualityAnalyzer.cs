@@ -22,7 +22,7 @@ public class OptimizationQualityAnalyzer
         var originalStats = CalculateExpressionStats(originalAst);
         var optimizedStats = CalculateExpressionStats(optimizedAst);
 
-        metrics.CompressionRatio = (double) optimizedStats.NodeCount / originalStats.NodeCount;
+        metrics.CompressionRatio = (double)optimizedStats.NodeCount / originalStats.NodeCount;
         metrics.LiteralCount = optimizedStats.LiteralCount;
         metrics.OperatorCount = optimizedStats.OperatorCount;
         metrics.MaxDepth = optimizedStats.MaxDepth;
@@ -45,18 +45,8 @@ public class OptimizationQualityAnalyzer
 
     private static AstNode ParseExpression(string expression)
     {
-        try
-        {
-            var lexer = new Lexer(expression);
-            var tokens = lexer.Tokenize();
-            var parser = new Parser(tokens);
-            return parser.Parse();
-        }
-        catch
-        {
-            // Fallback for simple cases
-            return new VariableNode(expression);
-        }
+        var tokens = new Lexer(expression).Tokenize();
+        return new Parser(tokens).Parse();
     }
 
     private static ExpressionStats CalculateExpressionStats(AstNode ast)
@@ -102,7 +92,7 @@ public class OptimizationQualityAnalyzer
         var score = 50; // Base score
 
         // Compression bonuses
-        var compressionRatio = (double) optimized.NodeCount / original.NodeCount;
+        var compressionRatio = (double)optimized.NodeCount / original.NodeCount;
         if (compressionRatio < 0.5) score += 30; // Excellent compression
         else if (compressionRatio < 0.7) score += 20; // Good compression
         else if (compressionRatio < 0.9) score += 10; // Moderate compression
@@ -111,7 +101,7 @@ public class OptimizationQualityAnalyzer
         if (optimized.MaxDepth < original.MaxDepth) score += (original.MaxDepth - optimized.MaxDepth) * 5;
 
         // Advanced rules application bonuses
-        var advancedRules = new[] {"Factorization", "Consensus", "ExtendedAbsorption"};
+        var advancedRules = new[] { "Factorization", "Consensus", "ExtendedAbsorption" };
         score += appliedRules.Count(r => advancedRules.Contains(r)) * 5;
 
         // Penalties for non-optimality
@@ -126,10 +116,10 @@ public class OptimizationQualityAnalyzer
         var improvements = new List<string>();
 
         // Analysis of patterns that can be improved
-        if (ContainsPattern(ast, node => node is AndNode and {Left: VariableNode, Right: VariableNode}))
+        if (ContainsPattern(ast, node => node is AndNode and { Left: VariableNode, Right: VariableNode }))
             improvements.Add("Possible additional variable factorization");
 
-        if (ContainsPattern(ast, node => node is NotNode {Operand: NotNode}))
+        if (ContainsPattern(ast, node => node is NotNode { Operand: NotNode }))
             improvements.Add("Double negation detected, can be simplified");
 
         if (metrics.MaxDepth > 5) improvements.Add("High nesting depth - consider regrouping");

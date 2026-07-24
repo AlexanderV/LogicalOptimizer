@@ -1,0 +1,528 @@
+// ===== LogicalOptimizer =====
+namespace LogicalOptimizer
+{
+    public sealed class BackboneResult
+    {
+        public System.Collections.Generic.IReadOnlyDictionary<string, bool>? ForcedVariables { get; }
+        public bool? IsSatisfiable { get; }
+    }
+    public sealed class BddEquivalenceChecker : LogicalOptimizer.IEquivalenceChecker
+    {
+        public BddEquivalenceChecker(int nodeBudget = 1000000) { }
+        public LogicalOptimizer.EquivalenceCheckResult Check(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public static class BooleanExpressionExporter
+    {
+        public static string ToBlif(string expression, string? modelName = null) { }
+        public static string ToDimacs(string expression, System.Collections.Generic.Dictionary<string, int>? variableMapping = null) { }
+        public static string ToLatex(string expression) { }
+        public static string ToMathematicalNotation(string expression) { }
+        public static string ToVerilog(string expression, string? moduleName = null) { }
+        public static string TruthTableToCsv(string expression) { }
+    }
+    public class BooleanExpressionOptimizer
+    {
+        public BooleanExpressionOptimizer() { }
+        public LogicalOptimizer.OptimizationResult OptimizeExpression(string expression, LogicalOptimizer.OptimizationOptions options) { }
+        public LogicalOptimizer.OptimizationResult OptimizeExpression(string expression, bool includeMetrics = false, bool includeDebugInfo = false) { }
+        public LogicalOptimizer.TseitinCnf ToEquisatisfiableCnf(string expression) { }
+    }
+    public class CSharpExpressionExporter
+    {
+        public CSharpExpressionExporter() { }
+        public static string GenerateClass(LogicalOptimizer.AstNode node, string className = "BooleanEvaluator", string methodName = "Evaluate") { }
+        public static string GenerateLambda(LogicalOptimizer.AstNode node) { }
+        public static string GenerateMethod(LogicalOptimizer.AstNode node, string methodName = "EvaluateExpression") { }
+        public static string ToExpression(LogicalOptimizer.AstNode node) { }
+    }
+    public enum CnfMode
+    {
+        Equivalent = 0,
+        Tseitin = 1,
+    }
+    public enum ComputationStatus
+    {
+        Computed = 0,
+        TooLarge = 1,
+        NotRequested = 2,
+    }
+    public sealed class EquivalenceCheckResult
+    {
+        public bool? AreEquivalent { get; }
+        public System.Collections.Generic.IReadOnlyDictionary<string, bool>? Counterexample { get; }
+    }
+    public static class EquivalenceChecker
+    {
+        public const int DefaultMaxConflicts = 200000;
+        public static LogicalOptimizer.EquivalenceCheckResult Check(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, int maxConflicts = 200000, System.Threading.CancellationToken cancellationToken = default) { }
+        public static LogicalOptimizer.EquivalenceCheckResult Check(string left, string right, int maxConflicts = 200000, System.Threading.CancellationToken cancellationToken = default) { }
+        [return: System.Runtime.CompilerServices.TupleElementNames(new string[] {
+                "Result",
+                "MiterCnf",
+                "DratProof"})]
+        public static System.ValueTuple<LogicalOptimizer.EquivalenceCheckResult, LogicalOptimizer.TseitinCnf, string?> CheckWithProof(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, int maxConflicts = 200000, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public static class FormulaAnalysis
+    {
+        public static LogicalOptimizer.BackboneResult ComputeBackbone(LogicalOptimizer.AstNode formula, int maxConflicts = 200000, System.Threading.CancellationToken cancellationToken = default) { }
+        public static System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyDictionary<string, bool>> EnumerateModels(LogicalOptimizer.AstNode formula, int maxModels = 1000000, int maxConflicts = 200000, System.Threading.CancellationToken cancellationToken = default) { }
+        public static LogicalOptimizer.AstNode SimplifyWithBackbone(LogicalOptimizer.AstNode formula, int maxConflicts = 200000, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public sealed class HybridEquivalenceChecker : LogicalOptimizer.IEquivalenceChecker
+    {
+        public HybridEquivalenceChecker(int maxConflicts = 200000) { }
+        public LogicalOptimizer.EquivalenceCheckResult Check(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public interface IEquivalenceChecker
+    {
+        LogicalOptimizer.EquivalenceCheckResult Check(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, System.Threading.CancellationToken cancellationToken = default);
+    }
+    public enum MinimizationStatus
+    {
+        MinimalProven = 0,
+        BudgetExceeded = 1,
+        Heuristic = 2,
+    }
+    public sealed class OptimizationOptions
+    {
+        public OptimizationOptions() { }
+        public LogicalOptimizer.ResourceBudget Budget { get; init; }
+        public System.Threading.CancellationToken CancellationToken { get; init; }
+        public LogicalOptimizer.CnfMode CnfMode { get; init; }
+        public bool ComputeAdvancedForms { get; init; }
+        public bool ComputeCnf { get; init; }
+        public bool ComputeDnf { get; init; }
+        public bool IncludeDebugInfo { get; init; }
+        public bool IncludeMetrics { get; init; }
+        public bool IncludeTruthTables { get; init; }
+        public static LogicalOptimizer.OptimizationOptions Default { get; }
+        public static LogicalOptimizer.OptimizationOptions Everything { get; }
+    }
+    public class OptimizationQualityAnalyzer
+    {
+        public OptimizationQualityAnalyzer() { }
+        public static LogicalOptimizer.OptimizationQualityAnalyzer.QualityMetrics AnalyzeOptimization(LogicalOptimizer.OptimizationResult result) { }
+        public static string GenerateQualityReport(LogicalOptimizer.OptimizationResult result) { }
+        public class QualityMetrics
+        {
+            public QualityMetrics() { }
+            public System.Collections.Generic.List<string> AppliedOptimizations { get; set; }
+            public double Complexity { get; set; }
+            public double CompressionRatio { get; set; }
+            public bool IsOptimal { get; set; }
+            public int LiteralCount { get; set; }
+            public int MaxDepth { get; set; }
+            public int OperatorCount { get; set; }
+            public int OptimalityScore { get; set; }
+            public System.Collections.Generic.List<string> PossibleImprovements { get; set; }
+        }
+    }
+    public class OptimizationResult
+    {
+        public OptimizationResult() { }
+        public string Advanced { get; set; }
+        public string CNF { get; set; }
+        public LogicalOptimizer.ComputationStatus CnfStatus { get; set; }
+        public string DNF { get; set; }
+        public string DebugInfo { get; set; }
+        public LogicalOptimizer.ComputationStatus DnfStatus { get; set; }
+        public LogicalOptimizer.OptimizationMetrics? Metrics { get; set; }
+        public LogicalOptimizer.MinimizationStatus MinimizationStatus { get; set; }
+        public string Optimized { get; set; }
+        public LogicalOptimizer.TruthTable? OptimizedTruthTable { get; set; }
+        public string Original { get; set; }
+        public LogicalOptimizer.TruthTable? OriginalTruthTable { get; set; }
+        public System.Collections.Generic.List<string> Variables { get; set; }
+        public bool IsEquivalent() { }
+        public override string ToString() { }
+    }
+    public static class Transformations
+    {
+        public static LogicalOptimizer.AstNode MinimizeDnfHeuristic(LogicalOptimizer.AstNode dnf, int stepLimit = 500000, System.Threading.CancellationToken cancellationToken = default) { }
+        public static LogicalOptimizer.AstNode SubsumeCnf(LogicalOptimizer.AstNode formula) { }
+        public static LogicalOptimizer.AstNode SubsumeDnf(LogicalOptimizer.AstNode formula) { }
+    }
+}
+
+// ===== LogicalOptimizer.Bdd =====
+namespace LogicalOptimizer
+{
+    public sealed class BinaryDecisionDiagram
+    {
+        public const int DefaultNodeBudget = 1000000;
+        public const int FalseNode = 0;
+        public const int TrueNode = 1;
+        public BinaryDecisionDiagram(System.Collections.Generic.IEnumerable<string> variables, int nodeBudget = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
+        public BinaryDecisionDiagram(System.Collections.Generic.IEnumerable<string> variables, bool sortVariables, int nodeBudget = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
+        public int NodeCount { get; }
+        public int Root { get; }
+        public System.Collections.Generic.IReadOnlyList<string> Variables { get; }
+        public int Compose(int node, string variable, int replacement) { }
+        public System.Numerics.BigInteger CountSatisfyingAssignments(int node) { }
+        public System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyDictionary<string, bool>> EnumerateSatisfyingAssignments(int node) { }
+        public bool Evaluate(int node, System.Collections.Generic.IReadOnlyDictionary<string, bool> assignment) { }
+        public int Exists(int node, params string[] variables) { }
+        public System.Collections.Generic.IReadOnlyDictionary<string, bool> FindSatisfyingAssignment(int node) { }
+        public int ForAll(int node, params string[] variables) { }
+        public int FromAst(LogicalOptimizer.AstNode node) { }
+        public bool IsContradiction(int node) { }
+        public bool IsTautology(int node) { }
+        public int Ite(int f, int g, int h) { }
+        public int Negate(int node) { }
+        public int Restrict(int node, string variable, bool value) { }
+        public static bool? AreEquivalent(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, int nodeBudget = 1000000) { }
+        public static LogicalOptimizer.BinaryDecisionDiagram Build(LogicalOptimizer.AstNode ast, int nodeBudget = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
+        public static LogicalOptimizer.BinaryDecisionDiagram BuildWithBestOrder(LogicalOptimizer.AstNode ast, int nodeBudget = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
+        public static LogicalOptimizer.BinaryDecisionDiagram BuildWithSiftedOrder(LogicalOptimizer.AstNode ast, int nodeBudget = 1000000, int maxRebuilds = 400, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+}
+
+// ===== LogicalOptimizer.Core =====
+namespace LogicalOptimizer
+{
+    public sealed class AndInverterGraph
+    {
+        public const int FalseLiteral = 0;
+        public const int TrueLiteral = 1;
+        public AndInverterGraph() { }
+        public int AndNodeCount { get; }
+        public System.Collections.Generic.IReadOnlyList<string> Inputs { get; }
+        public int Root { get; }
+        public int And(int a, int b) { }
+        public LogicalOptimizer.AndInverterGraph Cleanup() { }
+        public int CreateInput(string name) { }
+        public bool Evaluate(int literal, System.Collections.Generic.IReadOnlyDictionary<string, bool> assignment) { }
+        public int Ite(int f, int g, int h) { }
+        public int Or(int a, int b) { }
+        public LogicalOptimizer.AstNode ToAst(int literal) { }
+        public int Xor(int a, int b) { }
+        public static LogicalOptimizer.AndInverterGraph FromAst(LogicalOptimizer.AstNode ast) { }
+        public static int Not(int literal) { }
+    }
+    public sealed class AndNode : LogicalOptimizer.BinaryNode
+    {
+        public AndNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, bool forceParens = false) { }
+        public override string Operator { get; }
+        public override LogicalOptimizer.AstNode Clone() { }
+    }
+    public static class AstMetrics
+    {
+        public static int CountLiterals(LogicalOptimizer.AstNode node) { }
+        public static int CountNodes(LogicalOptimizer.AstNode node) { }
+        public static int CountOperators(LogicalOptimizer.AstNode node) { }
+        public static int GetDepth(LogicalOptimizer.AstNode node) { }
+    }
+    public abstract class AstNode
+    {
+        protected AstNode() { }
+        public abstract LogicalOptimizer.AstNode Clone();
+        public abstract override bool Equals(object? obj) { }
+        public abstract override int GetHashCode() { }
+        public abstract System.Collections.Generic.HashSet<string> GetVariables();
+        public abstract override string ToString() { }
+    }
+    public abstract class BinaryNode : LogicalOptimizer.AstNode
+    {
+        protected BinaryNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, bool forceParens = false) { }
+        public bool ForceParentheses { get; set; }
+        public LogicalOptimizer.AstNode Left { get; }
+        public abstract string Operator { get; }
+        public LogicalOptimizer.AstNode Right { get; }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public override System.Collections.Generic.HashSet<string> GetVariables() { }
+        public override string ToString() { }
+    }
+    public sealed class ConstantNode : LogicalOptimizer.AstNode
+    {
+        public static readonly LogicalOptimizer.ConstantNode False;
+        public static readonly LogicalOptimizer.ConstantNode True;
+        public ConstantNode(bool value) { }
+        public bool Value { get; }
+        public override LogicalOptimizer.AstNode Clone() { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public override System.Collections.Generic.HashSet<string> GetVariables() { }
+        public override string ToString() { }
+    }
+    public sealed class EqvNode : LogicalOptimizer.BinaryNode
+    {
+        public EqvNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, bool forceParens = false) { }
+        public override string Operator { get; }
+        public override LogicalOptimizer.AstNode Clone() { }
+    }
+    public sealed class FormulaFactory
+    {
+        public FormulaFactory() { }
+        public LogicalOptimizer.AstNode False { get; }
+        public LogicalOptimizer.AstNode True { get; }
+        public LogicalOptimizer.AstNode And(params LogicalOptimizer.AstNode[] operands) { }
+        public LogicalOptimizer.AstNode And(System.Collections.Generic.IEnumerable<LogicalOptimizer.AstNode> operands) { }
+        public LogicalOptimizer.AstNode Equivalence(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right) { }
+        public LogicalOptimizer.AstNode Implication(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right) { }
+        public LogicalOptimizer.AstNode Import(LogicalOptimizer.AstNode node) { }
+        public LogicalOptimizer.AstNode Not(LogicalOptimizer.AstNode operand) { }
+        public LogicalOptimizer.AstNode Or(params LogicalOptimizer.AstNode[] operands) { }
+        public LogicalOptimizer.AstNode Or(System.Collections.Generic.IEnumerable<LogicalOptimizer.AstNode> operands) { }
+        public LogicalOptimizer.AstNode Parse(string expression) { }
+        public LogicalOptimizer.AstNode Variable(string name) { }
+        public LogicalOptimizer.AstNode Xor(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right) { }
+    }
+    public sealed class ImpNode : LogicalOptimizer.BinaryNode
+    {
+        public ImpNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, bool forceParens = false) { }
+        public override string Operator { get; }
+        public override LogicalOptimizer.AstNode Clone() { }
+    }
+    public class Lexer
+    {
+        public Lexer(string input) { }
+        public System.Collections.Generic.List<LogicalOptimizer.Token> Tokenize() { }
+    }
+    public sealed class NandNode : LogicalOptimizer.BinaryNode
+    {
+        public NandNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, bool forceParens = false) { }
+        public override string Operator { get; }
+        public override LogicalOptimizer.AstNode Clone() { }
+    }
+    public sealed class NorNode : LogicalOptimizer.BinaryNode
+    {
+        public NorNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, bool forceParens = false) { }
+        public override string Operator { get; }
+        public override LogicalOptimizer.AstNode Clone() { }
+    }
+    public sealed class NotNode : LogicalOptimizer.AstNode
+    {
+        public NotNode(LogicalOptimizer.AstNode operand) { }
+        public LogicalOptimizer.AstNode Operand { get; }
+        public override LogicalOptimizer.AstNode Clone() { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public override System.Collections.Generic.HashSet<string> GetVariables() { }
+        public override string ToString() { }
+    }
+    public class OptimizationMetrics
+    {
+        public OptimizationMetrics() { }
+        public int AppliedRules { get; set; }
+        public double CompressionRatio { get; }
+        public System.TimeSpan ElapsedTime { get; set; }
+        public bool IsImproved { get; }
+        public int Iterations { get; set; }
+        public System.Collections.Generic.List<string> OptimizationSteps { get; set; }
+        public int OptimizedNodes { get; set; }
+        public int OriginalNodes { get; set; }
+        public System.Collections.Generic.Dictionary<string, int> RuleApplicationCount { get; set; }
+        public void AddStep(string step) { }
+        public override string ToString() { }
+    }
+    public sealed class OrNode : LogicalOptimizer.BinaryNode
+    {
+        public OrNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, bool forceParens = false) { }
+        public override string Operator { get; }
+        public override LogicalOptimizer.AstNode Clone() { }
+    }
+    public class Parser
+    {
+        public Parser(System.Collections.Generic.List<LogicalOptimizer.Token> tokens) { }
+        public LogicalOptimizer.AstNode Parse() { }
+    }
+    public sealed class ResourceBudget
+    {
+        public const int DefaultCoverStepLimit = 200000;
+        public ResourceBudget() { }
+        public int BddNodeLimit { get; init; }
+        public int CoverStepLimit { get; init; }
+        public long QmPairComparisonLimit { get; init; }
+        public int SatConflictLimit { get; init; }
+        public int SoundnessGuardConflictLimit { get; init; }
+        public static LogicalOptimizer.ResourceBudget Default { get; }
+    }
+    public sealed class Token
+    {
+        public Token() { }
+        public int Position { get; init; }
+        public LogicalOptimizer.TokenType Type { get; init; }
+        public string Value { get; init; }
+    }
+    public enum TokenType
+    {
+        Variable = 0,
+        Not = 1,
+        And = 2,
+        Or = 3,
+        LeftParen = 4,
+        RightParen = 5,
+        End = 6,
+    }
+    public class TruthTable
+    {
+        public const int MaxVariables = 20;
+        public TruthTable(System.Collections.Generic.List<string> variables, System.Collections.Generic.List<bool> results) { }
+        public System.Collections.Generic.IReadOnlyList<bool> Results { get; }
+        public System.Collections.Generic.IReadOnlyList<System.Collections.Generic.Dictionary<string, bool>> Rows { get; }
+        public System.Collections.Generic.IReadOnlyList<string> Variables { get; }
+        public string GetResultsString() { }
+        public bool IsContradiction() { }
+        public bool IsEquivalentTo(LogicalOptimizer.TruthTable other) { }
+        public bool IsSatisfiable() { }
+        public bool IsTautology() { }
+        public override string ToString() { }
+        public static bool AreEquivalent(LogicalOptimizer.AstNode expression1, LogicalOptimizer.AstNode expression2) { }
+        public static bool AreEquivalent(LogicalOptimizer.TruthTable table1, LogicalOptimizer.TruthTable table2) { }
+        public static bool AreEquivalent(string expression1, string expression2) { }
+        public static string CompareExpressions(string expression1, string expression2) { }
+        public static bool Evaluate(LogicalOptimizer.AstNode node, System.Collections.Generic.Dictionary<string, bool> assignment) { }
+        public static LogicalOptimizer.TruthTable Generate(LogicalOptimizer.AstNode expression) { }
+        public static LogicalOptimizer.TruthTable Generate(string expression) { }
+    }
+    public sealed class VariableNode : LogicalOptimizer.AstNode
+    {
+        public VariableNode(string name) { }
+        public string Name { get; }
+        public override LogicalOptimizer.AstNode Clone() { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public override System.Collections.Generic.HashSet<string> GetVariables() { }
+        public override string ToString() { }
+    }
+    public sealed class XorNode : LogicalOptimizer.BinaryNode
+    {
+        public XorNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, bool forceParens = false) { }
+        public override string Operator { get; }
+        public override LogicalOptimizer.AstNode Clone() { }
+    }
+}
+
+// ===== LogicalOptimizer.Minimization =====
+namespace LogicalOptimizer
+{
+    public class CsvTruthTableParser
+    {
+        public CsvTruthTableParser() { }
+        public static string GenerateExampleCsv() { }
+        public static bool LooksLikeCsv(string input) { }
+        public static string ParseCsvFileToExpression(string filePath) { }
+        public static string ParseCsvToExpression(string csvContent) { }
+        public static LogicalOptimizer.MultiOutputTable ParseCsvToMultiOutputTable(string csvContent, System.Collections.Generic.IReadOnlyCollection<string> outputColumns) { }
+        [return: System.Runtime.CompilerServices.TupleElementNames(new string[] {
+                "Variables",
+                "OnSet",
+                "DontCareSet"})]
+        public static System.ValueTuple<System.Collections.Generic.List<string>, System.Collections.Generic.HashSet<int>, System.Collections.Generic.HashSet<int>> ParseCsvToPartialTable(string csvContent) { }
+    }
+    public sealed class MultiOutputFunction
+    {
+        public System.Collections.Generic.IReadOnlyCollection<int> DontCareSet { get; }
+        public string Name { get; }
+        public System.Collections.Generic.IReadOnlyCollection<int> OnSet { get; }
+    }
+    public sealed class MultiOutputTable
+    {
+        public System.Collections.Generic.IReadOnlyList<LogicalOptimizer.MultiOutputFunction> Outputs { get; }
+        public System.Collections.Generic.IReadOnlyList<string> Variables { get; }
+    }
+    public static class TruthTableMinimizer
+    {
+        public static LogicalOptimizer.AstNode MinimalPos(System.Collections.Generic.IReadOnlyList<string> variables, System.Collections.Generic.IReadOnlyCollection<int> onSet, System.Collections.Generic.IReadOnlyCollection<int>? dontCareSet = null, long? pairComparisonLimit = default, System.Threading.CancellationToken cancellationToken = default) { }
+        public static LogicalOptimizer.AstNode MinimalSop(System.Collections.Generic.IReadOnlyList<string> variables, System.Collections.Generic.IReadOnlyCollection<int> onSet, System.Collections.Generic.IReadOnlyCollection<int>? dontCareSet = null, long? pairComparisonLimit = default, System.Threading.CancellationToken cancellationToken = default) { }
+        [return: System.Runtime.CompilerServices.TupleElementNames(new string[] {
+                "Expression",
+                "ProvenMinimal"})]
+        public static System.ValueTuple<LogicalOptimizer.AstNode, bool> MinimalSopWithStatus(System.Collections.Generic.IReadOnlyList<string> variables, System.Collections.Generic.IReadOnlyCollection<int> onSet, System.Collections.Generic.IReadOnlyCollection<int>? dontCareSet = null, long? pairComparisonLimit = default, System.Threading.CancellationToken cancellationToken = default, int coverStepLimit = 200000) { }
+    }
+}
+
+// ===== LogicalOptimizer.Sat =====
+namespace LogicalOptimizer
+{
+    public static class CardinalityEncoder
+    {
+        public static void AtLeastK(LogicalOptimizer.CnfBuilder builder, System.Collections.Generic.IReadOnlyList<int> literals, int k) { }
+        public static void AtMostK(LogicalOptimizer.CnfBuilder builder, System.Collections.Generic.IReadOnlyList<int> literals, int k) { }
+        public static void ExactlyK(LogicalOptimizer.CnfBuilder builder, System.Collections.Generic.IReadOnlyList<int> literals, int k) { }
+    }
+    public sealed class CnfBuilder
+    {
+        public CnfBuilder(int variableCount) { }
+        public System.Collections.Generic.IReadOnlyList<int[]> Clauses { get; }
+        public int VariableCount { get; }
+        public void AddClause(params int[] literals) { }
+        public int NewVariable() { }
+        public LogicalOptimizer.SatSolver ToSolver() { }
+    }
+    public enum CnfEncodingStyle
+    {
+        Tseitin = 0,
+        PlaistedGreenbaum = 1,
+    }
+    public sealed class MaxSatResult
+    {
+        public long Cost { get; }
+        public LogicalOptimizer.MaxSatStatus Status { get; }
+        public bool[]? Values { get; }
+        public bool GetValue(int variable) { }
+    }
+    public sealed class MaxSatSolver
+    {
+        public MaxSatSolver(int variableCount) { }
+        public void AddHard(params int[] literals) { }
+        public void AddSoft(int weight, params int[] literals) { }
+        public LogicalOptimizer.MaxSatResult Solve(int maxConflictsPerCall = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public enum MaxSatStatus
+    {
+        Optimal = 0,
+        HardClausesUnsatisfiable = 1,
+        Unknown = 2,
+    }
+    public static class PseudoBooleanEncoder
+    {
+        public static void AtLeast(LogicalOptimizer.CnfBuilder builder, System.Collections.Generic.IReadOnlyList<int> literals, System.Collections.Generic.IReadOnlyList<long> weights, long bound) { }
+        public static void AtMost(LogicalOptimizer.CnfBuilder builder, System.Collections.Generic.IReadOnlyList<int> literals, System.Collections.Generic.IReadOnlyList<long> weights, long bound) { }
+    }
+    public readonly struct SatProofStep : System.IEquatable<LogicalOptimizer.SatProofStep>
+    {
+        public SatProofStep(bool IsDeletion, int[] Literals) { }
+        public bool IsDeletion { get; init; }
+        public int[] Literals { get; init; }
+    }
+    public enum SatResult
+    {
+        Satisfiable = 0,
+        Unsatisfiable = 1,
+        Unknown = 2,
+    }
+    public sealed class SatSolver
+    {
+        public SatSolver(int variableCount) { }
+        public int ConflictCount { get; }
+        public System.Collections.Generic.IReadOnlyList<LogicalOptimizer.SatProofStep>? Proof { get; }
+        public System.Collections.Generic.IReadOnlyList<int>? UnsatCore { get; }
+        public void AddClause(System.Collections.Generic.IReadOnlyCollection<int> literals) { }
+        public void AddClause(params int[] literals) { }
+        public void EnableProofLogging() { }
+        public bool GetValue(int variable) { }
+        public LogicalOptimizer.SatResult Solve(int maxConflicts = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
+        public LogicalOptimizer.SatResult Solve(System.Collections.Generic.IReadOnlyList<int> assumptions, int maxConflicts = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
+        public string ToDrat() { }
+        public static LogicalOptimizer.SatSolver FromCnf(LogicalOptimizer.TseitinCnf cnf) { }
+    }
+    public sealed class TseitinCnf
+    {
+        public int AuxiliaryVariableCount { get; }
+        public System.Collections.Generic.IReadOnlyList<int[]> Clauses { get; }
+        public System.Collections.Generic.IReadOnlyList<string> InputVariables { get; }
+        public int TotalVariableCount { get; }
+        public LogicalOptimizer.AstNode ToAst() { }
+        public string ToDimacs() { }
+        public override string ToString() { }
+        public string VariableName(int index) { }
+    }
+    public static class TseitinConverter
+    {
+        public static LogicalOptimizer.TseitinCnf Convert(LogicalOptimizer.AstNode ast) { }
+        public static LogicalOptimizer.TseitinCnf Convert(string expression) { }
+        public static LogicalOptimizer.TseitinCnf Convert(LogicalOptimizer.AstNode ast, LogicalOptimizer.CnfEncodingStyle style) { }
+    }
+}

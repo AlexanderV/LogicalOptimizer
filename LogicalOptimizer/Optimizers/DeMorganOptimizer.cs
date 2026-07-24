@@ -3,7 +3,7 @@ namespace LogicalOptimizer.Optimizers;
 /// <summary>
 /// Optimizer for De Morgan's laws: !(A & B) = !A | !B, !(A | B) = !A & !B
 /// </summary>
-public class DeMorganOptimizer : IOptimizer
+internal class DeMorganOptimizer : IOptimizer
 {
     public AstNode Optimize(AstNode node, OptimizationMetrics? metrics = null)
     {

@@ -5,9 +5,12 @@ using static LogicalOptimizer.Optimizers.AstUtilities;
 namespace LogicalOptimizer.Optimizers;
 
 /// <summary>
-/// Optimizer for distributive laws: a & (b | c) = a & b | a & c, a | (b & c) = (a | b) & (a | c)
+/// Optimizer for distributive laws: a & (b | c) = a & b | a & c, a | (b & c) = (a | b) & (a | c).
+/// Deliberately NOT part of the main ExpressionOptimizer pipeline: distribution grows the tree
+/// (potentially exponentially) and the pipeline minimizes size. Full distribution lives in
+/// NormalFormConverter; this class remains available for callers that need a single step.
 /// </summary>
-public class DistributiveOptimizer : IOptimizer
+internal class DistributiveOptimizer : IOptimizer
 {
     public AstNode Optimize(AstNode node, OptimizationMetrics? metrics = null)
     {
@@ -37,18 +40,18 @@ public class DistributiveOptimizer : IOptimizer
                 var leftTerm = left;
                 var rightLeft = rightOr.Left;
                 var rightRight = rightOr.Right;
-                
+
                 var term1 = new AndNode(leftTerm, rightLeft);
                 var term2 = new AndNode(leftTerm, rightRight);
                 return new OrNode(term1, term2);
             }
-            
+
             if (left is OrNode leftOr)
             {
                 var rightTerm = right;
                 var leftLeft = leftOr.Left;
                 var leftRight = leftOr.Right;
-                
+
                 var term1 = new AndNode(leftLeft, rightTerm);
                 var term2 = new AndNode(leftRight, rightTerm);
                 return new OrNode(term1, term2);
@@ -70,18 +73,18 @@ public class DistributiveOptimizer : IOptimizer
                 var leftTerm = left;
                 var rightLeft = rightAnd.Left;
                 var rightRight = rightAnd.Right;
-                
+
                 var term1 = new OrNode(leftTerm, rightLeft);
                 var term2 = new OrNode(leftTerm, rightRight);
                 return new AndNode(term1, term2);
             }
-            
+
             if (left is AndNode leftAnd)
             {
                 var rightTerm = right;
                 var leftLeft = leftAnd.Left;
                 var leftRight = leftAnd.Right;
-                
+
                 var term1 = new OrNode(leftLeft, rightTerm);
                 var term2 = new OrNode(leftRight, rightTerm);
                 return new AndNode(term1, term2);

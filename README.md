@@ -13,19 +13,36 @@
 
 ## Overview
 
-LogicalOptimizer is a powerful tool for parsing, optimizing and transforming boolean expressions into various normal forms with maximum simplification.
+LogicalOptimizer is a lightweight, dependency-free .NET library and CLI for parsing, optimizing and transforming boolean expressions. Exact minimization is attempted up to 12 variables and **optimality is reported explicitly when proven**: `OptimizationResult.MinimizationStatus` is `MinimalProven` when the exact minimum-cover search completed (the normal case for ≤10 variables — verified for every 3- and 4-variable function), `BudgetExceeded` when a work limit interrupted the proof, and `Heuristic` beyond the exact range. There are no silent fallbacks. **Every** optimization is verified equivalent to the input before being returned — by truth table up to 12 variables, by the built-in CDCL SAT solver (miter proof) beyond that.
+
+**Cost model**: the minimal cover is chosen by total literal count, then term count; the final multi-level expression is chosen by literal count, then AST node count. This is not the same as minimal gate count, circuit depth, or delay.
 
 ## Features
 
 - ✅ **Core Boolean Operations**: AND (`&`), OR (`|`), NOT (`!`) with proper precedence
-- ✅ **Smart Optimization**: All basic laws of boolean algebra with factorization
+- ✅ **Provable Minimality with Explicit Status**: exact Quine-McCluskey backend with covering-table reductions and lower-bound-pruned branch-and-bound; `MinimizationStatus` reports `MinimalProven` / `BudgetExceeded` / `Heuristic` — never a silent downgrade
+- ✅ **Smart Optimization**: All basic laws of boolean algebra with factorization, consensus, expand-reduce
+- ✅ **Built-in SAT Solver**: dependency-free CDCL (watched literals, 1UIP learning, heap-VSIDS, Luby restarts, LBD clause-database reduction, subsumption preprocessing); incremental solving under assumptions with unsat cores
+- ✅ **DRAT Proofs**: UNSAT verdicts (including equivalence proofs via `CheckWithProof`) come with externally checkable DRAT certificates
+- ✅ **SAT-Based Mid-Range Minimization**: prime-cover SOP for 13-24 variables without any 2^n table, adopted only after a SAT-miter equivalence proof
+- ✅ **Espresso-Style Large-Scale Minimization**: cube-list EXPAND/IRREDUNDANT/REDUCE with exact cofactor-tautology validation (`Transformations.MinimizeDnfHeuristic`) — shrinks DNF covers at 40+ variables, sound by construction
+- ✅ **Optimal Subcircuit Rewriting**: every ≤3-variable subtree drops to its provably minimal precomputed form (256-function library built by the exact minimizer)
+- ✅ **And-Inverter Graph**: ABC-style AIG with structural hashing and complemented edges (`AndInverterGraph`) — honest multi-level size metrics and a foundation for cut-based rewriting
+- ✅ **Backbone & Model Enumeration**: `FormulaAnalysis.ComputeBackbone`, projected lazy model enumeration, backbone-based simplification
+- ✅ **Cardinality / Pseudo-Boolean / MaxSAT**: sequential-counter AtMost/AtLeast/ExactlyK, weighted PB constraints, weighted partial MaxSAT — all in-house
+- ✅ **Tseitin & Plaisted–Greenbaum CNF**: linear-size equisatisfiable CNF for any expression (`--cnf-mode=tseitin`, `ToEquisatisfiableCnf`); the polarity-based Plaisted–Greenbaum style (`CnfEncodingStyle.PlaistedGreenbaum`) cuts clause count up to ~2x
+- ✅ **ROBDD Engine**: canonical binary decision diagrams with hash-consing, model counting, lazy assignment enumeration, existential/universal quantification, restriction, functional composition, variable-order optimization (`BuildWithBestOrder` heuristics + `BuildWithSiftedOrder` sifting), node budget
+- ✅ **Formula Factory**: LogicNG-style construction (`FormulaFactory`) — n-ary And/Or with flattening, duplicate removal, constant/complement folding and structural interning (equal formulas are the same instance)
+- ✅ **Modular Packages**: `LogicalOptimizer.Core` / `.Sat` / `.Bdd` / `.Minimization` are independently usable NuGet packages; the `LogicalOptimizer` facade ties them together and the layering is enforced by an architecture test
+- ✅ **Multi-Output Minimization**: CSV tables with several output columns (`--outputs=Sum,Carry`), shared don't-cares and PLA-style cube sharing across outputs
+- ✅ **Budgets & Cancellation**: `ResourceBudget` + `CancellationToken` on every expensive engine
 - ✅ **Normal Forms**: Conversion to CNF (Conjunctive) and DNF (Disjunctive)
-- ✅ **Advanced Logic Forms**: Extended operators (XOR, IMP) generation 
+- ✅ **Advanced Logic Forms**: Extended operators (XOR, IMP, EQV) generation 
 - ✅ **Context-Aware Formatting**: Intelligent parentheses placement
 - ✅ **Truth Table Generation**: Up to 20 variables with equivalence verification
 - ✅ **Multiple Export Formats**: DIMACS, BLIF, Verilog, CSV, Mathematical notation, LaTeX
 - ✅ **Performance Analytics**: Detailed metrics and benchmarking
-- ✅ **Comprehensive Testing**: 800+ tests with full validation
+- ✅ **Comprehensive Testing**: 800 audited tests (full-suite audit removed ~180 duplicate/tautological tests and strengthened weak oracles) across ten systematic techniques — property-based (CsCheck), metamorphic, algebraic, differential (incl. a SymPy external oracle), fuzzing, characterization golden master, snapshot approval (Verify), architecture rules (ArchUnitNET), pairwise option coverage, and Stryker.NET mutation testing (see [doc/TESTING.md](doc/TESTING.md))
 - ✅ **Error Protection**: Input validation and infinite loop prevention
 
 ## Quick Start
@@ -84,7 +101,10 @@ dotnet run --project LogicalOptimizer -- --advanced "a & !b | !a & b"
 dotnet run --project LogicalOptimizer -- --advanced "!a | b"
 # Result: IMP: a → b
 
-# Examples showing advanced forms (XOR, IMP):
+dotnet run --project LogicalOptimizer -- --advanced "a & b | !a & !b"
+# Result: EQV: a ↔ b
+
+# Examples showing advanced forms (XOR, IMP, EQV):
 # XOR pattern expression:
 dotnet run --project LogicalOptimizer -- "a & !b | !a & b"
 # Output includes: Advanced: XOR: a XOR b
@@ -93,15 +113,16 @@ dotnet run --project LogicalOptimizer -- "a & !b | !a & b"
 dotnet run --project LogicalOptimizer -- "!a | b"
 # Output includes: Advanced: IMP: a → b
 
+# Equivalence pattern expression:
+dotnet run --project LogicalOptimizer -- "a & b | !a & !b"
+# Output includes: Advanced: EQV: a ↔ b
+
 # Expression without advanced patterns:
 dotnet run --project LogicalOptimizer -- "a & b | a & c"  
 # Output includes: Advanced: (empty)
 
 # Detailed output with metrics
 dotnet run --project LogicalOptimizer -- --verbose "!(a & b)"
-
-# Run built-in tests
-dotnet run --project LogicalOptimizer -- --test
 
 # Features demonstration
 dotnet run --project LogicalOptimizer -- --demo
@@ -129,6 +150,7 @@ dotnet run --project LogicalOptimizer -- --help
 |------|-------------|---------|------------------|
 | **XOR** | Exclusive OR | `a & !b \| !a & b` | `a XOR b` |
 | **IMP** | Implication | `!a \| b` | `a → b` |
+| **EQV** | Equivalence (Biconditional) | `a & b \| !a & !b` | `a ↔ b` |
 
 **Note**: Advanced forms are generated for display purposes and logical clarity. All internal processing uses core operators only.
 
@@ -168,6 +190,10 @@ Output: "a XOR b"
 Input: "!a | b"
 Output: "a → b"
 
+# Equivalence Pattern Detection
+Input: "a & b | !a & !b"
+Output: "a ↔ b"
+
 # Complex Mixed Patterns
 Input: "((a & !b) | (!a & b)) & ((!c | d) | (e & f))"
 Output: "(a XOR b) & ((c → d) | e & f)"
@@ -176,7 +202,7 @@ Output: "(a XOR b) & ((c → d) | e & f)"
 ## Programming Interface (API)
 
 ```csharp
-using BooleanOptimizer;
+using LogicalOptimizer;
 
 var optimizer = new BooleanExpressionOptimizer();
 var result = optimizer.OptimizeExpression("a & b | a & c", includeMetrics: true);
@@ -205,7 +231,7 @@ Console.WriteLine($"Equivalent to original: {result.IsEquivalent()}");
 The optimizer supports multiple export formats for integration with external tools:
 
 ```csharp
-using BooleanOptimizer;
+using LogicalOptimizer;
 
 string expression = "a & b | c";
 
@@ -233,7 +259,7 @@ string csv = BooleanExpressionExporter.TruthTableToCsv(expression);
 ## Testing
 
 ```bash
-# Full test suite (800+ tests)
+# Full test suite
 dotnet test
 
 # Filtered tests
@@ -241,7 +267,16 @@ dotnet test --filter "TruthTable"
 
 # Performance tests
 dotnet test --filter "Performance"
+
+# Mutation testing (Stryker.NET; report in StrykerOutput/)
+dotnet tool restore
+cd LogicalOptimizer.Tests && dotnet stryker
 ```
+
+The suite layers ten systematic techniques (property-based, metamorphic, algebraic,
+differential, fuzzing, characterization, snapshot approval, architecture rules,
+pairwise, mutation) on top of the example-based tests — the full map with per-technique
+rationale and regeneration instructions is in [doc/TESTING.md](doc/TESTING.md).
 
 ## Advanced Features
 
@@ -283,7 +318,6 @@ Built-in optimization quality analyzer provides detailed metrics:
 
 - 📖 **[Technical Specification](doc/Spec.md)** - Complete system specification
 - 🚀 **[Advanced Features Guide](doc/ADVANCED_FEATURES.md)** - Extended functionality documentation
-- 💡 **[Examples](doc/examples/)** - Comprehensive usage examples and demos
 - 🧪 **[Testing Guide](LogicalOptimizer.Tests/)** - Test suite documentation
 
 ## Limitations
@@ -291,8 +325,8 @@ Built-in optimization quality analyzer provides detailed metrics:
 - Maximum expression length: 10,000 characters
 - Maximum number of variables: 100
 - Maximum nesting depth: 50 levels
-- Maximum processing time: 30 seconds
-- Maximum optimization iterations: 50
+- Maximum processing time: 10 seconds
+- Maximum optimization iterations: 20
 
 ## Architecture
 
@@ -311,13 +345,13 @@ Built-in optimization quality analyzer provides detailed metrics:
 
 ## Project Statistics
 
-- **Total tests**: 800+ (100% pass rate)
+- **Total tests**: 800 (all passing; performance and exhaustive-sweep categories run outside CI via --filter; suite fully audited 2026-07 — see doc/TESTING.md Part 4)
 - **Code coverage**: 88% comprehensive coverage
 - **Optimization algorithms**: 15+ (factorization, De Morgan, absorption, consensus, etc.)
 - **Supported optimization rules**: 20+ boolean algebra transformations
-- **Pattern recognition**: XOR and IMP pattern detection and replacement
+- **Pattern recognition**: XOR, IMP, and EQV pattern detection and replacement
 - **Export formats**: 6 (DIMACS, BLIF, Verilog, Mathematical, LaTeX, CSV)
-- **Operator support**: 3 core operators (AND, OR, NOT) + 2 advanced forms (XOR, IMP)
+- **Operator support**: 3 core operators (AND, OR, NOT) + 3 advanced forms (XOR, IMP, EQV)
 - **Performance**: < 1sec for expressions up to 50 variables
 - **Truth table capacity**: Up to 20 variables (1M+ combinations)
 - **Platform support**: Cross-platform (.NET 8.0)
@@ -337,3 +371,7 @@ Distributed under the Apache 2.0 License. See [LICENSE](https://github.com/Alexa
 ## Contact
 
 Project: [https://github.com/AlexanderV/LogicalOptimizer](https://github.com/AlexanderV/LogicalOptimizer)
+
+## Versioning policy
+
+The project follows [Semantic Versioning](https://semver.org/): patch/minor releases are additive-only; any breaking change to the public API requires a major version bump. The API surface is enforced by two tests: `ApiSurfaceTests.PublicApi_MatchesApprovedBaseline` pins the full member-level API in `LogicalOptimizer.Tests/TestData/PublicApi.approved.txt` (regenerate an intended change with `LOGICALOPTIMIZER_REGENERATE_API=1` and review the diff), and `ArchitectureTests.PublicSurface_IsTheDocumentedSet` pins the public type list. A failing baseline is a release decision, not a test to silence.

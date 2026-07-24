@@ -1,14 +1,39 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <LangVersion>12</LangVersion>
+
+    <PackageId>LogicalOptimizer</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Oleksandr Panasenko</Authors>
+    <Description>Dependency-free boolean expression optimizer: provably minimal results with explicit proof status (exact Quine-McCluskey backend), built-in CDCL SAT solver with equivalence checking and counterexamples, Tseitin CNF, ROBDD with model counting, truth tables with don't-cares, multi-output CSV minimization, and DIMACS/BLIF/Verilog exporters.</Description>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>boolean;logic;minimization;quine-mccluskey;sat-solver;bdd;cnf;dnf;tseitin;equivalence</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- CS1591: missing XML comments on some public members; CS1570: unescaped '&' in
+         boolean-formula examples inside comments. Docs are being expanded incrementally. -->
+    <NoWarn>$(NoWarn);CS1591;CS1570</NoWarn>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.7.0" />
+    <InternalsVisibleTo Include="LogicalOptimizer.Tests" />
+    <InternalsVisibleTo Include="LogicalOptimizer.Cli" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+    <ProjectReference Include="..\LogicalOptimizer.Core\LogicalOptimizer.Core.csproj" />
+    <ProjectReference Include="..\LogicalOptimizer.Sat\LogicalOptimizer.Sat.csproj" />
+    <ProjectReference Include="..\LogicalOptimizer.Bdd\LogicalOptimizer.Bdd.csproj" />
+    <ProjectReference Include="..\LogicalOptimizer.Minimization\LogicalOptimizer.Minimization.csproj" />
   </ItemGroup>
 
 </Project>

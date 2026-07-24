@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <LangVersion>12</LangVersion>
+
+    <PackageId>LogicalOptimizer.Minimization</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Oleksandr Panasenko</Authors>
+    <Description>Minimization layer of the LogicalOptimizer toolkit: exact Quine-McCluskey with provable-minimality status, SAT-based mid-range prime covers, Espresso-style cube-list heuristics, multi-output PLA-style cube sharing and CSV truth-table parsing.</Description>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>quine-mccluskey;minimization;espresso;two-level;multi-output;pla</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1570</NoWarn>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="LogicalOptimizer" />
+    <InternalsVisibleTo Include="LogicalOptimizer.Tests" />
+    <InternalsVisibleTo Include="LogicalOptimizer.Cli" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+    <ProjectReference Include="..\LogicalOptimizer.Core\LogicalOptimizer.Core.csproj" />
+    <ProjectReference Include="..\LogicalOptimizer.Sat\LogicalOptimizer.Sat.csproj" />
+  </ItemGroup>
+
+</Project>

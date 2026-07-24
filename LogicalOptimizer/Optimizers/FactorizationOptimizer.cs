@@ -7,7 +7,7 @@ namespace LogicalOptimizer.Optimizers;
 /// <summary>
 /// Optimizer for factorization: a & b | a & c = a & (b | c), (a | b) & (a | c) = a | (b & c)
 /// </summary>
-public class FactorizationOptimizer : IOptimizer
+internal class FactorizationOptimizer : IOptimizer
 {
     public AstNode Optimize(AstNode node, OptimizationMetrics? metrics = null)
     {
@@ -43,48 +43,48 @@ public class FactorizationOptimizer : IOptimizer
 
         if (node is AndNode andNode)
         {
-            var left = ApplyFactorizationInternal(andNode.Left);
-            var right = ApplyFactorizationInternal(andNode.Right);
+            var clauses = FlattenAnd(andNode).Select(ApplyFactorizationInternal).ToList();
 
-            // Reverse factorization: (a | b) & (a | c) = a | (b & c)
-            if (left is OrNode leftOr && right is OrNode rightOr)
+            // Reverse factorization over all clause pairs (not just adjacent children):
+            // (X | R1) & (X | R2) = X | (R1 & R2), X may span several common literals
+            var changed = true;
+            while (changed)
             {
-                // Check that all 4 variables are comparable
-                if (AreEqual(leftOr.Left, rightOr.Left))
-                {
-                    var common = leftOr.Left;
-                    // Remaining part: create AND with forced parentheses
-                    var remaining = new AndNode(leftOr.Right, rightOr.Right, true);
-                    return new OrNode(common, ApplyFactorizationInternal(remaining));
-                }
+                changed = false;
 
-                if (AreEqual(leftOr.Left, rightOr.Right))
-                {
-                    var common = leftOr.Left;
-                    // Remaining part: create AND with forced parentheses
-                    var remaining = new AndNode(leftOr.Right, rightOr.Left, true);
-                    return new OrNode(common, ApplyFactorizationInternal(remaining));
-                }
+                for (var i = 0; i < clauses.Count && !changed; i++)
+                    for (var j = i + 1; j < clauses.Count && !changed; j++)
+                    {
+                        if (clauses[i] is not OrNode orI || clauses[j] is not OrNode orJ) continue;
 
-                if (AreEqual(leftOr.Right, rightOr.Left))
-                {
-                    var common = leftOr.Right;
-                    // Remaining part: create AND with forced parentheses
-                    var remaining = new AndNode(leftOr.Left, rightOr.Right, true);
-                    return new OrNode(common, ApplyFactorizationInternal(remaining));
-                }
+                        var literalsI = FlattenOr(orI);
+                        var literalsJ = FlattenOr(orJ);
+                        var common = literalsI
+                            .Where(l => literalsJ.Contains(l, NodeComparer.Instance))
+                            .Distinct(NodeComparer.Instance)
+                            .ToList();
+                        if (common.Count == 0) continue;
 
-                if (AreEqual(leftOr.Right, rightOr.Right))
-                {
-                    var common = leftOr.Right;
-                    // Remaining part: create AND with forced parentheses
-                    var remaining = new AndNode(leftOr.Left, rightOr.Left, true);
-                    return new OrNode(common, ApplyFactorizationInternal(remaining));
-                }
+                        var restI = literalsI.Where(l => !common.Contains(l, NodeComparer.Instance)).ToList();
+                        var restJ = literalsJ.Where(l => !common.Contains(l, NodeComparer.Instance)).ToList();
+                        // A subset clause absorbs the other — absorption's job, not factoring's
+                        if (restI.Count == 0 || restJ.Count == 0) continue;
+
+                        var commonNode = common.Count == 1 ? common[0] : common.Aggregate((a, b) => new OrNode(a, b));
+                        var restINode = restI.Count == 1 ? restI[0] : restI.Aggregate((a, b) => new OrNode(a, b));
+                        var restJNode = restJ.Count == 1 ? restJ[0] : restJ.Aggregate((a, b) => new OrNode(a, b));
+                        var remaining = ApplyFactorizationInternal(new AndNode(restINode, restJNode, true));
+
+                        clauses[i] = new OrNode(commonNode, remaining);
+                        clauses.RemoveAt(j);
+                        changed = true;
+                    }
             }
 
-            var result = new AndNode(left, right);
-            result.ForceParentheses = andNode.ForceParentheses;
+            if (clauses.Count == 1) return clauses[0];
+
+            var result = clauses.Aggregate((a, b) => new AndNode(a, b));
+            if (result is AndNode resultAnd && andNode.ForceParentheses) resultAnd.ForceParentheses = true;
             return result;
         }
 
@@ -113,36 +113,85 @@ public class FactorizationOptimizer : IOptimizer
 
                     if (containsInAll)
                     {
-                        // Factor out common factor more efficiently
                         var remainingTerms = new List<AstNode>(terms.Count);
                         foreach (var term in terms)
                         {
                             var remainingTerm = RemoveFactor(term, factor);
-                            if (!IsTrue(remainingTerm))
-                                remainingTerms.Add(remainingTerm);
+                            // A term equal to the factor makes the remainder 1,
+                            // so the whole disjunction collapses: a | a&X = a
+                            if (IsTrue(remainingTerm))
+                                return factor;
+                            remainingTerms.Add(remainingTerm);
                         }
-
-                        if (remainingTerms.Count == 0) return factor;
 
                         var remaining = remainingTerms.Count == 1
                             ? remainingTerms[0]
                             : remainingTerms.Aggregate((a, b) => new OrNode(a, b));
 
-                        // Force parentheses: create AND with forced parentheses for OR part
-                        AstNode result;
-                        if (remaining is OrNode)
-                            // Don't create new OR with forced parentheses - they will be added automatically
-                            result = new AndNode(factor, remaining);
-                        else
-                            result = new AndNode(factor, remaining);
-
-                        return result;
+                        return new AndNode(factor, remaining);
                     }
                 }
             }
         }
 
-        return null;
+        // No factor is shared by ALL terms: factor out of the largest subgroup instead
+        // (a & b | a & c | d  →  d | a & (b | c))
+        return FactorizeLargestSubgroup(terms);
+    }
+
+    private AstNode? FactorizeLargestSubgroup(List<AstNode> terms)
+    {
+        AstNode? bestFactor = null;
+        List<AstNode>? bestGroup = null;
+
+        foreach (var term in terms)
+        {
+            if (term is not AndNode candidateAnd) continue;
+
+            foreach (var factor in FlattenAnd(candidateAnd))
+            {
+                var group = terms.Where(t => ContainsFactor(t, factor)).ToList();
+                if (group.Count < 2 || group.Count == terms.Count) continue;
+
+                if (bestGroup == null || group.Count > bestGroup.Count)
+                {
+                    bestGroup = group;
+                    bestFactor = factor;
+                }
+            }
+        }
+
+        if (bestGroup == null || bestFactor == null) return null;
+
+        var groupSet = new HashSet<AstNode>(bestGroup, ReferenceEqualityComparer.Instance);
+        var others = terms.Where(t => !groupSet.Contains(t)).ToList();
+
+        AstNode grouped;
+        var remainders = new List<AstNode>(bestGroup.Count);
+        var collapsed = false;
+        foreach (var term in bestGroup)
+        {
+            var remainder = RemoveFactor(term, bestFactor);
+            if (IsTrue(remainder))
+            {
+                // A group term equals the factor: the whole group collapses to it
+                collapsed = true;
+                break;
+            }
+
+            remainders.Add(remainder);
+        }
+
+        grouped = collapsed
+            ? bestFactor
+            : new AndNode(bestFactor,
+                remainders.Count == 1 ? remainders[0] : remainders.Aggregate((a, b) => new OrNode(a, b)));
+
+        var resultTerms = new List<AstNode> { grouped };
+        resultTerms.AddRange(others);
+        return resultTerms.Count == 1
+            ? resultTerms[0]
+            : resultTerms.Aggregate((a, b) => new OrNode(a, b));
     }
 
     private bool ContainsFactor(AstNode term, AstNode factor)
@@ -168,7 +217,7 @@ public class FactorizationOptimizer : IOptimizer
         {
             var allFactors = FlattenAnd(andTerm);
             var factors = new List<AstNode>(allFactors.Count);
-            
+
             foreach (var f in allFactors)
             {
                 if (!AreEqual(f, factor))
