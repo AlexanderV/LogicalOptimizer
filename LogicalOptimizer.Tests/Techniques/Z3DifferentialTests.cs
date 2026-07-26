@@ -14,7 +14,13 @@ public class Z3DifferentialTests
 {
     private static bool? _z3Available;
 
-    /// <summary>Probe once whether the managed Z3 API can load its native library.</summary>
+    /// <summary>
+    ///     Probe once whether the managed Z3 API can load a COMPATIBLE native library.
+    ///     Any initialization failure means "no oracle here": besides a missing library,
+    ///     CI runners have been seen loading an older system-wide libz3 whose exports do
+    ///     not match the bindings (EntryPointNotFoundException on ubuntu-latest), so the
+    ///     probe treats every throw as unavailable rather than enumerating failure modes.
+    /// </summary>
     private static bool Z3Available()
     {
         if (_z3Available.HasValue) return _z3Available.Value;
@@ -24,7 +30,7 @@ public class Z3DifferentialTests
             _ = probe.MkTrue();
             _z3Available = true;
         }
-        catch (Exception e) when (e is DllNotFoundException or TypeInitializationException or BadImageFormatException)
+        catch (Exception)
         {
             _z3Available = false;
         }
