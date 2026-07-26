@@ -42,14 +42,32 @@ LogicalOptimizer is a lightweight, dependency-free .NET library and CLI for pars
 - ✅ **Truth Table Generation**: Up to 20 variables with equivalence verification
 - ✅ **Multiple Export Formats**: DIMACS, BLIF, Verilog, CSV, Mathematical notation, LaTeX
 - ✅ **Performance Analytics**: Detailed metrics and benchmarking
-- ✅ **Comprehensive Testing**: 800 audited tests (full-suite audit removed ~180 duplicate/tautological tests and strengthened weak oracles) across ten systematic techniques — property-based (CsCheck), metamorphic, algebraic, differential (incl. a SymPy external oracle), fuzzing, characterization golden master, snapshot approval (Verify), architecture rules (ArchUnitNET), pairwise option coverage, and Stryker.NET mutation testing (see [doc/TESTING.md](doc/TESTING.md))
+- ✅ **Comprehensive Testing**: 866 audited tests (full-suite audit removed ~180 duplicate/tautological tests and strengthened weak oracles) across ten systematic techniques — property-based (CsCheck), metamorphic, algebraic, differential (with SymPy and Z3 as external oracles), fuzzing, characterization golden master, snapshot approval (Verify), architecture rules (ArchUnitNET), pairwise option coverage, and Stryker.NET mutation testing with per-module survivor triage (see [doc/TESTING.md](doc/TESTING.md))
 - ✅ **Error Protection**: Input validation and infinite loop prevention
 
 ## Quick Start
 
 ### Installation
+
+As NuGet packages (the facade pulls in all four engine packages; packages are
+published by the release workflow on version tags):
+
 ```bash
-git clone https://github.com/your-repo/LogicalOptimizer.git
+dotnet add package LogicalOptimizer          # facade: everything below
+# or pick individual layers:
+dotnet add package LogicalOptimizer.Core     # AST, parser, truth tables, FormulaFactory, AIG
+dotnet add package LogicalOptimizer.Sat      # CDCL solver, CNF encodings, MaxSAT
+dotnet add package LogicalOptimizer.Bdd      # ROBDD
+dotnet add package LogicalOptimizer.Minimization  # QM, Espresso-lite, multi-output
+
+# CLI as a global dotnet tool
+dotnet tool install -g LogicalOptimizer.Cli  # command: logical-optimizer
+```
+
+From source (requires the .NET 10 SDK):
+
+```bash
+git clone https://github.com/AlexanderV/LogicalOptimizer.git
 cd LogicalOptimizer
 dotnet build
 ```
@@ -57,81 +75,72 @@ dotnet build
 ### Basic Usage
 ```bash
 # Expression optimization
-dotnet run --project LogicalOptimizer -- "a & b | a & c"
+dotnet run --project LogicalOptimizer.Cli -- "a & b | a & c"
 # Output:
 # Original: a & b | a & c
 # Optimized: a & (b | c)
 # CNF: a & (b | c)
 # DNF: a & b | a & c
 # Variables: [a, b, c]
-# Advanced: (empty - no advanced patterns found)
+# (a truth table follows for expressions with ≤ 6 variables — omitted here;
+#  the Advanced line is printed only when a pattern is found)
 
 # Expression with XOR pattern
-dotnet run --project LogicalOptimizer -- "a & !b | !a & b"
+dotnet run --project LogicalOptimizer.Cli -- "a & !b | !a & b"
 # Output:
 # Original: a & !b | !a & b
 # Optimized: a & !b | b & !a
-# CNF: (a | b) & (!b | !a)
+# CNF: (a | b) & (!a | !b)
 # DNF: a & !b | b & !a
 # Variables: [a, b]
 # Advanced: a XOR b
 
 # Complex expression with multiple patterns (XOR + IMP)
-dotnet run --project LogicalOptimizer -- "((a & !b) | (!a & b)) & ((!c | d) | (e & f))"
+dotnet run --project LogicalOptimizer.Cli -- "((a & !b) | (!a & b)) & ((!c | d) | (e & f))"
 # Output:
 # Original: ((a & !b) | (!a & b)) & ((!c | d) | (e & f))
 # Optimized: (d | !c | e & f) & (a & !b | b & !a)
-# CNF: (d | !c | e) & (d | !c | f) & (a | b) & (!b | !a)
-# DNF: d & a & !b | d & b & !a | !c & a & !b | !c & b & !a | e & f & a & !b | e & f & b & !a
+# CNF: (a | b) & (!a | !b) & (d | e | !c) & (d | f | !c)
+# DNF: b & d & !a | a & d & !b | a & !b & !c | b & !a & !c | b & e & f & !a | a & e & f & !b
 # Variables: [a, b, c, d, e, f]
-# Advanced: (a XOR b) & ((c → d) | e & f)
+# Advanced: ((c → d) | e & f) & (a XOR b)
 
 # Get only CNF (Conjunctive Normal Form)
-dotnet run --project LogicalOptimizer -- --cnf "a & b | c"
+dotnet run --project LogicalOptimizer.Cli -- --cnf "a & b | c"
 # Result: (a | c) & (b | c)
 
-# Get only DNF (Disjunctive Normal Form)  
-dotnet run --project LogicalOptimizer -- --dnf "(a | b) & c"
+# Get only DNF (Disjunctive Normal Form)
+dotnet run --project LogicalOptimizer.Cli -- --dnf "(a | b) & c"
 # Result: a & c | b & c
 
 # Get only Advanced logical forms
-dotnet run --project LogicalOptimizer -- --advanced "a & !b | !a & b"
-# Result: XOR: a XOR b
+dotnet run --project LogicalOptimizer.Cli -- --advanced "a & !b | !a & b"
+# Result: (a XOR b)
 
-dotnet run --project LogicalOptimizer -- --advanced "!a | b"
-# Result: IMP: a → b
+dotnet run --project LogicalOptimizer.Cli -- --advanced "!a | b"
+# Result: a → b
 
-dotnet run --project LogicalOptimizer -- --advanced "a & b | !a & !b"
-# Result: EQV: a ↔ b
+dotnet run --project LogicalOptimizer.Cli -- --advanced "a & b | !a & !b"
+# Result: a ↔ b
 
-# Examples showing advanced forms (XOR, IMP, EQV):
-# XOR pattern expression:
-dotnet run --project LogicalOptimizer -- "a & !b | !a & b"
-# Output includes: Advanced: XOR: a XOR b
+# Detailed output with metrics and minimality status
+dotnet run --project LogicalOptimizer.Cli -- --verbose "!(a & b)"
+# Output includes: Iterations, Elapsed time, Minimality: MinimalProven
 
-# Implication pattern expression:
-dotnet run --project LogicalOptimizer -- "!a | b"
-# Output includes: Advanced: IMP: a → b
-
-# Equivalence pattern expression:
-dotnet run --project LogicalOptimizer -- "a & b | !a & !b"
-# Output includes: Advanced: EQV: a ↔ b
-
-# Expression without advanced patterns:
-dotnet run --project LogicalOptimizer -- "a & b | a & c"  
-# Output includes: Advanced: (empty)
-
-# Detailed output with metrics
-dotnet run --project LogicalOptimizer -- --verbose "!(a & b)"
+# Multi-output CSV minimization with shared cubes
+dotnet run --project LogicalOptimizer.Cli -- --outputs=Sum,Carry "a,b,Sum,Carry\n0,0,0,0\n0,1,1,0\n1,0,1,0\n1,1,0,1"
+# Output:
+# Sum = a & !b | b & !a
+# Carry = a & b
 
 # Features demonstration
-dotnet run --project LogicalOptimizer -- --demo
+dotnet run --project LogicalOptimizer.Cli -- --demo
 
 # Performance benchmarks
-dotnet run --project LogicalOptimizer -- --benchmark
+dotnet run --project LogicalOptimizer.Cli -- --benchmark
 
 # Help
-dotnet run --project LogicalOptimizer -- --help
+dotnet run --project LogicalOptimizer.Cli -- --help
 ```
 
 ## Supported Operators
@@ -177,7 +186,7 @@ Output: "a"
 ### Consensus rule
 ```bash
 Input: "a & b | !a & c | b & c"
-Output: "a & b | !a & c"
+Output: "a & b | c & !a"
 ```
 
 ### Advanced Pattern Recognition
@@ -196,7 +205,7 @@ Output: "a ↔ b"
 
 # Complex Mixed Patterns
 Input: "((a & !b) | (!a & b)) & ((!c | d) | (e & f))"
-Output: "(a XOR b) & ((c → d) | e & f)"
+Output: "((c → d) | e & f) & (a XOR b)"
 ```
 
 ## Programming Interface (API)
@@ -283,10 +292,13 @@ rationale and regeneration instructions is in [doc/TESTING.md](doc/TESTING.md).
 ### Performance Validation
 ```bash
 # Run comprehensive benchmarks
-dotnet run --project LogicalOptimizer -- --benchmark
+dotnet run --project LogicalOptimizer.Cli -- --benchmark
 
 # Performance analysis for specific expression
-dotnet run --project LogicalOptimizer -- --verbose "complex_expression_here"
+dotnet run --project LogicalOptimizer.Cli -- --verbose "complex_expression_here"
+
+# BenchmarkDotNet suite with machine-readable JSON results (doc/BENCHMARKS.md)
+dotnet run -c Release --project LogicalOptimizer.Benchmarks -- --filter *
 ```
 
 ### AST Visualization
@@ -294,10 +306,11 @@ The system provides Abstract Syntax Tree visualization for debugging and educati
 
 ```csharp
 var optimizer = new BooleanExpressionOptimizer();
-var result = optimizer.OptimizeExpression("(a | b) & (c | d)", enableMetrics: true);
+var result = optimizer.OptimizeExpression("(a | b) & (c | d)",
+    new OptimizationOptions { IncludeMetrics = true, IncludeDebugInfo = true });
 
-// Display parse tree structure
-Console.WriteLine(result.AstVisualization);
+// Human-readable debug dump: original and optimized AST trees + metrics
+Console.WriteLine(result.DebugInfo);
 ```
 
 ### Quality Analysis
@@ -309,7 +322,8 @@ Built-in optimization quality analyzer provides detailed metrics:
 
 ## Requirements
 
-- **.NET 8.0 or higher**
+- **Library packages**: .NET 8.0 or higher (multi-targeted `net8.0;net10.0`)
+- **CLI tool / building from source**: .NET 10 SDK
 - **Operating System**: Windows, Linux, or macOS
 - **Memory**: Minimum 512MB RAM (1GB+ recommended for large expressions)
 - **Storage**: 50MB free disk space
@@ -318,7 +332,8 @@ Built-in optimization quality analyzer provides detailed metrics:
 
 - 📖 **[Technical Specification](doc/Spec.md)** - Complete system specification
 - 🚀 **[Advanced Features Guide](doc/ADVANCED_FEATURES.md)** - Extended functionality documentation
-- 🧪 **[Testing Guide](LogicalOptimizer.Tests/)** - Test suite documentation
+- 🧪 **[Testing Strategy](doc/TESTING.md)** - Ten testing techniques, actuality matrix, audit log, mutation results
+- 📊 **[Benchmarks](doc/BENCHMARKS.md)** - BenchmarkDotNet results with machine-readable JSON artifacts
 
 ## Limitations
 
@@ -330,31 +345,122 @@ Built-in optimization quality analyzer provides detailed metrics:
 
 ## Architecture
 
+### Package layering
+
+Six NuGet packages with acyclic, downward-only dependencies (enforced by an
+architecture test):
+
+```mermaid
+graph TD
+    CLI["LogicalOptimizer.Cli<br/><i>dotnet tool: logical-optimizer</i>"]
+    Facade["LogicalOptimizer <i>(facade)</i><br/>BooleanExpressionOptimizer · rewrite pipeline ·<br/>EquivalenceChecker · FormulaAnalysis · exporters"]
+    Min["LogicalOptimizer.Minimization<br/>Quine–McCluskey · SAT prime cover ·<br/>Espresso-lite · multi-output · CSV tables"]
+    Sat["LogicalOptimizer.Sat<br/>CDCL solver · Tseitin/Plaisted–Greenbaum ·<br/>cardinality/PB · MaxSAT"]
+    Bdd["LogicalOptimizer.Bdd<br/>ROBDD · quantification ·<br/>sifting · model counting"]
+    Core["LogicalOptimizer.Core<br/>AST · Lexer/Parser · TruthTable ·<br/>FormulaFactory · AIG · metrics · budgets"]
+
+    CLI --> Facade
+    Facade --> Min
+    Facade --> Sat
+    Facade --> Bdd
+    Facade --> Core
+    Min --> Sat
+    Min --> Core
+    Sat --> Core
+    Bdd --> Core
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌──────────────────────┐
-│     Lexer       │───▶│     Parser       │───▶│  ExpressionOptimizer │
-│ (tokenization)  │    │ (AST building)   │    │   (optimization)     │
-└─────────────────┘    └──────────────────┘    └──────────────────────┘
-                                                            │
-                                                            ▼
-┌─────────────────┐    ┌─────────────────────┐    ┌───────────────────────┐
-│  TruthTable     │◀───│ NormalFormConverter │◀───│   FormattingController│
-│ (verification)  │    │   (CNF/DNF)         │    │   (parentheses)       │
-└─────────────────┘    └─────────────────────┘    └───────────────────────┘
+
+### Optimization flow (facade)
+
+Every result is verified equivalent to the input before it is returned; minimality
+claims carry an explicit status.
+
+```mermaid
+flowchart TD
+    In["expression text"] --> Lex[Lexer] --> Parse[Parser] --> Val["PerformanceValidator<br/>length / nesting / variable limits"]
+    Val --> Pipe["rewrite pipeline<br/><i>fixpoint loop, ≤20 iterations,<br/>cycle detection, 10 s guard</i>"]
+    Pipe --> Zone{variables?}
+
+    Zone -- "≤ 10" --> QMg["exact QM, unbounded cover search<br/><b>MinimalProven guaranteed</b>"]
+    Zone -- "11–12" --> QMb["exact QM under work budgets<br/>MinimalProven / BudgetExceeded"]
+    Zone -- "13–24" --> SatPath["SubcircuitLibrary local rewrite<br/>+ SAT prime cover (no 2^n table)<br/>adopted only after SAT-miter proof"]
+    Zone -- "> 24" --> Esp["SubcircuitLibrary local rewrite;<br/>DNF path shrunk by Espresso-lite<br/>(EXPAND / IRREDUNDANT / REDUCE)"]
+
+    QMg --> Sel["SelectCheapest<br/><i>literals, then nodes</i>"]
+    QMb --> Sel
+    SatPath --> Sel
+    Esp --> Sel
+
+    Sel --> Guard{"soundness guard<br/>≤12 vars: truth table<br/>>12 vars: SAT miter"}
+    Guard -- "equivalent" --> Out["OptimizationResult<br/>Optimized · CNF · DNF · Advanced ·<br/>MinimizationStatus · metrics"]
+    Guard -- "refuted (optimizer bug)" --> Roll["rollback to input<br/>+ SoundnessRollback metric"] --> Out
+```
+
+### Rewrite pipeline (the rule zoo)
+
+Applied in order inside the fixpoint loop; factorization runs under a global
+rollback because it may grow the tree:
+
+```mermaid
+flowchart LR
+    DM[DeMorgan] --> C[Constants] --> A[Absorption] --> Cp[Complement] --> As[Associativity]
+    As --> Cn[Consensus] --> R[Redundancy] --> Cm[Commutativity] --> F["Factorization<br/><i>(with rollback)</i>"]
+    F -. "changed? repeat<br/>(≤ 20 iterations)" .-> DM
+    F --> ER["ExpandReduce<br/><i>>12 vars only, bounded:<br/>distribute → re-simplify →<br/>keep only if strictly cheaper</i>"]
+```
+
+### Engine zoo
+
+```mermaid
+graph LR
+    subgraph Encodings
+        TC["TseitinConverter<br/>Tseitin / Plaisted–Greenbaum"]
+        CE["CardinalityEncoder<br/>AtMost/AtLeast/ExactlyK"]
+        PB["PseudoBooleanEncoder<br/>weighted sums"]
+    end
+
+    subgraph SAT["SatSolver (CDCL)"]
+        S["two-watched literals · 1UIP ·<br/>heap-VSIDS · Luby restarts ·<br/>LBD clause-DB reduction ·<br/>subsumption preprocessing"]
+        S --- Inc["incremental Solve(assumptions)<br/>+ unsat cores"]
+        S --- Drat["DRAT proof logging<br/>(RUP-checked in tests)"]
+    end
+
+    subgraph Consumers
+        EQ["EquivalenceChecker<br/>XOR-miter · counterexamples ·<br/>CheckWithProof certificates"]
+        FA["FormulaAnalysis<br/>backbone · model enumeration ·<br/>backbone simplification"]
+        MX["MaxSatSolver<br/>weighted partial"]
+        S2L["SatTwoLevelMinimizer<br/>prime cover for 13–24 vars"]
+    end
+
+    TC --> S
+    CE --> S
+    PB --> S
+    S --> EQ
+    S --> FA
+    S --> MX
+    S --> S2L
+
+    subgraph Standalone["Canonical representations"]
+        BDD["BinaryDecisionDiagram<br/>ite + hash-consing · model counting ·<br/>Exists/ForAll · Restrict/Compose ·<br/>BuildWithBestOrder · sifting"]
+        AIG["AndInverterGraph<br/>structural hashing ·<br/>complemented edges · Cleanup"]
+        FF["FormulaFactory<br/>n-ary And/Or · flattening ·<br/>constant/complement folding ·<br/>interning"]
+    end
+
+    EQ -.->|"fallback engine"| BDD
 ```
 
 ## Project Statistics
 
-- **Total tests**: 800 (all passing; performance and exhaustive-sweep categories run outside CI via --filter; suite fully audited 2026-07 — see doc/TESTING.md Part 4)
-- **Code coverage**: 88% comprehensive coverage
-- **Optimization algorithms**: 15+ (factorization, De Morgan, absorption, consensus, etc.)
-- **Supported optimization rules**: 20+ boolean algebra transformations
+- **Total tests**: 866 (all passing; performance and exhaustive-sweep categories run outside CI via --filter; suite fully audited 2026-07 — see doc/TESTING.md Part 4)
+- **Code coverage**: ~93% line coverage (CI enforces an 80% floor)
+- **Mutation scores** (Stryker.NET, per module): Transformations 100%, TruthTableMinimizer 82.6%, EspressoLite 72.5%, SatSolver 52.5% — every survivor killed or classified equivalent (doc/TESTING.md Part 5)
+- **Minimization engines**: 4 zones — exact QM (≤12 vars, proven ≤10), SAT prime cover (13–24), Espresso-lite cube lists (beyond), plus the precomputed 3-input subcircuit library
+- **Rewrite rules**: 9-stage pipeline (De Morgan, constants, absorption, complement, associativity, consensus, redundancy, commutativity, factorization) + bounded expand-reduce
 - **Pattern recognition**: XOR, IMP, and EQV pattern detection and replacement
 - **Export formats**: 6 (DIMACS, BLIF, Verilog, Mathematical, LaTeX, CSV)
-- **Operator support**: 3 core operators (AND, OR, NOT) + 3 advanced forms (XOR, IMP, EQV)
-- **Performance**: < 1sec for expressions up to 50 variables
+- **Operator support**: 3 core operators (AND, OR, NOT) in the text grammar + XOR, IMP, EQV, NAND, NOR node types in the AST/API
 - **Truth table capacity**: Up to 20 variables (1M+ combinations)
-- **Platform support**: Cross-platform (.NET 8.0)
+- **Platform support**: Cross-platform (packages net8.0/net10.0; CLI net10.0)
 
 ## Contributing
 
@@ -366,7 +472,7 @@ Built-in optimization quality analyzer provides detailed metrics:
 
 ## License
 
-Distributed under the Apache 2.0 License. See [LICENSE](https://github.com/AlexanderV/LogicalOptimizer#Apache-2.0-1-ov-file) for more information.
+Distributed under the Apache 2.0 License. See [LICENSE](LICENSE) for more information.
 
 ## Contact
 
