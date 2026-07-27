@@ -7,11 +7,24 @@
 
 ## Одноразове налаштування
 
-1. **NuGet API-ключ** — nuget.org → аватар → **API Keys** → **Create**:
-   - Scope: `Push` → **Push new packages and package versions** (потрібно для нових ID).
-   - Glob Pattern: `LogicalOptimizer*`.
-2. **Секрет GitHub** — Settings → Secrets and variables → **Actions** → New repository secret:
-   - Name: **`NUGET_API_KEY`** (точно так — workflow читає `secrets.NUGET_API_KEY`).
+Публікація використовує **Trusted Publishing (OIDC)** — жодного довгоживучого API-ключа в репо.
+`NuGet/login@v1` обмінює короткоживучий OIDC-токен GitHub на тимчасовий ключ (дійсний ~1 год)
+на час запуску workflow.
+
+1. **Політика Trusted Publishing на nuget.org** — увійти → аватар → **Trusted Publishing** →
+   додати політику:
+   - **Repository Owner:** `AlexanderV`
+   - **Repository:** `LogicalOptimizer`
+   - **Workflow File:** `release.yml` (лише ім'я файлу, без `.github/workflows/`)
+   - **Environment:** лишити порожнім (workflow не використовує environment).
+   - Owner політики — твій акаунт; вона діє на всі пакети цього власника (тож і на нові ID).
+   - *Примітка:* для приватного репо політика спершу «temporarily active» на 7 днів, поки перший
+     успішний push не зафіксує GitHub repo/owner ID (захист від resurrection-атак).
+2. **Repository variable `NUGET_USER`** — Settings → Secrets and variables → **Actions** →
+   вкладка **Variables** → **New repository variable**:
+   - Name: **`NUGET_USER`**, Value: твоє **ім'я профілю на nuget.org** (не email).
+   - Це не секрет (ім'я профілю публічне), тому саме variable, а не secret. **Жодного
+     `NUGET_API_KEY` більше не потрібно.**
 3. **GitHub Pages** (для DocFX-сайту) — Settings → **Pages** → Build and deployment →
    **Source = GitHub Actions**.
 4. **Доступність package ID** — перевір `https://www.nuget.org/packages/<ID>` для кожного з 6.
