@@ -64,8 +64,14 @@ dotnet run -c Release --project LogicalOptimizer.Benchmarks -- compare
 Competitor side (fills the SymPy/PyEDA columns where the tools are installed):
 
 ```powershell
-python tools/compare_sympy_pyeda.py            # optionally: --max-vars 16
+python tools/compare_sympy_pyeda.py            # optionally: --max-vars 14 --timeout 10
 ```
+
+`--max-vars N` skips functions above N variables (both tools build a 2ⁿ truth
+table); `--timeout` caps each function (POSIX/SIGALRM) so a slow PyEDA Espresso
+run is marked `timeout` instead of hanging. CI runs this step on the **Linux**
+runner only (Windows lacks SIGALRM, so the per-function timeout would not fire
+there).
 
 The Python script **self-skips** any tool that is not importable (printing a clear
 note, exit 0) and never fabricates numbers — mirroring `SymPyDifferentialTests`'

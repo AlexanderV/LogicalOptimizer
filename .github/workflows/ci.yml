@@ -46,14 +46,17 @@ jobs:
         run: dotnet test LogicalOptimizer.sln --no-build --configuration Release --filter "Category!=Performance&Category!=Exhaustive" --logger "trx" /p:CollectCoverage=true /p:Include="[LogicalOptimizer]*" /p:Threshold=80 /p:ThresholdType=line /p:ThresholdStat=total
 
       # Roadmap B2: emit the SymPy/PyEDA comparison table into the CI log where the
-      # tools exist (sympy installed above; pyeda best-effort). Non-gating and capped
-      # so it can never slow or fail the PR gate; the script self-skips absent tools.
+      # tools exist (sympy installed above; pyeda best-effort). Linux-only: the script's
+      # per-function timeout relies on SIGALRM, which does not exist on Windows, so a slow
+      # PyEDA espresso call there could stall until the step timeout. Non-gating and capped
+      # (var count + per-function timeout + step timeout) so it can never slow or fail the gate.
       - name: Comparison table (SymPy/PyEDA, non-gating)
+        if: runner.os == 'Linux'
         continue-on-error: true
-        timeout-minutes: 8
+        timeout-minutes: 6
         run: |
           python -m pip install pyeda || true
-          python tools/compare_sympy_pyeda.py --max-vars 16 --timeout 10
+          python tools/compare_sympy_pyeda.py --max-vars 14 --timeout 10
 
       # All six NuGet packages must always be packable
       - name: Pack (verification)
