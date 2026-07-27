@@ -24,8 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New complement-edge tests: O(1) structural negation, complement-bit canonicity,
   `modelCount(f) + modelCount(!f) == 2^n`, and zero-extra-node sharing, all
   cross-checked against the differential and fuzzing brute-force oracles.
-- Made the gate-visible mid-flight cancellation test deterministic (reliably
-  multi-second workload with an early cancel) instead of racing a timer.
+- Removed the gate-visible mid-flight cancellation test: reliably exercising
+  *mid-flight* (not entry-point) cancellation needs a tuned multi-second
+  workload, which is timing/input-dependent and belongs in the Performance
+  suite (`MidFlightCancellationTests`), not the fast PR gate. Deterministic
+  entry-point cancellation for the facade, SAT solver, QM minimizer and BDD
+  stays covered in the gate by `ResourceBudgetAndCancellationTests`
+  (pre-cancelled tokens).
 
 ## [2.0.0] - 2026-07-27
 

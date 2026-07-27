@@ -10,8 +10,7 @@ and `PropertyBasedTests` SAT-miter cross-check had degenerated to truth-table-vs
 `OptimizerTruthTableTests`, the consensus slack-scan, CLI validation twins); missing v2 coverage
 added (flat n-ary C#/BLIF/Verilog rendering, n-ary Tseitin clause counts, canonical-order
 tie-breaks, distributive `ToDnf`/`ToCnf`+budget, multi-output cube sharing that actually
-exercises `TrySharedCovers`, a gate-visible mid-flight cancellation test, a >12-var SAT-miter
-differential). Suite: **880 cases, 0 failed, 0 skipped** (net10.0, CI filter).
+exercises `TrySharedCovers`, a >12-var SAT-miter differential). Suite green (net10.0, CI filter).
 **Previous audit:** 2026-07-24 (full-suite audit: ~180 garbage/duplicate tests removed,
 ~30 weak tests strengthened, two whole files with test-local re-implementations of production
 logic deleted).
@@ -90,7 +89,9 @@ LogicalOptimizer.Tests/
 │     OptimizationMetricsTests (n-ary cost model) · OptimizationQualityAnalyzerTests ·
 │     OptimizationResultTests · EqvIntegrationTests · ConsoleTestedCasesTests
 │     (unique regression rows) · ConsoleInterfaceTests (limits) ·
-│     MidFlightCancellationTests (Performance) · MidFlightCancellationGateTests (gate-visible) ·
+│     MidFlightCancellationTests (Performance; mid-flight cancellation is timing-dependent so
+│     it lives here, not the gate — the gate has ResourceBudgetAndCancellationTests' deterministic
+│     pre-cancelled-token checks) ·
 │     ResourceBudgetAndCancellationTests · PerformanceValidatorTests (input validation)
 ├── Formats/               CsvTruthTableParserTests · MultiOutputCsvTests · ExportTests
 │                          (n-ary BLIF/Verilog gates) · CSharpExpressionExporterTests
@@ -256,9 +257,15 @@ Fixes applied (~35 across all folders):
   canonical-order tie-breaks (Not-vs-Not, equal-complexity composites); `DistributiveExpander`
   `ToDnf`/`ToCnf` + budget-exceeded throw; multi-output minimization redesigned to actually
   exercise `TrySharedCovers` (3 shared cubes strictly beating 4 independent, with an independent
-  cube-count oracle); a **gate-visible** mid-flight cancellation test (the strong ones were
-  `Category=Performance`, excluded from the CI gate); strict folding reduction in
-  `FormulaFactoryTests` (raw un-canonical input, not an already-folded tree).
+  cube-count oracle); strict folding reduction in `FormulaFactoryTests` (raw un-canonical input,
+  not an already-folded tree).
+  - *Note:* a gate-visible mid-flight cancellation test was attempted but removed — reliably
+    exercising *mid-flight* (not entry-point) cancellation needs a tuned multi-second workload
+    that is timing/input-dependent (it flaked in CI both too-fast and too-slow), so mid-flight
+    cancellation stays in the Performance suite; the gate keeps the deterministic
+    pre-cancelled-token checks in `ResourceBudgetAndCancellationTests`. A separate observation
+    worth following up: a dense 13-variable `MinimalSop` run went ~41 s without honoring a
+    mid-flight token — a possible cancellation-granularity gap for large QM inputs.
 - **Weak asserts strengthened:** deterministic quality scores pinned exactly (score 85, ratio
   1/9); `↔`/`XOR` detections pinned to exact operands; hand-computed truth-table oracle anchors
   added to the De Morgan laws; constructor-echo `Assert.Same(.Left/.Right)` removed.
