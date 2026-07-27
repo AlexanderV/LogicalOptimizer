@@ -46,8 +46,27 @@ LogicalOptimizer is a lightweight, dependency-free .NET library and CLI for pars
 - ✅ **Truth Table Generation**: Up to 20 variables with equivalence verification
 - ✅ **Multiple Export Formats**: DIMACS, BLIF, Verilog, CSV, Mathematical notation, LaTeX
 - ✅ **Performance Analytics**: Detailed metrics and benchmarking
-- ✅ **Comprehensive Testing**: 891 audited tests (full-suite audit removed ~180 duplicate/tautological tests and strengthened weak oracles) across ten systematic techniques — property-based (CsCheck), metamorphic, algebraic, differential (with SymPy and Z3 as external oracles), fuzzing, characterization golden master, snapshot approval (Verify), architecture rules (ArchUnitNET), pairwise option coverage, and Stryker.NET mutation testing with per-module survivor triage (see [doc/TESTING.md](doc/TESTING.md))
+- ✅ **Comprehensive Testing**: 888 audited tests (full-suite audit removed ~180 duplicate/tautological tests and strengthened weak oracles) across ten systematic techniques — property-based (CsCheck), metamorphic, algebraic, differential (with SymPy and Z3 as external oracles), fuzzing, characterization golden master, snapshot approval (Verify), architecture rules (ArchUnitNET), pairwise option coverage, and Stryker.NET mutation testing with per-module survivor triage (see [doc/TESTING.md](doc/TESTING.md))
 - ✅ **Error Protection**: Input validation and infinite loop prevention
+
+## Result quality vs SymPy / PyEDA
+
+On a [shared corpus](tools/comparison_corpus.txt), LogicalOptimizer's result size
+(literal count, machine-independent) is **never larger** than the two-level
+minimizers SymPy (`simplify_logic`) and PyEDA (Espresso), and often smaller —
+because the default output is **multi-level (factored)**, not two-level SOP:
+
+| Function | Vars | LogicalOptimizer | SymPy | PyEDA |
+|----------|-----:|:----------------:|:-----:|:-----:|
+| maj4 | 4 | **9** | 12 | 12 |
+| xor3 | 3 | **10** | 12 | 12 |
+| pos6 | 6 | **6** | 24 | 24 |
+| collapse14 | 14 | **7** | `timeout` | 7 |
+
+SymPy builds a 2ⁿ truth table and times out from 10 variables; PyEDA and
+LogicalOptimizer stay in the low-millisecond range. Full table, methodology and
+reproduce commands: **[doc/BENCHMARKS.md](doc/BENCHMARKS.md)**. (Where a two-level
+SOP is required, the `--dnf` path matches them cube for cube.)
 
 ## Quick Start
 
@@ -356,7 +375,7 @@ Built-in optimization quality analyzer provides detailed metrics:
 - 📖 **[Technical Specification](doc/Spec.md)** - Complete system specification
 - 🚀 **[Advanced Features Guide](doc/ADVANCED_FEATURES.md)** - Extended functionality documentation
 - 🧪 **[Testing Strategy](doc/TESTING.md)** - Ten testing techniques, actuality matrix, audit log, mutation results
-- 📊 **[Benchmarks](doc/BENCHMARKS.md)** - BenchmarkDotNet results with machine-readable JSON artifacts
+- 📊 **[Benchmarks](doc/BENCHMARKS.md)** - head-to-head result-size/time comparison vs SymPy and PyEDA, plus BenchmarkDotNet results and the SAT-corpus perf-regression
 
 ## Limitations
 

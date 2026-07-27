@@ -10,5 +10,7 @@
   href: cli-usage.md
 - name: Migration to v2.0
   href: migration-v2.md
+- name: Benchmarks & Comparison
+  href: benchmarks.md
 - name: Testing Overview
   href: testing-overview.md
