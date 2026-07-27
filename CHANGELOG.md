@@ -19,11 +19,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   complement bit; public behavior is unchanged and canonicity is preserved
   (equivalent formulas produce the identical edge, complement bit included).
 
+### Fixed
+
+- **Cancellation granularity in exact minimization.** `TruthTableMinimizer`'s
+  branch-and-bound cover search (`CoverSearch`) observed only its own step
+  limit, so a dense function with a large cyclic core could run for tens of
+  seconds ignoring a mid-flight `CancellationToken` (a dense 13-variable case
+  ran ~41 s). The cover search now checks the token periodically, and the
+  covering-table row/column-dominance passes and the greedy fallback check it
+  too; `MinimalPos` now forwards the token to its cover search.
+
 ### Tests
 
 - New complement-edge tests: O(1) structural negation, complement-bit canonicity,
   `modelCount(f) + modelCount(!f) == 2^n`, and zero-extra-node sharing, all
   cross-checked against the differential and fuzzing brute-force oracles.
+- Regression test for the cancellation-granularity fix above (dense 13-variable
+  cover search, in the Performance mid-flight cancellation suite).
 - Removed the gate-visible mid-flight cancellation test: reliably exercising
   *mid-flight* (not entry-point) cancellation needs a tuned multi-second
   workload, which is timing/input-dependent and belongs in the Performance

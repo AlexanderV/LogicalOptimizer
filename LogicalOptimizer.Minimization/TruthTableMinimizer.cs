@@ -34,7 +34,11 @@ public static class TruthTableMinimizer
     ///     to heuristic simplification (dense functions near 12 variables can otherwise
     ///     cost seconds).
     /// </param>
-    /// <param name="cancellationToken">Cooperative cancellation, observed per QM level.</param>
+    /// <param name="cancellationToken">
+    ///     Cooperative cancellation, observed throughout: prime generation (per level and
+    ///     within dense pairing loops), covering-table reduction (per row/column pass) and
+    ///     the branch-and-bound cover search (periodically per node).
+    /// </param>
     public static AstNode MinimalSop(IReadOnlyList<string> variables,
         IReadOnlyCollection<int> onSet, IReadOnlyCollection<int>? dontCareSet = null,
         long? pairComparisonLimit = null, CancellationToken cancellationToken = default)
@@ -116,7 +120,7 @@ public static class TruthTableMinimizer
 
         var primes = GeneratePrimeImplicants(variables.Count, new HashSet<int>(offSet.Concat(dc)),
             pairComparisonLimit, cancellationToken);
-        var (cover, _) = SelectMinimumCover(primes, offSet, ResourceBudget.DefaultCoverStepLimit);
+        var (cover, _) = SelectMinimumCover(primes, offSet, ResourceBudget.DefaultCoverStepLimit, cancellationToken);
 
         // Each complement product (x & !y) becomes a clause (!x | y)
         var clauses = cover.Select(implicant => BuildClause(variables, implicant)).ToList();
@@ -188,7 +192,7 @@ public static class TruthTableMinimizer
         if (uncovered.Count == 0) return (cover, true);
 
         // Cyclic core: exact branch-and-bound on what the reductions could not resolve
-        var search = new CoverSearch(candidates, stepLimit);
+        var search = new CoverSearch(candidates, stepLimit, cancellationToken);
         var best = search.Search(uncovered, new List<Implicant>(), null);
         var proven = best != null && !search.LimitHit;
 
@@ -199,6 +203,7 @@ public static class TruthTableMinimizer
             var remaining = new HashSet<int>(uncovered);
             while (remaining.Count > 0)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var pick = candidates
                     .OrderByDescending(c => remaining.Count(c.Covers))
                     .ThenBy(c => c.LiteralCount)
@@ -262,6 +267,9 @@ public static class TruthTableMinimizer
                 m => candidates.Select((c, i) => (c, i)).Where(x => x.c.Covers(m)).Select(x => x.i).ToHashSet());
             foreach (var m1 in rows)
             {
+                // A single row-dominance pass over a dense table is O(rows^2); the
+                // per-round check above is too coarse, so observe cancellation per row.
+                cancellationToken.ThrowIfCancellationRequested();
                 if (!uncovered.Contains(m1)) continue;
                 foreach (var m2 in rows)
                 {
@@ -289,6 +297,8 @@ public static class TruthTableMinimizer
                 c => c,
                 c => uncovered.Where(c.Covers).ToHashSet());
             for (var i = 0; i < candidates.Count && !progress; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
                 for (var j = 0; j < candidates.Count; j++)
                 {
                     if (i == j) continue;
@@ -305,6 +315,7 @@ public static class TruthTableMinimizer
                         break;
                     }
                 }
+            }
         } while (progress && uncovered.Count > 0);
     }
 
@@ -312,12 +323,14 @@ public static class TruthTableMinimizer
     {
         private readonly List<Implicant> _candidates;
         private readonly int _stepLimit;
+        private readonly CancellationToken _cancellationToken;
         private int _steps;
 
-        public CoverSearch(List<Implicant> candidates, int stepLimit)
+        public CoverSearch(List<Implicant> candidates, int stepLimit, CancellationToken cancellationToken)
         {
             _candidates = candidates;
             _stepLimit = stepLimit;
+            _cancellationToken = cancellationToken;
         }
 
         public bool LimitHit { get; private set; }
@@ -334,6 +347,12 @@ public static class TruthTableMinimizer
                 LimitHit = true;
                 return best;
             }
+
+            // Branch-and-bound on a large cyclic core can run for many steps under a
+            // high budget; observe cancellation here (the search checked only its own
+            // step limit before, so a dense table ignored the token for tens of seconds)
+            // without paying a check at every node.
+            if ((_steps & 0x3FF) == 0) _cancellationToken.ThrowIfCancellationRequested();
 
             if (best != null)
             {

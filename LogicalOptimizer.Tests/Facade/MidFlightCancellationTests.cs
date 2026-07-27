@@ -44,6 +44,25 @@ public class MidFlightCancellationTests
     }
 
     [Fact]
+    public void ExactMinimizer_CancelsDuringLargeCyclicCoreCoverSearch()
+    {
+        // Regression: the branch-and-bound cover search (CoverSearch) observed only its
+        // own step limit, not the token, so a dense 13-variable function with a large
+        // cyclic core ran ~41 s ignoring a mid-flight cancel. Seed 20260727 reproduced it
+        // (prime generation finished fast; the time was spent in the cover search /
+        // covering-table reduction, which now check the token).
+        var rng = new Random(20260727);
+        var variables = Enumerable.Range(0, 13).Select(i => $"v{i:D2}").ToList();
+        var onSet = new HashSet<int>();
+        for (var m = 0; m < 1 << 13; m++)
+            if (rng.Next(2) == 0)
+                onSet.Add(m);
+
+        AssertCancelsPromptly(token =>
+            TruthTableMinimizer.MinimalSop(variables, onSet, cancellationToken: token));
+    }
+
+    [Fact]
     public void SatSolver_CancelsDuringHardPhaseTransitionInstance()
     {
         // 400-variable instance at the 4.26 clause ratio: far beyond what resolves in

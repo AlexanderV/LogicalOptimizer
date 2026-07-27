@@ -263,9 +263,11 @@ Fixes applied (~35 across all folders):
     exercising *mid-flight* (not entry-point) cancellation needs a tuned multi-second workload
     that is timing/input-dependent (it flaked in CI both too-fast and too-slow), so mid-flight
     cancellation stays in the Performance suite; the gate keeps the deterministic
-    pre-cancelled-token checks in `ResourceBudgetAndCancellationTests`. A separate observation
-    worth following up: a dense 13-variable `MinimalSop` run went ~41 s without honoring a
-    mid-flight token — a possible cancellation-granularity gap for large QM inputs.
+    pre-cancelled-token checks in `ResourceBudgetAndCancellationTests`. The attempt also
+    surfaced a real product gap — a dense 13-variable `MinimalSop` ran ~41 s without honoring a
+    mid-flight token because the branch-and-bound cover search checked only its step limit; this
+    was fixed (the cover search, covering-table reductions and greedy fallback now observe the
+    token), with a regression test in `MidFlightCancellationTests`.
 - **Weak asserts strengthened:** deterministic quality scores pinned exactly (score 85, ratio
   1/9); `↔`/`XOR` detections pinned to exact operands; hand-computed truth-table oracle anchors
   added to the De Morgan laws; constructor-echo `Assert.Same(.Left/.Right)` removed.
