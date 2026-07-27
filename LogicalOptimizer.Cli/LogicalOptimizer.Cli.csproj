@@ -17,6 +17,7 @@
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>boolean;logic;minimization;cli;quine-mccluskey;sat</PackageTags>
+    <PackageProjectUrl>https://AlexanderV.github.io/LogicalOptimizer/</PackageProjectUrl>
   </PropertyGroup>
 
   <ItemGroup>

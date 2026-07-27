@@ -14,6 +14,7 @@
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>boolean;logic;minimization;quine-mccluskey;sat-solver;bdd;cnf;dnf;tseitin;equivalence</PackageTags>
+    <PackageProjectUrl>https://AlexanderV.github.io/LogicalOptimizer/</PackageProjectUrl>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- CS1591: missing XML comments on some public members; CS1570: unescaped '&' in
          boolean-formula examples inside comments. Docs are being expanded incrementally. -->

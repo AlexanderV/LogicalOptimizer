@@ -1,5 +1,7 @@
 # LogicalOptimizer - Boolean Expression Optimizer
 
+📚 **Documentation site: [https://AlexanderV.github.io/LogicalOptimizer/](https://AlexanderV.github.io/LogicalOptimizer/)** — API reference (generated from the library XML doc comments) plus conceptual articles (getting started, operation contracts & statuses, budgets & the zone model, packages & architecture, CLI usage, migration, testing). Built by the [`Docs` workflow](.github/workflows/docs.yml) from `docs-site/` and deployed to GitHub Pages on every push to `main`.
+
 > **🤖 AI-Assisted Development Notice**
 > 
 > This project was developed with extensive assistance from Large Language Models (LLM), including:

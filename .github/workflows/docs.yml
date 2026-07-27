@@ -1,0 +1,68 @@
+name: Docs
+
+# Builds the DocFX documentation site (API reference from the five library packages'
+# XML doc comments + conceptual articles) and deploys it to GitHub Pages.
+#
+# One-time setup by a repo admin: Settings -> Pages -> "Build and deployment" ->
+# Source = "GitHub Actions". No secrets are required.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs-site/**'
+      - 'LogicalOptimizer.Core/**'
+      - 'LogicalOptimizer.Sat/**'
+      - 'LogicalOptimizer.Bdd/**'
+      - 'LogicalOptimizer.Minimization/**'
+      - 'LogicalOptimizer/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+# Allow the deploy job to publish to GitHub Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Serialize Pages deployments; do not cancel an in-progress one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # DocFX drives a `dotnet build` of the five library projects to extract API
+      # metadata from their XML doc comments, so restore first.
+      - name: Restore
+        run: dotnet restore LogicalOptimizer.sln
+
+      - name: Install DocFX
+        run: dotnet tool install -g docfx
+
+      - name: Build documentation site
+        run: docfx docs-site/docfx.json
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs-site/_site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

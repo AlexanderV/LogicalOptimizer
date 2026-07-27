@@ -1,0 +1,22 @@
+# API reference filter.
+#
+# DocFX already documents only the *public* surface, so the internal engine
+# (parser/lexer, RewriteEngine, AndInverterGraph, Tseitin converter, SAT proof
+# steps, etc.) never appears. These rules make the public-surface intent explicit
+# and keep generated/browsable-never members out of the site. Rules are applied
+# top-down, first match wins.
+apiRules:
+  # The internal rewrite layer is `internal`, but exclude the namespace outright
+  # so it can never leak into the reference even if a member is made public later.
+  - exclude:
+      uidRegex: ^LogicalOptimizer\.Rewrite($|\.)
+  # Honour [EditorBrowsable(Never)] as a "hide from docs" marker.
+  - exclude:
+      hasAttribute:
+        uid: System.ComponentModel.EditorBrowsableAttribute
+        ctorArguments:
+          - System.ComponentModel.EditorBrowsableState.Never
+  # Document the public LogicalOptimizer surface (the 53-type API).
+  - include:
+      uidRegex: ^LogicalOptimizer($|\.)
+      type: Namespace
