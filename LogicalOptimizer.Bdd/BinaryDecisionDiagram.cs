@@ -9,6 +9,17 @@ namespace LogicalOptimizer;
 ///     node — ideal for repeated equivalence queries against one baseline. A node budget
 ///     turns pathological orderings into a clean exception instead of memory blowup
 ///     (callers can fall back to the SAT-based <c>EquivalenceChecker</c>).
+///     <para>
+///         The diagram uses CUDD-style <b>complement edges</b>: an "edge" is an int that
+///         packs a node index and a complement bit (the low bit); a function and its
+///         negation share the very same node, halving memory, and <see cref="Negate" /> is
+///         an O(1) bit flip. There is a single terminal node (ONE); <c>FALSE</c> is the
+///         complemented edge to it. The canonical invariant is that the THEN (high) edge of
+///         every stored node is always regular (non-complemented); when a node would be
+///         built with a complemented then-edge, both children are complemented and a
+///         complemented edge to the normalized node is returned. That single rule keeps the
+///         representation canonical, so equivalence is still edge equality.
+///     </para>
 /// </summary>
 public sealed class BinaryDecisionDiagram
 {
@@ -17,8 +28,13 @@ public sealed class BinaryDecisionDiagram
     /// <summary>Thrown message marker when the node budget interrupts construction.</summary>
     internal const string NodeBudgetMessage = "BDD node budget exceeded";
 
-    internal const int FalseNode = 0;
-    internal const int TrueNode = 1;
+    /// <summary>The single terminal node (ONE) lives at node index 0.</summary>
+    private const int One = 0;
+
+    // Edges, not node indices: edge = (nodeIndex << 1) | complementBit. The regular edge
+    // to ONE is the constant-true function; its complement is the constant-false function.
+    internal const int TrueNode = 0; // (One << 1) | 0
+    internal const int FalseNode = 1; // (One << 1) | 1
 
     private readonly List<(int Variable, int Low, int High)> _nodes = new();
     private readonly Dictionary<(int Variable, int Low, int High), int> _uniqueTable = new();
@@ -44,9 +60,9 @@ public sealed class BinaryDecisionDiagram
     {
         _nodeBudget = nodeBudget;
         _cancellationToken = cancellationToken;
-        // Terminals occupy slots 0 and 1; their variable index sorts after every real variable
+        // The single terminal ONE occupies slot 0; its variable index sorts after every
+        // real variable. FALSE is not a node — it is the complemented edge to ONE.
         _nodes.Add((int.MaxValue, 0, 0));
-        _nodes.Add((int.MaxValue, 1, 1));
 
         var order = sortVariables ? variables.OrderBy(v => v) : variables;
         foreach (var name in order)
@@ -56,8 +72,47 @@ public sealed class BinaryDecisionDiagram
 
     public IReadOnlyList<string> Variables => _variables;
 
-    /// <summary>Live node count including the two terminals.</summary>
+    /// <summary>Live node count including the single terminal.</summary>
     public int NodeCount => _nodes.Count;
+
+    // ---- Complement-edge helpers -------------------------------------------------------
+    // An edge packs a node index (high bits) and a complement flag (low bit). Node handles
+    // and the complement bit are kept strictly separate through these functions so no
+    // consumer ever inspects the raw layout directly.
+
+    /// <summary>The regular (non-complemented) form of an edge.</summary>
+    internal static int Regular(int edge)
+    {
+        return edge & ~1;
+    }
+
+    /// <summary>True when the edge carries the complement bit (its function is negated).</summary>
+    internal static bool IsComplemented(int edge)
+    {
+        return (edge & 1) != 0;
+    }
+
+    /// <summary>Flip an edge's complement bit — this is exactly boolean negation, in O(1).</summary>
+    internal static int Complement(int edge)
+    {
+        return edge ^ 1;
+    }
+
+    private static int MakeEdge(int nodeIndex, bool complemented)
+    {
+        return (nodeIndex << 1) | (complemented ? 1 : 0);
+    }
+
+    /// <summary>The node index an edge points at (the terminal ONE is index 0).</summary>
+    private static int NodeOf(int edge)
+    {
+        return edge >> 1;
+    }
+
+    private static bool IsConstant(int edge)
+    {
+        return NodeOf(edge) == One;
+    }
 
     /// <summary>Build a diagram for one expression in its own manager.</summary>
     public static BinaryDecisionDiagram Build(AstNode ast, int nodeBudget = DefaultNodeBudget,
@@ -91,7 +146,7 @@ public sealed class BinaryDecisionDiagram
         }
     }
 
-    /// <summary>Translate an expression into this manager; returns its node.</summary>
+    /// <summary>Translate an expression into this manager; returns its edge.</summary>
     internal int FromAst(AstNode node)
     {
         switch (node)
@@ -101,7 +156,7 @@ public sealed class BinaryDecisionDiagram
             case VariableNode variable:
                 return MakeNode(_variableIndex[variable.Name], FalseNode, TrueNode);
             case NotNode not:
-                return Ite(FromAst(not.Operand), FalseNode, TrueNode);
+                return Negate(FromAst(not.Operand));
             case AndNode and:
                 {
                     // Left-to-right fold over the n-ary operand list (operands are
@@ -140,9 +195,10 @@ public sealed class BinaryDecisionDiagram
         }
     }
 
+    /// <summary>Boolean negation: a single complement-bit flip (O(1) with complement edges).</summary>
     internal int Negate(int node)
     {
-        return Ite(node, FalseNode, TrueNode);
+        return Complement(node);
     }
 
     internal bool IsTautology(int node)
@@ -177,6 +233,8 @@ public sealed class BinaryDecisionDiagram
     internal BigInteger CountSatisfyingAssignments(int node)
     {
         var memo = new Dictionary<int, BigInteger>();
+        // SatCount is over levels VariableLevel(node)..n-1; multiply back in the free
+        // variables above the root (levels 0..VariableLevel(node)-1).
         return SatCount(node, memo) * BigInteger.Pow(2, VariableLevel(node));
     }
 
@@ -189,13 +247,19 @@ public sealed class BinaryDecisionDiagram
     /// <summary>Evaluate the function at one assignment (defaults missing variables to false).</summary>
     internal bool Evaluate(int node, IReadOnlyDictionary<string, bool> assignment)
     {
-        while (node > TrueNode)
+        // Accumulate the complement parity along the path: the value at the terminal is
+        // TRUE, flipped once for every complemented edge traversed (including the root).
+        var complemented = IsComplemented(node);
+        var index = NodeOf(node);
+        while (index != One)
         {
-            var (variable, low, high) = _nodes[node];
-            node = assignment.TryGetValue(_variables[variable], out var value) && value ? high : low;
+            var (variable, low, high) = _nodes[index];
+            var next = assignment.TryGetValue(_variables[variable], out var value) && value ? high : low;
+            complemented ^= IsComplemented(next);
+            index = NodeOf(next);
         }
 
-        return node == TrueNode;
+        return !complemented;
     }
 
     /// <summary>
@@ -213,9 +277,10 @@ public sealed class BinaryDecisionDiagram
         return EnumerateFrom(node, 0, new bool[_variables.Count]);
     }
 
-    private IEnumerable<IReadOnlyDictionary<string, bool>> EnumerateFrom(int node, int level, bool[] assignment)
+    private IEnumerable<IReadOnlyDictionary<string, bool>> EnumerateFrom(int edge, int level, bool[] assignment)
     {
-        if (node == FalseNode) yield break;
+        // The constant-false function is uniquely the FALSE edge; prune it.
+        if (edge == FalseNode) yield break;
 
         if (level == _variables.Count)
         {
@@ -225,13 +290,22 @@ public sealed class BinaryDecisionDiagram
             yield break;
         }
 
-        var branchesHere = VariableLevel(node) == level;
+        var branchesHere = VariableLevel(edge) == level;
         foreach (var value in new[] { false, true })
         {
             assignment[level] = value;
-            var child = branchesHere
-                ? value ? _nodes[node].High : _nodes[node].Low
-                : node; // variable absent from this path: both values allowed
+            int child;
+            if (branchesHere)
+            {
+                var (_, low, high) = _nodes[NodeOf(edge)];
+                var raw = value ? high : low;
+                child = IsComplemented(edge) ? Complement(raw) : raw;
+            }
+            else
+            {
+                child = edge; // variable absent from this path: both values allowed
+            }
+
             foreach (var result in EnumerateFrom(child, level + 1, assignment))
                 yield return result;
         }
@@ -252,12 +326,20 @@ public sealed class BinaryDecisionDiagram
             throw new InvalidOperationException("Function is unsatisfiable");
 
         var assignment = new Dictionary<string, bool>();
-        while (node > TrueNode)
+        var complemented = IsComplemented(node);
+        var index = NodeOf(node);
+        while (index != One)
         {
-            var (variable, low, high) = _nodes[node];
-            var takeLow = low != FalseNode;
+            var (variable, low, high) = _nodes[index];
+            // Resolve both branches to absolute edges (folding in the accumulated
+            // complement parity), then follow one that is not constant-false.
+            var lowEdge = complemented ? Complement(low) : low;
+            var takeLow = lowEdge != FalseNode;
             assignment[_variables[variable]] = !takeLow;
-            node = takeLow ? low : high;
+
+            var next = takeLow ? lowEdge : complemented ? Complement(high) : high;
+            complemented = IsComplemented(next);
+            index = NodeOf(next);
         }
 
         foreach (var name in _variables) assignment.TryAdd(name, false);
@@ -312,39 +394,42 @@ public sealed class BinaryDecisionDiagram
         return level;
     }
 
-    private int RestrictLevel(int node, int level, bool value, Dictionary<int, int> memo)
+    private int RestrictLevel(int edge, int level, bool value, Dictionary<int, int> memo)
     {
-        if (node <= TrueNode || VariableLevel(node) > level) return node;
-        if (memo.TryGetValue(node, out var cached)) return cached;
+        if (IsConstant(edge) || VariableLevel(edge) > level) return edge;
+        if (memo.TryGetValue(edge, out var cached)) return cached;
 
-        var (variable, low, high) = _nodes[node];
+        var (variable, low, high) = _nodes[NodeOf(edge)];
+        // Absolute child edges, with the current node's complement parity folded in.
+        var lowEdge = IsComplemented(edge) ? Complement(low) : low;
+        var highEdge = IsComplemented(edge) ? Complement(high) : high;
+
         var result = variable == level
-            ? value ? high : low
-            : MakeNode(variable, RestrictLevel(low, level, value, memo),
-                RestrictLevel(high, level, value, memo));
-        memo[node] = result;
+            ? value ? highEdge : lowEdge
+            : MakeNode(variable, RestrictLevel(lowEdge, level, value, memo),
+                RestrictLevel(highEdge, level, value, memo));
+        memo[edge] = result;
         return result;
     }
 
-    private int QuantifyLevel(int node, int level, bool universal, Dictionary<int, int> memo)
+    private int QuantifyLevel(int edge, int level, bool universal, Dictionary<int, int> memo)
     {
-        if (node <= TrueNode || VariableLevel(node) > level) return node;
-        if (memo.TryGetValue(node, out var cached)) return cached;
+        if (IsConstant(edge) || VariableLevel(edge) > level) return edge;
+        if (memo.TryGetValue(edge, out var cached)) return cached;
 
-        var (variable, low, high) = _nodes[node];
+        var (variable, low, high) = _nodes[NodeOf(edge)];
+        var lowEdge = IsComplemented(edge) ? Complement(low) : low;
+        var highEdge = IsComplemented(edge) ? Complement(high) : high;
+
         int result;
         if (variable == level)
-        {
-            result = universal ? Ite(low, high, FalseNode) : Ite(low, TrueNode, high);
-        }
+            result = universal ? Ite(lowEdge, highEdge, FalseNode) : Ite(lowEdge, TrueNode, highEdge);
         else
-        {
-            var quantifiedLow = QuantifyLevel(low, level, universal, memo);
-            var quantifiedHigh = QuantifyLevel(high, level, universal, memo);
-            result = MakeNode(variable, quantifiedLow, quantifiedHigh);
-        }
+            result = MakeNode(variable,
+                QuantifyLevel(lowEdge, level, universal, memo),
+                QuantifyLevel(highEdge, level, universal, memo));
 
-        memo[node] = result;
+        memo[edge] = result;
         return result;
     }
 
@@ -468,10 +553,24 @@ public sealed class BinaryDecisionDiagram
         }
     }
 
-    private BigInteger SatCount(int node, Dictionary<int, BigInteger> memo)
+    private BigInteger SatCount(int edge, Dictionary<int, BigInteger> memo)
     {
-        if (node == FalseNode) return BigInteger.Zero;
-        if (node == TrueNode) return BigInteger.One;
+        if (IsConstant(edge))
+            // TRUE edge satisfies its (empty) subspace once; FALSE edge never.
+            return IsComplemented(edge) ? BigInteger.Zero : BigInteger.One;
+
+        var node = NodeOf(edge);
+        var regular = SatCountNode(node, memo);
+        if (!IsComplemented(edge)) return regular;
+
+        // A complemented edge represents the negated function; over the 2^k assignments to
+        // the variables at levels VariableLevel(node)..n-1 the two counts are complementary.
+        var level = _nodes[node].Variable;
+        return BigInteger.Pow(2, _variables.Count - level) - regular;
+    }
+
+    private BigInteger SatCountNode(int node, Dictionary<int, BigInteger> memo)
+    {
         if (memo.TryGetValue(node, out var cached)) return cached;
 
         var (variable, low, high) = _nodes[node];
@@ -481,39 +580,77 @@ public sealed class BinaryDecisionDiagram
         return count;
     }
 
-    /// <summary>Variable level of a node; terminals sit one past the last variable.</summary>
-    private int VariableLevel(int node)
+    /// <summary>Variable level of an edge's node; the terminal sits one past the last variable.</summary>
+    private int VariableLevel(int edge)
     {
-        return node <= TrueNode ? _variables.Count : _nodes[node].Variable;
+        var node = NodeOf(edge);
+        return node == One ? _variables.Count : _nodes[node].Variable;
     }
 
+    /// <summary>
+    ///     Hash-cons a node and return an edge to it. Enforces the canonical invariant that
+    ///     a stored node's THEN (high) edge is regular: if <paramref name="high" /> is
+    ///     complemented, both children are complemented and a complemented edge is returned.
+    /// </summary>
     private int MakeNode(int variable, int low, int high)
     {
-        if (low == high) return low;
+        if (low == high) return low; // redundant test — reduction rule
+
+        // Canonical normalization: the stored high edge must be regular.
+        var complementResult = IsComplemented(high);
+        if (complementResult)
+        {
+            low = Complement(low);
+            high = Complement(high);
+        }
 
         var key = (variable, low, high);
-        if (_uniqueTable.TryGetValue(key, out var existing)) return existing;
+        if (!_uniqueTable.TryGetValue(key, out var index))
+        {
+            _cancellationToken.ThrowIfCancellationRequested();
+            if (_nodes.Count >= _nodeBudget)
+                throw new InvalidOperationException(NodeBudgetMessage);
 
-        _cancellationToken.ThrowIfCancellationRequested();
-        if (_nodes.Count >= _nodeBudget)
-            throw new InvalidOperationException(NodeBudgetMessage);
+            index = _nodes.Count;
+            _nodes.Add(key);
+            _uniqueTable[key] = index;
+        }
 
-        var index = _nodes.Count;
-        _nodes.Add(key);
-        _uniqueTable[key] = index;
-        return index;
+        var edge = MakeEdge(index, complemented: false);
+        return complementResult ? Complement(edge) : edge;
     }
 
     /// <summary>if-then-else: the single connective every boolean operation reduces to.</summary>
     internal int Ite(int f, int g, int h)
     {
+        // Terminal cases (complement-edge aware).
         if (f == TrueNode) return g;
         if (f == FalseNode) return h;
         if (g == h) return g;
         if (g == TrueNode && h == FalseNode) return f;
+        if (g == FalseNode && h == TrueNode) return Complement(f); // ite(f,0,1) = !f
+
+        // Normalize for consistent memoization and canonical result complement:
+        //   ite(!f, g, h) = ite(f, h, g)         — keep the test edge regular
+        if (IsComplemented(f))
+        {
+            (g, h) = (h, g);
+            f = Complement(f);
+        }
+
+        //   ite(f, g, h) = !ite(f, !g, !h)        — keep the then-value regular; the
+        // result's complement bit is pulled out and re-applied after the recursion.
+        var complementResult = false;
+        if (IsComplemented(g))
+        {
+            g = Complement(g);
+            h = Complement(h);
+            complementResult = true;
+        }
 
         var key = (f, g, h);
-        if (_iteCache.TryGetValue(key, out var cached)) return cached;
+        if (_iteCache.TryGetValue(key, out var cached))
+            return complementResult ? Complement(cached) : cached;
 
         var level = Math.Min(VariableLevel(f), Math.Min(VariableLevel(g), VariableLevel(h)));
         var low = Ite(Cofactor(f, level, false), Cofactor(g, level, false), Cofactor(h, level, false));
@@ -521,14 +658,18 @@ public sealed class BinaryDecisionDiagram
 
         var result = MakeNode(level, low, high);
         _iteCache[key] = result;
-        return result;
+        return complementResult ? Complement(result) : result;
     }
 
-    private int Cofactor(int node, int level, bool positive)
+    private int Cofactor(int edge, int level, bool positive)
     {
-        if (node <= TrueNode) return node;
+        var node = NodeOf(edge);
+        if (node == One) return edge; // terminal: both cofactors are the edge itself
         var (variable, low, high) = _nodes[node];
-        if (variable != level) return node;
-        return positive ? high : low;
+        if (variable != level) return edge; // does not branch on this variable
+
+        var child = positive ? high : low;
+        // The cofactor of a complemented edge is the complement of the child's cofactor.
+        return IsComplemented(edge) ? Complement(child) : child;
     }
 }

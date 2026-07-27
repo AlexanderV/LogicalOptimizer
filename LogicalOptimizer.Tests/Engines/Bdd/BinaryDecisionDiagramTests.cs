@@ -176,6 +176,109 @@ public class BinaryDecisionDiagramTests
         Assert.NotEqual(baseline, manager.FromAst(Parse("a & b | c & !d")));
     }
 
+    [Theory]
+    [InlineData("a & b | c & !d")]
+    [InlineData("(a | b) & (c | !a)")]
+    [InlineData("a & !b | !a & b")]
+    [InlineData("a & b & c & d")]
+    public void Negate_IsStructural_FunctionAndComplementShareTheSameNode(string expression)
+    {
+        // Complement edges: !f differs from f only by the edge's complement bit, so both
+        // resolve to the SAME regular node. Negate is a pure bit flip — no new nodes.
+        var ast = Parse(expression);
+        var manager = new BinaryDecisionDiagram(ast.GetVariables());
+
+        var f = manager.FromAst(ast);
+        var nodesAfterF = manager.NodeCount;
+        var notF = manager.Negate(f);
+        var nodesAfterNegate = manager.NodeCount;
+
+        // Structural win: negation allocated zero additional nodes.
+        Assert.Equal(nodesAfterF, nodesAfterNegate);
+        // f and !f are the same node up to the complement bit.
+        Assert.Equal(BinaryDecisionDiagram.Regular(f), BinaryDecisionDiagram.Regular(notF));
+        Assert.NotEqual(f, notF);
+        Assert.True(BinaryDecisionDiagram.IsComplemented(f) != BinaryDecisionDiagram.IsComplemented(notF));
+
+        // Double negation is identity at the handle level (O(1), no structure change).
+        Assert.Equal(f, manager.Negate(notF));
+    }
+
+    [Fact]
+    public void FromAst_NegationOfFormula_EqualsComplementEdgeOfFormula()
+    {
+        // Building !f from its own AST must land on exactly Complement(f) — canonicity of
+        // the complement bit, not merely of the node.
+        var ast = Parse("a & b | !a & c");
+        var manager = new BinaryDecisionDiagram(ast.GetVariables());
+
+        var f = manager.FromAst(ast);
+        var notF = manager.FromAst(new NotNode(ast));
+
+        Assert.Equal(BinaryDecisionDiagram.Complement(f), notF);
+        Assert.Equal(BinaryDecisionDiagram.Regular(f), BinaryDecisionDiagram.Regular(notF));
+    }
+
+    [Fact]
+    public void Canonicity_EquivalentFormulasProduceIdenticalEdgeIncludingComplementBit()
+    {
+        // Two syntactically different but equivalent forms must build to the byte-identical
+        // edge (same node AND same complement bit); a form and its negation must differ by
+        // exactly the complement bit.
+        var manager = new BinaryDecisionDiagram(new[] { "a", "b" });
+
+        var nand = manager.FromAst(Parse("!(a & b)"));
+        var deMorgan = manager.FromAst(Parse("!a | !b"));
+        Assert.Equal(nand, deMorgan);
+
+        var and = manager.FromAst(Parse("a & b"));
+        Assert.Equal(and, BinaryDecisionDiagram.Complement(nand));
+    }
+
+    [Fact]
+    public void ModelCount_FunctionPlusComplement_EqualsTwoToTheN()
+    {
+        // With complement edges the count decode must be exact: |models(f)| + |models(!f)|
+        // must equal 2^n for every function, over the full manager variable set.
+        var random = new Random(1234);
+        var variables = new[] { "a", "b", "c", "d", "e" };
+
+        for (var i = 0; i < 60; i++)
+        {
+            var ast = Parse(RandomExpression(random, variables, 4));
+            var manager = new BinaryDecisionDiagram(variables);
+            var f = manager.FromAst(ast);
+            var notF = manager.Negate(f);
+
+            var total = manager.CountSatisfyingAssignments(f) + manager.CountSatisfyingAssignments(notF);
+            Assert.Equal(BigInteger.Pow(2, variables.Length), total);
+        }
+    }
+
+    [Fact]
+    public void ComplementEdges_RepresentingFunctionAndItsNegationCostsNoExtraNodes()
+    {
+        // The ~2x memory win, made explicit: importing a large function AND its negation
+        // into one manager uses exactly as many nodes as the function alone, because !f
+        // reuses every node of f through the complement bit.
+        var names = Enumerable.Range(1, 8).Select(i => $"v{i}").ToList();
+        var expression = string.Join(" | ", Enumerable.Range(1, 4).Select(i => $"v{2 * i - 1} & v{2 * i}"));
+        var ast = Parse(expression);
+
+        var manager = new BinaryDecisionDiagram(names);
+        var f = manager.FromAst(ast);
+        var nodesForFAlone = manager.NodeCount;
+
+        // Import the negation as a separate AST — no shared object identity to lean on.
+        var notF = manager.FromAst(new NotNode(ast));
+        var nodesForBoth = manager.NodeCount;
+
+        Assert.Equal(nodesForFAlone, nodesForBoth);
+        Assert.Equal(BinaryDecisionDiagram.Regular(f), BinaryDecisionDiagram.Regular(notF));
+        // Sanity: f and !f really are different functions but the same shared structure.
+        Assert.NotEqual(f, notF);
+    }
+
     private static string RandomExpression(Random random, string[] variables, int depth)
     {
         if (depth == 0 || random.Next(4) == 0)
