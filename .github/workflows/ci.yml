@@ -50,11 +50,12 @@ jobs:
       # per-function timeout relies on SIGALRM, which does not exist on Windows, so a slow
       # PyEDA espresso call there could stall until the step timeout. Non-gating and capped
       # (var count + per-function timeout + step timeout) so it can never slow or fail the gate.
-      - name: Comparison table (SymPy/PyEDA, non-gating)
+      - name: Comparison table (LogicalOptimizer vs SymPy/PyEDA, non-gating)
         if: runner.os == 'Linux'
         continue-on-error: true
         timeout-minutes: 6
         run: |
+          dotnet run -c Release --project LogicalOptimizer.Benchmarks -- compare
           python -m pip install pyeda || true
           python tools/compare_sympy_pyeda.py --max-vars 14 --timeout 10
 

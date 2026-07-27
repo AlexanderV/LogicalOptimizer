@@ -111,24 +111,54 @@ the verified SAT prime cover — e.g. `collapse14` 28 → 7 and `collapse18` 36 
 collapse the `pᵢ&qᵢ | pᵢ&!qᵢ` pairs to `pᵢ`. The `pairsN` families are already
 minimal on input, so a correct minimizer leaves the literal count unchanged.
 
-### SymPy / PyEDA columns — PENDING (measured where tools exist)
+### Head-to-head: result size (literals)
 
-**Not measured in this environment.** `python -c "import sympy"` and
-`import pyeda` both fail here (PyPI is blocked on the maintainer's network; SymPy
-is pip-installed only in CI). These columns are therefore left as an explicit
-placeholder — no numbers are invented. To fill them, run the committed script
-where the tools are installed and paste its markdown output here:
+Competitor columns measured on the GitHub **Linux** CI runner (Python 3.12.3,
+sympy 1.14.0, pyeda 0.29.0, `--max-vars 14 --timeout 10`); LogicalOptimizer
+column from the OUR-results table above. **Literal count is machine-independent**
+(it is the size of the result), so this side-by-side is the real comparison; the
+timing note that follows is only indicative. Bold = LogicalOptimizer strictly
+smaller.
 
-```powershell
-python tools/compare_sympy_pyeda.py
-```
+| Zone | Function | Vars | LogicalOptimizer | SymPy | PyEDA |
+|------|----------|-----:|:----------------:|:-----:|:-----:|
+| small | maj3 | 3 | **5** | 6 | 6 |
+| small | consensus3 | 3 | 4 | 4 | 4 |
+| small | xor2 | 2 | 4 | 4 | 4 |
+| small | xor3 | 3 | **10** | 12 | 12 |
+| small | maj4 | 4 | **9** | 12 | 12 |
+| small | mux2 | 3 | 4 | 4 | 4 |
+| small | pos6 | 6 | **6** | 24 | 24 |
+| small | eq5 | 5 | 10 | 10 | 10 |
+| small | pairs8 | 8 | 8 | 8 | 8 |
+| small | pairs10 | 10 | 10 | `timeout` | 10 |
+| mid | pairs12 | 12 | 12 | `timeout` | 12 |
+| mid | collapse14 | 14 | **7** | `timeout` | 7 |
 
-| Zone | Function | Vars | SymPy literals | SymPy ms | PyEDA literals | PyEDA ms |
-|------|----------|-----:|:--------------:|:--------:|:--------------:|:--------:|
-| — | *(all 17 rows)* | — | — (run script) | — | — (run script) | — |
+**Reading it.** On result size LogicalOptimizer is **never larger** than the
+two-level minimizers and often smaller: `maj3` 5 vs 6, `xor3` 10 vs 12, `maj4`
+9 vs 12, and `pos6` **6 vs 24**. The reason is a genuine capability difference —
+`OptimizeExpression` returns a **multi-level (factored)** form, while SymPy's
+`simplify_logic` and PyEDA's Espresso return a **two-level SOP**. `pos6` is the
+clearest case: a 6-literal product-of-sums stays 6 literals for us but expands to
+a 24-literal DNF for a two-level tool. Where a two-level SOP is specifically what
+you want, our two-level path (`--dnf`, `TruthTableMinimizer`) matches them cube
+for cube; the table shows the *default* multi-level output.
 
-Once produced, join on `(Zone, Function, Vars)` with the OUR-results table above
-for the side-by-side result-size / time comparison.
+**Timing (indicative, cross-machine — not a controlled benchmark).** SymPy builds
+a 2ⁿ truth table for Quine–McCluskey, so it degrades sharply with variable count:
+`pairs8` took ~125 ms and it **timed out (> 10 s)** from `pairs10` (10 vars)
+onward. PyEDA (Espresso over the same truth table) and LogicalOptimizer both stay
+in the low-millisecond range across the whole set (our numbers in the table above
+are Windows-local; the competitor numbers are Linux-CI — do not compare the two
+machines' milliseconds directly). Beyond 14 variables only LogicalOptimizer runs:
+both competitor tools build 2ⁿ rows and are impractical there, which is why the
+shared corpus caps the comparison.
+
+Reproduce the competitor columns (Linux/POSIX, where the per-function timeout
+fires) with `python tools/compare_sympy_pyeda.py`; the CI **Comparison table**
+step runs both our harness and this script on the Linux runner and prints them to
+the log.
 
 ### OptimizationBenchmarks
 
