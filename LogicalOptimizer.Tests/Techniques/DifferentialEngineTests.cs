@@ -66,7 +66,11 @@ public class DifferentialEngineTests
 
             var byTable = TruthTable.AreEquivalent(left, right);
             var byBdd = BinaryDecisionDiagram.AreEquivalent(left, right);
-            var bySat = EquivalenceChecker.Check(left, right).AreEquivalent;
+            // Force the SAT/miter path: these are <=6-var formulas, which Check would route
+            // back to the truth table (the same oracle as byTable). CheckWithSat is internal
+            // but reachable via InternalsVisibleTo, so the third engine genuinely runs.
+            var bySat = EquivalenceChecker
+                .CheckWithSat(left, right, EquivalenceChecker.DefaultMaxConflicts).AreEquivalent;
 
             Assert.True(byTable, $"Trial {trial}: truth table says non-equivalent for '{expression}'");
             Assert.True(byBdd == true, $"Trial {trial}: BDD disagrees with truth table for '{expression}'");
@@ -93,9 +97,55 @@ public class DifferentialEngineTests
                 $"Trial {trial}: truth table missed a flipped minterm");
             Assert.True(BinaryDecisionDiagram.AreEquivalent(left, right) == false,
                 $"Trial {trial}: BDD missed a flipped minterm");
-            Assert.True(EquivalenceChecker.Check(left, right).AreEquivalent == false,
+            // Force the SAT/miter path (CheckWithSat, internal via IVT) rather than letting
+            // Check route <=6-var pairs back to the truth table.
+            Assert.True(
+                EquivalenceChecker.CheckWithSat(left, right, EquivalenceChecker.DefaultMaxConflicts)
+                    .AreEquivalent == false,
                 $"Trial {trial}: SAT miter missed a flipped minterm");
         }
+    }
+
+    [Fact]
+    public void SatMiterVersusBdd_AboveTruthTableThreshold_ProvesAndRefutesEquivalence()
+    {
+        // The SAT-miter/Tseitin proof path (EquivalenceChecker.CheckWithSat) is the reason
+        // the class scales, yet the other differential tests stay <=12 vars where Check
+        // routes to the truth table and the miter never runs. Exercise it directly at 16
+        // vars — well past MAX_EQUIVALENCE_CHECK_VARIABLES = 12 — with BDD equivalence as
+        // the independent oracle. Deterministic (raw construction + fixed seed) and bounded.
+        const int variableCount = 16;
+        var variables = Enumerable.Range(0, variableCount)
+            .Select(i => (AstNode)new VariableNode($"v{i}")).ToList();
+
+        // Equivalent pair, structurally very different (De Morgan over 16 inputs):
+        //   !(v0 & v1 & ... & v15)  ==  !v0 | !v1 | ... | !v15
+        var equivalentLeft = new NotNode(new AndNode(variables));
+        var equivalentRight = new OrNode(variables.Select(v => (AstNode)new NotNode(v)).ToList());
+
+        Assert.True(BinaryDecisionDiagram.AreEquivalent(equivalentLeft, equivalentRight) == true,
+            "BDD: the 16-variable De Morgan pair must be equivalent");
+        Assert.True(
+            EquivalenceChecker.CheckWithSat(equivalentLeft, equivalentRight,
+                EquivalenceChecker.DefaultMaxConflicts).AreEquivalent == true,
+            "SAT miter: the 16-variable De Morgan pair must be proven equivalent (UNSAT miter)");
+
+        // Perturbed pair differing on EXACTLY ONE minterm: g = f XOR minterm(seed). The
+        // single-point indicator is a full-width 16-literal cube, so f and g disagree on
+        // precisely one of the 2^16 assignments — a genuine >12-var refutation for SAT.
+        var rng = new Random(4242);
+        var minterm = new AndNode(variables
+            .Select(v => rng.Next(2) == 0 ? v : (AstNode)new NotNode(v)).ToList());
+        var perturbedLeft = equivalentRight;
+        var perturbedRight = new XorNode(perturbedLeft, minterm);
+
+        Assert.True(BinaryDecisionDiagram.AreEquivalent(perturbedLeft, perturbedRight) == false,
+            "BDD: a single-minterm perturbation must be non-equivalent");
+        var perturbed = EquivalenceChecker.CheckWithSat(perturbedLeft, perturbedRight,
+            EquivalenceChecker.DefaultMaxConflicts);
+        Assert.True(perturbed.AreEquivalent == false,
+            "SAT miter: a single-minterm perturbation must be refuted (SAT miter)");
+        Assert.NotNull(perturbed.Counterexample);
     }
 
     [Fact]

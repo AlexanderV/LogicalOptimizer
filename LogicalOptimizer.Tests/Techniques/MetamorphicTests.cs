@@ -117,6 +117,11 @@ public class MetamorphicTests
             Assert.True(TruthTable.AreEquivalent(first.Optimized, second.Optimized),
                 $"Trial {trial}: permutation changed semantics of '{original}'");
 
+            // v2 guarantee: permuting the input terms yields BYTE-IDENTICAL optimized
+            // output end-to-end (canonical construction erases order). Equivalence alone
+            // is trivially true; this pins order-insensitivity of the whole pipeline.
+            Assert.Equal(first.Optimized, second.Optimized);
+
             if (first.MinimizationStatus == MinimizationStatus.MinimalProven &&
                 second.MinimizationStatus == MinimizationStatus.MinimalProven)
             {
@@ -188,6 +193,9 @@ public class MetamorphicTests
                 $"Trial {trial}: permutation changed espresso semantics for '{original}'");
             Assert.True(AstMetrics.CountLiterals(a) == AstMetrics.CountLiterals(b),
                 $"Trial {trial}: permutation changed espresso cost for '{original}'");
+            // Order-insensitivity end-to-end: canonical output must be byte-identical, not
+            // merely equal-cost, for permuted cube orderings.
+            Assert.Equal(a.ToString(), b.ToString());
         }
     }
 
@@ -254,8 +262,8 @@ public class MetamorphicTests
             ConstantNode c => new ConstantNode(!c.Value),
             NotNode { Operand: VariableNode inner } => inner,
             NotNode n => new NotNode(Dual(n.Operand)),
-            AndNode a => new OrNode(Dual(a.Left), Dual(a.Right)),
-            OrNode o => new AndNode(Dual(o.Left), Dual(o.Right)),
+            AndNode a => new OrNode(a.Operands.Select(Dual).ToList()),
+            OrNode o => new AndNode(o.Operands.Select(Dual).ToList()),
             _ => throw new InvalidOperationException($"Unexpected node type {node.GetType().Name}")
         };
     }

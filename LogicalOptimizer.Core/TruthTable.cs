@@ -136,10 +136,8 @@ public class TruthTable
             VariableNode varNode => assignment.TryGetValue(varNode.Name, out var value)
                 ? value
                 : throw new KeyNotFoundException($"No value provided for variable '{varNode.Name}'"),
-            AndNode andNode => EvaluateExpression(andNode.Left, assignment) &&
-                               EvaluateExpression(andNode.Right, assignment),
-            OrNode orNode => EvaluateExpression(orNode.Left, assignment) ||
-                             EvaluateExpression(orNode.Right, assignment),
+            AndNode andNode => andNode.Operands.All(operand => EvaluateExpression(operand, assignment)),
+            OrNode orNode => orNode.Operands.Any(operand => EvaluateExpression(operand, assignment)),
             NotNode notNode => !EvaluateExpression(notNode.Operand, assignment),
             XorNode xorNode => EvaluateExpression(xorNode.Left, assignment) ^
                                EvaluateExpression(xorNode.Right, assignment),

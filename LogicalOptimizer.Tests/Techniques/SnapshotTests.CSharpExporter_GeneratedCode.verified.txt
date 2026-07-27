@@ -1,4 +1,4 @@
 ﻿public static bool EvaluateDemo(bool a, bool b, bool c, bool d)
 {
-    return ((a && (b || !(c))) || (!(a) && d));
+    return ((d && !(a)) || (a && (b || !(c))));
 }

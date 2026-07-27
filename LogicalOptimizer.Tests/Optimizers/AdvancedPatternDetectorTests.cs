@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using Xunit;
 
 namespace LogicalOptimizer.Tests;
@@ -244,46 +243,59 @@ public class AdvancedPatternDetectorTests
     }
 
     [Theory]
-    [InlineData("((a & !b) | (!a & b)) & (c | d) | (!e | f)")] // Complex mixed expression
-    [InlineData("((a & !b) | (!a & b)) & ((c & !d) | (!c & d))")] // Nested XOR patterns under AND
-    [InlineData("((a & !b) | (!a & b)) | ((c & !d) | (!c & d)) | ((e & !f) | (!e & f))")] // Many XOR patterns
-    [InlineData("(a & !b) | (!a & b) | c")] // XOR with additional term
-    [InlineData("(!a | b) & (c | d)")] // IMP inside conjunction
-    [InlineData("!(!a | b)")] // Negated implication
-    [InlineData("!!a")] // Double negation
-    [InlineData("a & !a")] // Contradiction
-    [InlineData("a | !a")] // Tautology
-    [InlineData("a & b & c")] // Conjunction chain
-    [InlineData("a | b | c")] // Disjunction chain
-    [InlineData("a & (b | c)")] // Distributive candidate
-    [InlineData("(a | b) & (a | c)")] // Factorization candidate
-    public void ConvertToAdvancedForms_ArbitraryExpressions_ShouldProduceNonEmptyResult(string input)
+    [InlineData("((a & !b) | (!a & b)) & (c | d) | (!e | f)", "(e → f) | (c | d) & (a & !b | b & !a)")] // Complex mixed: IMP surfaces
+    [InlineData("((a & !b) | (!a & b)) & ((c & !d) | (!c & d))", "(a XOR b) & (c XOR d)")] // Nested XOR patterns under AND
+    [InlineData("((a & !b) | (!a & b)) | ((c & !d) | (!c & d)) | ((e & !f) | (!e & f))", "(a XOR b) | (c XOR d) | (e XOR f)")] // Many XOR patterns
+    [InlineData("(a & !b) | (!a & b) | c", "(a XOR b) | c")] // XOR with additional term
+    [InlineData("(!a | b) & (c | d)", "(c | d) & (a → b)")] // IMP inside conjunction
+    [InlineData("!(!a | b)", "!(a → b)")] // Negated implication
+    public void ConvertToAdvancedForms_PatternBearingExpressions_ProduceExpectedAdvancedForm(string input,
+        string expected)
     {
-        // Act - smoke test: conversion must not throw and must return something usable
+        // Act
         var result = _detector.ConvertToAdvancedForms(input);
 
-        // Assert
-        Assert.NotNull(result);
-        Assert.NotEmpty(result);
+        // Assert - the advanced operator (XOR / →) is actually detected and the exact
+        // rendered form is pinned, not merely "non-empty".
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("!!a", "a")] // Double negation folds
+    [InlineData("a & !a", "0")] // Contradiction folds to constant
+    [InlineData("a | !a", "1")] // Tautology folds to constant
+    [InlineData("a & b & c", "a & b & c")] // Conjunction chain - no pattern
+    [InlineData("a | b | c", "a | b | c")] // Disjunction chain - no pattern
+    [InlineData("a & (b | c)", "a & (b | c)")] // Distributive candidate - no pattern
+    [InlineData("(a | b) & (a | c)", "(a | b) & (a | c)")] // Factorization candidate - no pattern
+    public void ConvertToAdvancedForms_NoPatternExpressions_ReturnCanonicalFormUnchanged(string input, string expected)
+    {
+        // Act
+        var result = _detector.ConvertToAdvancedForms(input);
+
+        // Assert - no advanced operator introduced; the canonical form is returned exactly.
+        Assert.Equal(expected, result);
+        Assert.DoesNotContain("XOR", result);
+        Assert.DoesNotContain("→", result);
+        Assert.DoesNotContain("↔", result);
     }
 
     [Fact]
-    public void ConvertToAdvancedForms_ManyXorPatterns_ShouldCompleteQuicklyAndDetectXor()
+    public void ConvertToAdvancedForms_ManyXorPatterns_ShouldDetectEveryXor()
     {
         // Arrange - 50 XOR patterns (100 OR terms)
         var largeExpression = string.Join(" | ",
             Enumerable.Range(0, 50).Select(i => $"(x{i} & !y{i}) | (!x{i} & y{i})"));
 
         // Act
-        var stopwatch = Stopwatch.StartNew();
         var result = _detector.ConvertToAdvancedForms(largeExpression);
-        stopwatch.Stop();
 
-        // Assert
+        // Assert - every one of the 50 XOR pairs is recognised and rendered as "xN XOR yN",
+        // not just "some XOR somewhere". This asserts correctness at scale under the
+        // deterministic pattern-detection budget (no wall-clock timing).
         Assert.NotNull(result);
-        Assert.Contains("XOR", result);
-        Assert.True(stopwatch.ElapsedMilliseconds < 5000,
-            $"ConvertToAdvancedForms took {stopwatch.ElapsedMilliseconds} ms, expected < 5000 ms");
+        for (var i = 0; i < 50; i++)
+            Assert.Contains($"x{i} XOR y{i}", result);
     }
 
     #endregion
@@ -361,10 +373,10 @@ public class AdvancedPatternDetectorTests
         // Assert
         Assert.NotNull(result);
         var orResult = Assert.IsType<OrNode>(result);
-        var eqvNode = Assert.IsType<EqvNode>(orResult.Left);
+        var eqvNode = Assert.Single(orResult.Operands.OfType<EqvNode>());
         Assert.Equal("a", ((VariableNode)eqvNode.Left).Name);
         Assert.Equal("b", ((VariableNode)eqvNode.Right).Name);
-        Assert.Equal("c", ((VariableNode)orResult.Right).Name);
+        Assert.Contains(orResult.Operands, o => o is VariableNode { Name: "c" });
     }
 
     [Fact]
@@ -437,8 +449,8 @@ public class AdvancedPatternDetectorTests
         // Assert
         Assert.NotNull(result);
         var andResult = Assert.IsType<AndNode>(result);
-        Assert.Equal("c", ((VariableNode)andResult.Left).Name);
-        Assert.IsType<EqvNode>(andResult.Right);
+        Assert.Contains(andResult.Operands, o => o is VariableNode { Name: "c" });
+        Assert.Single(andResult.Operands.OfType<EqvNode>());
     }
 
     #endregion

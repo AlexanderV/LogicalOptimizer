@@ -118,6 +118,19 @@ public class TseitinConverterTests
     }
 
     [Fact]
+    public void Convert_NaryAndGate_HasPinnedClauseAndAuxCounts()
+    {
+        // "a & b & c" stays a single 3-input n-ary AND gate: one auxiliary variable,
+        // and 3 positive clauses (-g, x_i) + 1 negative clause (g, -a, -b, -c) + the
+        // root unit clause = 5 clauses. (CanonicalInvariantTests pins the 4-input
+        // sibling at 1 aux / 6 clauses; the count here includes the root unit too.)
+        var cnf = TseitinConverter.Convert(Parse("a & b & c"));
+
+        Assert.Equal(1, cnf.AuxiliaryVariableCount);
+        Assert.Equal(5, cnf.Clauses.Count);
+    }
+
+    [Fact]
     public void Convert_XorChain_LinearSize()
     {
         // XOR chain over 24 variables: equivalent CNF has 2^23 clauses, Tseitin stays linear

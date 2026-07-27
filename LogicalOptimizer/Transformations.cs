@@ -1,4 +1,4 @@
-using LogicalOptimizer.Optimizers;
+using LogicalOptimizer.Rewrite;
 
 namespace LogicalOptimizer;
 
@@ -17,8 +17,8 @@ public static class Transformations
     {
         if (formula is not OrNode or) return formula;
 
-        var terms = AstUtilities.RemoveAbsorbedTerms(AstUtilities.FlattenOr(or));
-        return terms.Aggregate((a, b) => new OrNode(a, b));
+        var terms = AstPrimitives.RemoveAbsorbedTerms(or.Operands);
+        return terms.Count == 1 ? terms[0] : new OrNode(terms);
     }
 
     /// <summary>
@@ -29,8 +29,8 @@ public static class Transformations
     {
         if (formula is not AndNode and) return formula;
 
-        var clauses = AstUtilities.RemoveAbsorbedClauses(AstUtilities.FlattenAnd(and));
-        return clauses.Aggregate((a, b) => new AndNode(a, b));
+        var clauses = AstPrimitives.RemoveAbsorbedClauses(and.Operands);
+        return clauses.Count == 1 ? clauses[0] : new AndNode(clauses);
     }
 
     /// <summary>

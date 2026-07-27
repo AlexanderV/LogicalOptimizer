@@ -17,8 +17,8 @@ public sealed class BinaryDecisionDiagram
     /// <summary>Thrown message marker when the node budget interrupts construction.</summary>
     internal const string NodeBudgetMessage = "BDD node budget exceeded";
 
-    public const int FalseNode = 0;
-    public const int TrueNode = 1;
+    internal const int FalseNode = 0;
+    internal const int TrueNode = 1;
 
     private readonly List<(int Variable, int Low, int High)> _nodes = new();
     private readonly Dictionary<(int Variable, int Low, int High), int> _uniqueTable = new();
@@ -28,7 +28,7 @@ public sealed class BinaryDecisionDiagram
     private readonly int _nodeBudget;
     private readonly CancellationToken _cancellationToken;
 
-    public BinaryDecisionDiagram(IEnumerable<string> variables, int nodeBudget = DefaultNodeBudget,
+    internal BinaryDecisionDiagram(IEnumerable<string> variables, int nodeBudget = DefaultNodeBudget,
         CancellationToken cancellationToken = default)
         : this(variables, sortVariables: true, nodeBudget, cancellationToken)
     {
@@ -39,7 +39,7 @@ public sealed class BinaryDecisionDiagram
     ///     variable order (top to bottom) — the order is the single biggest lever on BDD
     ///     size, see <see cref="BuildWithBestOrder" />.
     /// </summary>
-    public BinaryDecisionDiagram(IEnumerable<string> variables, bool sortVariables,
+    internal BinaryDecisionDiagram(IEnumerable<string> variables, bool sortVariables,
         int nodeBudget = DefaultNodeBudget, CancellationToken cancellationToken = default)
     {
         _nodeBudget = nodeBudget;
@@ -69,7 +69,7 @@ public sealed class BinaryDecisionDiagram
     }
 
     /// <summary>Root of the last <see cref="Build" />; only set by that factory.</summary>
-    public int Root { get; private set; } = FalseNode;
+    internal int Root { get; private set; } = FalseNode;
 
     /// <summary>
     ///     Canonical equivalence: build both sides in one manager and compare roots.
@@ -92,7 +92,7 @@ public sealed class BinaryDecisionDiagram
     }
 
     /// <summary>Translate an expression into this manager; returns its node.</summary>
-    public int FromAst(AstNode node)
+    internal int FromAst(AstNode node)
     {
         switch (node)
         {
@@ -103,9 +103,22 @@ public sealed class BinaryDecisionDiagram
             case NotNode not:
                 return Ite(FromAst(not.Operand), FalseNode, TrueNode);
             case AndNode and:
-                return Ite(FromAst(and.Left), FromAst(and.Right), FalseNode);
+                {
+                    // Left-to-right fold over the n-ary operand list (operands are
+                    // canonically sorted by the factory): acc & x = ite(acc, x, 0)
+                    var result = TrueNode;
+                    foreach (var operand in and.Operands)
+                        result = Ite(result, FromAst(operand), FalseNode);
+                    return result;
+                }
             case OrNode or:
-                return Ite(FromAst(or.Left), TrueNode, FromAst(or.Right));
+                {
+                    // acc | x = ite(acc, 1, x)
+                    var result = FalseNode;
+                    foreach (var operand in or.Operands)
+                        result = Ite(result, TrueNode, FromAst(operand));
+                    return result;
+                }
             case XorNode xor:
                 {
                     var right = FromAst(xor.Right);
@@ -127,30 +140,54 @@ public sealed class BinaryDecisionDiagram
         }
     }
 
-    public int Negate(int node)
+    internal int Negate(int node)
     {
         return Ite(node, FalseNode, TrueNode);
     }
 
-    public bool IsTautology(int node)
+    internal bool IsTautology(int node)
     {
         return node == TrueNode;
     }
 
-    public bool IsContradiction(int node)
+    internal bool IsContradiction(int node)
     {
         return node == FalseNode;
     }
 
+    /// <summary>The built function is constant true.</summary>
+    public bool IsTautology()
+    {
+        return IsTautology(Root);
+    }
+
+    /// <summary>The built function is constant false.</summary>
+    public bool IsContradiction()
+    {
+        return IsContradiction(Root);
+    }
+
+    /// <summary>Number of satisfying assignments of the built function over all manager variables.</summary>
+    public BigInteger CountSatisfyingAssignments()
+    {
+        return CountSatisfyingAssignments(Root);
+    }
+
     /// <summary>Number of satisfying assignments over all manager variables.</summary>
-    public BigInteger CountSatisfyingAssignments(int node)
+    internal BigInteger CountSatisfyingAssignments(int node)
     {
         var memo = new Dictionary<int, BigInteger>();
         return SatCount(node, memo) * BigInteger.Pow(2, VariableLevel(node));
     }
 
+    /// <summary>Evaluate the built function at one assignment (defaults missing variables to false).</summary>
+    public bool Evaluate(IReadOnlyDictionary<string, bool> assignment)
+    {
+        return Evaluate(Root, assignment);
+    }
+
     /// <summary>Evaluate the function at one assignment (defaults missing variables to false).</summary>
-    public bool Evaluate(int node, IReadOnlyDictionary<string, bool> assignment)
+    internal bool Evaluate(int node, IReadOnlyDictionary<string, bool> assignment)
     {
         while (node > TrueNode)
         {
@@ -164,9 +201,14 @@ public sealed class BinaryDecisionDiagram
     /// <summary>
     ///     Lazily enumerate ALL total satisfying assignments in lexicographic variable
     ///     order (false before true). The count can be exponential — combine with
-    ///     Take/TakeWhile or use <see cref="CountSatisfyingAssignments" /> first.
+    ///     Take/TakeWhile or use <see cref="CountSatisfyingAssignments()" /> first.
     /// </summary>
-    public IEnumerable<IReadOnlyDictionary<string, bool>> EnumerateSatisfyingAssignments(int node)
+    public IEnumerable<IReadOnlyDictionary<string, bool>> EnumerateSatisfyingAssignments()
+    {
+        return EnumerateSatisfyingAssignments(Root);
+    }
+
+    internal IEnumerable<IReadOnlyDictionary<string, bool>> EnumerateSatisfyingAssignments(int node)
     {
         return EnumerateFrom(node, 0, new bool[_variables.Count]);
     }
@@ -199,7 +241,12 @@ public sealed class BinaryDecisionDiagram
     ///     A total assignment satisfying the function. Any non-false node has one:
     ///     reduction collapses all-zero subgraphs into the false terminal itself.
     /// </summary>
-    public IReadOnlyDictionary<string, bool> FindSatisfyingAssignment(int node)
+    public IReadOnlyDictionary<string, bool> FindSatisfyingAssignment()
+    {
+        return FindSatisfyingAssignment(Root);
+    }
+
+    internal IReadOnlyDictionary<string, bool> FindSatisfyingAssignment(int node)
     {
         if (node == FalseNode)
             throw new InvalidOperationException("Function is unsatisfiable");
@@ -218,14 +265,14 @@ public sealed class BinaryDecisionDiagram
     }
 
     /// <summary>Cofactor by a named variable: f with <paramref name="variable" /> pinned to <paramref name="value" />.</summary>
-    public int Restrict(int node, string variable, bool value)
+    internal int Restrict(int node, string variable, bool value)
     {
         var level = RequireVariable(variable);
         return RestrictLevel(node, level, value, new Dictionary<int, int>());
     }
 
     /// <summary>Existential quantification: ∃x.f = f|x=0 ∨ f|x=1, over one or more variables.</summary>
-    public int Exists(int node, params string[] variables)
+    internal int Exists(int node, params string[] variables)
     {
         foreach (var variable in variables)
         {
@@ -237,7 +284,7 @@ public sealed class BinaryDecisionDiagram
     }
 
     /// <summary>Universal quantification: ∀x.f = f|x=0 ∧ f|x=1, over one or more variables.</summary>
-    public int ForAll(int node, params string[] variables)
+    internal int ForAll(int node, params string[] variables)
     {
         foreach (var variable in variables)
         {
@@ -249,7 +296,7 @@ public sealed class BinaryDecisionDiagram
     }
 
     /// <summary>Functional composition: f[x := g] = ite(g, f|x=1, f|x=0).</summary>
-    public int Compose(int node, string variable, int replacement)
+    internal int Compose(int node, string variable, int replacement)
     {
         var level = RequireVariable(variable);
         var memo = new Dictionary<int, int>();
@@ -410,6 +457,10 @@ public sealed class BinaryDecisionDiagram
             case NotNode not:
                 CollectAppearanceOrder(not.Operand, order, seen);
                 break;
+            case NaryNode nary:
+                foreach (var operand in nary.Operands)
+                    CollectAppearanceOrder(operand, order, seen);
+                break;
             case BinaryNode binary:
                 CollectAppearanceOrder(binary.Left, order, seen);
                 CollectAppearanceOrder(binary.Right, order, seen);
@@ -454,7 +505,7 @@ public sealed class BinaryDecisionDiagram
     }
 
     /// <summary>if-then-else: the single connective every boolean operation reduces to.</summary>
-    public int Ite(int f, int g, int h)
+    internal int Ite(int f, int g, int h)
     {
         if (f == TrueNode) return g;
         if (f == FalseNode) return h;

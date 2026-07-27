@@ -348,6 +348,45 @@ public class CSharpExpressionExporterTests
     }
 
     [Fact]
+    public void ToExpression_FlatNaryAnd_ShouldJoinAllOperandsWithDoubleAmpersand()
+    {
+        // Arrange: a GENUINE flat 3-operand AndNode (list ctor, no nesting) so the
+        // exporter's n-ary render path `"(" + string.Join(" && ", Operands) + ")"` runs.
+        var a = new VariableNode("a");
+        var b = new VariableNode("b");
+        var c = new VariableNode("c");
+        var andNode = new AndNode(new AstNode[] { a, b, c });
+
+        // Guard: this must be one flat node with three operands, not a nested binary tree
+        Assert.Equal(3, andNode.Operands.Count);
+
+        // Act
+        var result = CSharpExpressionExporter.ToExpression(andNode);
+
+        // Assert: single flat join, no inner parentheses (a nested tree would give "((a && b) && c)")
+        Assert.Equal("(a && b && c)", result);
+    }
+
+    [Fact]
+    public void ToExpression_FlatNaryOr_ShouldJoinAllOperandsWithDoublePipe()
+    {
+        // Arrange: a GENUINE flat 3-operand OrNode (list ctor, no nesting)
+        var a = new VariableNode("a");
+        var b = new VariableNode("b");
+        var c = new VariableNode("c");
+        var orNode = new OrNode(new AstNode[] { a, b, c });
+
+        // Guard: one flat node with three operands
+        Assert.Equal(3, orNode.Operands.Count);
+
+        // Act
+        var result = CSharpExpressionExporter.ToExpression(orNode);
+
+        // Assert: single flat join, no inner parentheses (nested would give "((a || b) || c)")
+        Assert.Equal("(a || b || c)", result);
+    }
+
+    [Fact]
     public void GenerateClass_NoVariables_ShouldHandleGracefully()
     {
         // Arrange: Expression with only constants

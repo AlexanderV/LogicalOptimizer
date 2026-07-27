@@ -48,8 +48,8 @@ public class Z3DifferentialTests
                 : variables[v.Name] = ctx.MkBoolConst(v.Name),
             ConstantNode c => c.Value ? ctx.MkTrue() : ctx.MkFalse(),
             NotNode n => ctx.MkNot(ToZ3(ctx, n.Operand, variables)),
-            AndNode a => ctx.MkAnd(ToZ3(ctx, a.Left, variables), ToZ3(ctx, a.Right, variables)),
-            OrNode o => ctx.MkOr(ToZ3(ctx, o.Left, variables), ToZ3(ctx, o.Right, variables)),
+            AndNode a => ctx.MkAnd(a.Operands.Select(o => ToZ3(ctx, o, variables)).ToArray()),
+            OrNode o => ctx.MkOr(o.Operands.Select(op => ToZ3(ctx, op, variables)).ToArray()),
             _ => throw new NotSupportedException($"Unexpected node type {node.GetType().Name}")
         };
     }

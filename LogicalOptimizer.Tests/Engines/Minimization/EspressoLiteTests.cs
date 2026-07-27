@@ -91,10 +91,13 @@ public class EspressoLiteTests
             terms.Add($"a{i:D2} & b{i:D2} & !c{(i + 3) % 10:D2}");
         }
 
-        var minimized = Transformations.MinimizeDnfHeuristic(
-            RandomExpressions.Parse(string.Join(" | ", terms)));
+        var original = RandomExpressions.Parse(string.Join(" | ", terms));
+        var minimized = Transformations.MinimizeDnfHeuristic(original);
 
         Assert.Equal(40, AstMetrics.CountLiterals(minimized));
+        // No truth table exists at 60 variables; soundness verified by the SAT miter,
+        // matching the 40-variable sibling above.
+        Assert.True(EquivalenceChecker.Check(original, minimized).AreEquivalent);
     }
 
     [Fact]
@@ -168,8 +171,17 @@ public class EspressoLiteTests
                     onSet.Add(m);
             if (onSet.Count == 0) continue;
 
-            var parsed = EspressoLiteMinimizer.TryParseSop(Sop(variables, onSet));
-            Assert.NotNull(parsed);
+            var sop = Sop(variables, onSet);
+            var parsed = EspressoLiteMinimizer.TryParseSop(sop);
+            if (parsed is null)
+            {
+                // Construction-time complement folding collapsed the SOP to constant 1 —
+                // only possible when the function is a tautology, so the verdict is known
+                Assert.True(sop is ConstantNode { Value: true } && onSet.Count == 1 << variableCount,
+                    $"Trial {trial}: TryParseSop refused a non-degenerate SOP '{sop}'");
+                continue;
+            }
+
             var budget = 1_000_000;
             var verdict = EspressoLiteMinimizer.IsTautology(parsed!.Value.Cover, variableCount, ref budget);
 

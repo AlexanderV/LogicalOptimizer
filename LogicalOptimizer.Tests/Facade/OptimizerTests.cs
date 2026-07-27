@@ -9,59 +9,35 @@ public class OptimizerTests
 {
     private readonly BooleanExpressionOptimizer _optimizer = new();
 
-    [Theory]
-    [InlineData("a & a", "a")]
-    [InlineData("a | a", "a")]
-    [InlineData("a & !a", "0")]
-    [InlineData("a | !a", "1")]
-    public void Optimizer_BasicRules_ShouldOptimizeCorrectly(string input, string expected)
-    {
-        // Act & Assert
-        TruthTableAssert.AssertOptimizationEquivalence(input, expected, _optimizer);
-    }
-
-    [Theory]
-    [InlineData("a & 1", "a")]
-    [InlineData("a & 0", "0")]
-    [InlineData("a | 1", "1")]
-    [InlineData("a | 0", "a")]
-    [InlineData("1 & a", "a")]
-    [InlineData("0 | a", "a")]
-    public void Optimizer_ConstantRules_ShouldOptimizeCorrectly(string input, string expected)
-    {
-        // Act & Assert
-        TruthTableAssert.AssertOptimizationEquivalence(input, expected, _optimizer);
-    }
-
-    [Theory]
-    [InlineData("!!a", "a")]
-    [InlineData("!!!a", "!a")]
-    [InlineData("!(!a & !b)", "a | b")]
-    [InlineData("!(a | b)", "!a & !b")]
-    public void Optimizer_NegationRules_ShouldOptimizeCorrectly(string input, string expected)
-    {
-        // Act & Assert
-        TruthTableAssert.AssertOptimizationEquivalence(input, expected, _optimizer);
-    }
-
-    [Theory]
-    [InlineData("a & b | a & c", "a & (b | c)")]
-    [InlineData("(a | b) & (a | c)", "a | (b & c)")]
-    public void Optimizer_FactorizationRules_ShouldOptimizeCorrectly(string input, string expected)
-    {
-        // Act & Assert
-        TruthTableAssert.AssertOptimizationEquivalence(input, expected, _optimizer);
-    }
+    // NOTE: Idempotent/constant/negation/DeMorgan/factorization rows and the two
+    // extended-absorption rows previously here were exact duplicates (same input →
+    // same pinned output, same AssertOptimizationEquivalence strength) of
+    // OptimizerTruthTableTests, which is their single home. Only cases unique to this
+    // file are kept below.
 
     [Theory]
     [InlineData("a | a & b", "a")]
     [InlineData("a & (a | b)", "a")]
-    [InlineData("a | !a & b", "a | b")]
-    [InlineData("a & (!a | b)", "a & b")]
     public void Optimizer_AbsorptionRules_ShouldOptimizeCorrectly(string input, string expected)
     {
         // Act & Assert
         TruthTableAssert.AssertOptimizationEquivalence(input, expected, _optimizer);
+    }
+
+    [Fact]
+    public void Optimizer_ParityStyleDnf_FactorizationBeatsFlatSop()
+    {
+        // v1 quality pin: the 3-variable parity DNF (12 literals as flat SOP, which is
+        // already the minimal two-level form) must factor into a 10-literal multi-level
+        // form. Guards the rewrite-engine growth guard: factoring trades node count for
+        // literal count, so a nodes-only guard would wrongly roll it back under the
+        // n-ary cost model (node = 1 per n-ary gate).
+        var result = _optimizer.OptimizeExpression("a & !b & !c | !a & b & !c | !a & !b & c | a & b & c");
+
+        var optimizedAst = new FormulaFactory().Parse(result.Optimized);
+        var literals = AstMetrics.CountLiterals(optimizedAst);
+        Assert.Equal(10, literals);
+        TruthTableAssert.AssertEquivalence(result.Original, result.Optimized);
     }
 
     [Theory]

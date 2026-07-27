@@ -101,6 +101,22 @@ public class TruthTableAdvancedTests
     }
 
     [Fact]
+    public void TruthTable_DeMorgan_ResultBits_MatchHandComputedOracle()
+    {
+        // Independent anchor for the metamorphic law theories above (BasicLaws / De Morgan
+        // rows): those assert only that two tables from the SAME evaluator agree, which a
+        // uniform evaluation bug would survive. Here the expected bit strings are computed by
+        // hand from the semantics, so both sides are pinned to a value NOT produced by the
+        // code under test. Variables sort to [a, b]; a is the MSB, rows 00,01,10,11.
+        // !(a & b): 1,1,1,0    and    !a | !b: 1,1,1,0
+        Assert.Equal("1110", TruthTable.Generate("!(a & b)").GetResultsString());
+        Assert.Equal("1110", TruthTable.Generate("!a | !b").GetResultsString());
+        // !(a | b): 1,0,0,0    and    !a & !b: 1,0,0,0
+        Assert.Equal("1000", TruthTable.Generate("!(a | b)").GetResultsString());
+        Assert.Equal("1000", TruthTable.Generate("!a & !b").GetResultsString());
+    }
+
+    [Fact]
     public void TruthTable_ComplexEquivalence_Quine1_ShouldBeCorrect()
     {
         // Test a complex optimization case from Quine-McCluskey method
@@ -166,18 +182,20 @@ public class TruthTableAdvancedTests
     }
 
     [Theory]
-    [InlineData("x1 & x2", new[] { "x1", "x2" })]
-    [InlineData("var_a | var_b", new[] { "var_a", "var_b" })]
-    [InlineData("A & B", new[] { "A", "B" })] // Uppercase
-    [InlineData("a1 & a2 & a3", new[] { "a1", "a2", "a3" })]
-    [InlineData("test_var1 | test_var2", new[] { "test_var1", "test_var2" })]
-    public void TruthTable_VariableNaming_EdgeCases_ShouldWork(string expression, string[] expectedVariables)
+    // Rows are ordered with the alphabetically-first variable as the MSB (00,01,10,11,...).
+    [InlineData("x1 & x2", new[] { "x1", "x2" }, "0001")] // AND: true only at 11
+    [InlineData("var_a | var_b", new[] { "var_a", "var_b" }, "0111")] // OR: false only at 00
+    [InlineData("A & B", new[] { "A", "B" }, "0001")] // Uppercase
+    [InlineData("a1 & a2 & a3", new[] { "a1", "a2", "a3" }, "00000001")] // 3-way AND: true only at 111
+    [InlineData("test_var1 | test_var2", new[] { "test_var1", "test_var2" }, "0111")]
+    public void TruthTable_VariableNaming_EdgeCases_ShouldWork(string expression, string[] expectedVariables,
+        string expectedResults)
     {
         var table = TruthTable.Generate(expression);
 
         Assert.Equal(expectedVariables, table.Variables);
         Assert.Equal(1 << expectedVariables.Length, table.Results.Count);
-        Assert.NotEmpty(table.GetResultsString());
+        Assert.Equal(expectedResults, table.GetResultsString());
     }
 
     [Theory]

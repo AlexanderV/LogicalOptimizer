@@ -52,8 +52,8 @@ public class OutputFormatterTests
             _formatter.DisplayResult(result, options);
         });
 
-        // Assert
-        Assert.Equal($"a & b{Environment.NewLine}", output); // Should only output CNF
+        // Assert: prints the CNF field specifically (distinct from DNF), so a swap fails
+        Assert.Equal($"(a | b) & c{Environment.NewLine}", output);
     }
 
     [Fact]
@@ -69,8 +69,8 @@ public class OutputFormatterTests
             _formatter.DisplayResult(result, options);
         });
 
-        // Assert
-        Assert.Equal($"a & b{Environment.NewLine}", output); // Should only output DNF
+        // Assert: prints the DNF field specifically (distinct from CNF), so a swap fails
+        Assert.Equal($"a | b{Environment.NewLine}", output);
     }
 
     [Fact]
@@ -86,11 +86,11 @@ public class OutputFormatterTests
             _formatter.DisplayResult(result, options);
         });
 
-        // Assert
-        Assert.Contains("a", output); // Should contain variable names
-        Assert.Contains("b", output);
-        Assert.Contains("0", output); // Should contain truth values
-        Assert.Contains("1", output);
+        // Assert: pin the real truth table of "a & b" — the header row (column labels)
+        // and specific data rows — instead of the tautological Contains("0")/Contains("1").
+        Assert.Contains("| a | b | Result |", output); // header with variable labels
+        Assert.Contains("| 0 | 0 | 0      |", output); // a=0,b=0 -> 0
+        Assert.Contains("| 1 | 1 | 1      |", output); // a=1,b=1 -> 1 (only satisfying row)
     }
 
     [Fact]
@@ -174,12 +174,15 @@ public class OutputFormatterTests
 
     private static OptimizationResult CreateSampleOptimizationResult()
     {
+        // CNF and DNF are DISTINCT so a field mix-up (printing DNF where CNF is expected,
+        // or vice versa) is caught by CnfOnly/DnfOnly. Original stays "a & b" so the
+        // truth-table-only path renders the a & b table.
         return new OptimizationResult
         {
             Original = "a & b",
             Optimized = "a & b",
-            CNF = "a & b",
-            DNF = "a & b",
+            CNF = "(a | b) & c",
+            DNF = "a | b",
             Variables = new List<string> { "a", "b" },
             Metrics = new OptimizationMetrics()
         };

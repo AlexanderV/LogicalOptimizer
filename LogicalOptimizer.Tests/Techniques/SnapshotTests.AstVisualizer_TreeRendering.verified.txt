@@ -1,11 +1,11 @@
-﻿└─ OR (|) 
+﻿└─ OR (|)
    ├─ NOT (!)
-   │  └─ AND (&) 
+   │  └─ AND (&)
    │     ├─ Variable: 'a'
    │     └─ Variable: 'b'
-   └─ AND (&) 
+   └─ AND (&)
       ├─ Variable: 'c'
-      └─ OR (|) 
+      └─ OR (|)
          ├─ Variable: 'd'
          └─ NOT (!)
             └─ Variable: 'e'
@@ -13,14 +13,14 @@
 ---
 AST: !(a & b) | c & (d | !e)
 Tree:
-└─ OR (|) 
+└─ OR (|)
    ├─ NOT (!)
-   │  └─ AND (&) 
+   │  └─ AND (&)
    │     ├─ Variable: 'a'
    │     └─ Variable: 'b'
-   └─ AND (&) 
+   └─ AND (&)
       ├─ Variable: 'c'
-      └─ OR (|) 
+      └─ OR (|)
          ├─ Variable: 'd'
          └─ NOT (!)
             └─ Variable: 'e'

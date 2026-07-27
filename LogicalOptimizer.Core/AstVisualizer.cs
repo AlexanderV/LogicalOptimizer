@@ -2,8 +2,10 @@ using System.Text;
 
 namespace LogicalOptimizer;
 
-internal static class AstVisualizer
+/// <summary>Renders an AST as a human-readable tree (box-drawing characters) for diagnostics.</summary>
+public static class AstVisualizer
 {
+    /// <summary>ASCII-art tree of the node and its descendants, one node per line.</summary>
     public static string VisualizeTree(AstNode node, string prefix = "", bool isLast = true)
     {
         var sb = new StringBuilder();
@@ -24,6 +26,7 @@ internal static class AstVisualizer
         return sb.ToString();
     }
 
+    /// <summary>The expression string followed by its <see cref="VisualizeTree" /> rendering.</summary>
     public static string GetCompactVisualization(AstNode node)
     {
         return $"AST: {node}\nTree:\n{VisualizeTree(node)}";
@@ -36,8 +39,8 @@ internal static class AstVisualizer
             ConstantNode constant => $"Constant: {(constant.Value ? "1" : "0")}",
             VariableNode var => $"Variable: '{var.Name}'",
             NotNode => "NOT (!)",
-            AndNode and => $"AND (&) {(and.ForceParentheses ? "[ForceParens]" : "")}",
-            OrNode or => $"OR (|) {(or.ForceParentheses ? "[ForceParens]" : "")}",
+            AndNode => "AND (&)",
+            OrNode => "OR (|)",
             _ => node.GetType().Name
         };
     }
@@ -46,6 +49,7 @@ internal static class AstVisualizer
     {
         return node switch
         {
+            NaryNode nary => nary.Operands.ToList(),
             BinaryNode binary => new List<AstNode> { binary.Left, binary.Right },
             NotNode not => new List<AstNode> { not.Operand },
             _ => new List<AstNode>()

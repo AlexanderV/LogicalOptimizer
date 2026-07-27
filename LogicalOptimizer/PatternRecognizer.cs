@@ -1,9 +1,13 @@
-using LogicalOptimizer.Optimizers;
+using LogicalOptimizer.Rewrite;
 
 namespace LogicalOptimizer;
 
 /// <summary>
-///     Recognizes and replaces advanced logical patterns in AST (XOR, IMP, EQV, etc.)
+///     Recognizes and replaces advanced logical patterns in AST (XOR, IMP, EQV, etc.).
+///     This is display-layer code: it produces derived nodes (<see cref="XorNode" />,
+///     <see cref="ImpNode" />, <see cref="EqvNode" />) that <see cref="AstFormatter" />
+///     renders with automatic parenthesization — no factory canonicalization is applied,
+///     because that would decompose the derived nodes right back.
 /// </summary>
 internal class PatternRecognizer
 {
@@ -34,12 +38,29 @@ internal class PatternRecognizer
     {
         switch (node)
         {
+            case NaryNode nary:
+                var newOperands = new List<AstNode>(nary.Operands.Count);
+                var operandsChanged = false;
+                foreach (var operand in nary.Operands)
+                {
+                    var processed = ReplacePatterns(operand);
+                    operandsChanged |= !ReferenceEquals(processed, operand);
+                    newOperands.Add(processed);
+                }
+
+                if (operandsChanged)
+                    return nary is AndNode
+                        ? new AndNode(newOperands)
+                        : new OrNode(newOperands);
+
+                break;
+
             case BinaryNode binary:
                 var newLeft = ReplacePatterns(binary.Left);
                 var newRight = ReplacePatterns(binary.Right);
 
                 if (!ReferenceEquals(newLeft, binary.Left) || !ReferenceEquals(newRight, binary.Right))
-                    return AstUtilities.Rebuild(binary, newLeft, newRight);
+                    return AstPrimitives.RebuildDerived(binary, newLeft, newRight);
 
                 break;
 
@@ -55,15 +76,9 @@ internal class PatternRecognizer
     private AstNode TryReplaceWithXor(AstNode node)
     {
         // Look for XOR pattern: (a & !b) | (!a & b)
-        if (node is OrNode or)
-        {
-            var leftAnd = or.Left as AndNode;
-            var rightAnd = or.Right as AndNode;
-
-            if (leftAnd != null && rightAnd != null)
-                if (IsXorPattern(leftAnd, rightAnd, out var variable1, out var variable2))
-                    return new XorNode(variable1, variable2, true);
-        }
+        if (node is OrNode { Operands: [AndNode leftAnd, AndNode rightAnd] } &&
+            IsXorPattern(leftAnd, rightAnd, out var variable1, out var variable2))
+            return new XorNode(variable1, variable2);
 
         return node;
     }
@@ -71,18 +86,15 @@ internal class PatternRecognizer
     private AstNode TryReplaceWithImp(AstNode node)
     {
         // Look for implication pattern: !a | b ≡ a → b or b | !a ≡ a → b
-        if (node is OrNode or)
+        if (node is OrNode { Operands: [var first, var second] })
         {
-            var leftNot = or.Left as NotNode;
-            var rightNot = or.Right as NotNode;
-
-            if (leftNot != null)
+            if (first is NotNode firstNot)
                 // Pattern: !a | b ≡ a → b
-                return new ImpNode(leftNot.Operand, or.Right);
+                return new ImpNode(firstNot.Operand, second);
 
-            if (rightNot != null)
+            if (second is NotNode secondNot)
                 // Pattern: b | !a ≡ a → b
-                return new ImpNode(rightNot.Operand, or.Left);
+                return new ImpNode(secondNot.Operand, first);
         }
 
         return node;
@@ -94,10 +106,12 @@ internal class PatternRecognizer
     /// </summary>
     public ImpNode? TryMatchStrictImp(OrNode or)
     {
-        if (or.Left is NotNode { Operand: VariableNode premise } && or.Right is VariableNode conclusion)
+        if (or.Operands is not [var first, var second]) return null;
+
+        if (first is NotNode { Operand: VariableNode premise } && second is VariableNode conclusion)
             return new ImpNode(premise, conclusion);
 
-        if (or.Right is NotNode { Operand: VariableNode premise2 } && or.Left is VariableNode conclusion2)
+        if (second is NotNode { Operand: VariableNode premise2 } && first is VariableNode conclusion2)
             return new ImpNode(premise2, conclusion2);
 
         return null;
@@ -106,15 +120,9 @@ internal class PatternRecognizer
     public AstNode? TryReplaceWithEqv(AstNode node)
     {
         // Look for equivalence pattern: (a & b) | (!a & !b) ≡ a ↔ b
-        if (node is OrNode or)
-        {
-            var leftAnd = or.Left as AndNode;
-            var rightAnd = or.Right as AndNode;
-
-            if (leftAnd != null && rightAnd != null)
-                if (IsEqvPattern(leftAnd, rightAnd, out var variable1, out var variable2))
-                    return new EqvNode(variable1, variable2);
-        }
+        if (node is OrNode { Operands: [AndNode leftAnd, AndNode rightAnd] } &&
+            IsEqvPattern(leftAnd, rightAnd, out var variable1, out var variable2))
+            return new EqvNode(variable1, variable2);
 
         return null; // Return null instead of original node if no pattern found
     }
@@ -195,29 +203,39 @@ internal class PatternRecognizer
 
     /// <summary>
     ///     Split a two-factor AND into its operands, stripping negations.
-    ///     Shared by the XOR and EQV pattern checks.
+    ///     Shared by the XOR and EQV pattern checks. AND nodes with more than two
+    ///     factors do not match the two-variable patterns.
     /// </summary>
     private static bool ExtractAndParts(AndNode and, out AstNode var1, out AstNode var2, out bool neg1, out bool neg2)
     {
-        if (and.Left is NotNode leftNot)
+        if (and.Operands is not [var first, var second])
+        {
+            var1 = null!;
+            var2 = null!;
+            neg1 = false;
+            neg2 = false;
+            return false;
+        }
+
+        if (first is NotNode leftNot)
         {
             var1 = leftNot.Operand;
             neg1 = true;
         }
         else
         {
-            var1 = and.Left;
+            var1 = first;
             neg1 = false;
         }
 
-        if (and.Right is NotNode rightNot)
+        if (second is NotNode rightNot)
         {
             var2 = rightNot.Operand;
             neg2 = true;
         }
         else
         {
-            var2 = and.Right;
+            var2 = second;
             neg2 = false;
         }
 
@@ -229,14 +247,8 @@ internal class PatternRecognizer
     /// </summary>
     public bool IsEqvPattern(AstNode node)
     {
-        if (node is OrNode orNode)
-        {
-            var leftAnd = orNode.Left as AndNode;
-            var rightAnd = orNode.Right as AndNode;
-
-            if (leftAnd != null && rightAnd != null)
-                return IsEqvPattern(leftAnd, rightAnd, out _, out _);
-        }
+        if (node is OrNode { Operands: [AndNode leftAnd, AndNode rightAnd] })
+            return IsEqvPattern(leftAnd, rightAnd, out _, out _);
         return false;
     }
 
@@ -248,10 +260,10 @@ internal class PatternRecognizer
         left = null!;
         right = null!;
 
-        if (node is AndNode andNode)
+        if (node is AndNode { Operands: [var first, var second] })
         {
-            left = andNode.Left;
-            right = andNode.Right;
+            left = first;
+            right = second;
             return true;
         }
 

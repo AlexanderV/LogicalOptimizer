@@ -173,10 +173,14 @@ public class BddOperationsTests
         // all-a's term registers a1..a6 first, so appearance order = a1..a6,b1..b6
         // (pairs split into blocks), sorted order is the same, and reversed appearance
         // is the same blocks backwards. Only per-variable sifting can migrate each
-        // b_i next to its a_i.
-        var preamble = string.Join(" & ", Enumerable.Range(1, 6).Select(i => $"a{i}"));
-        var pairs = string.Join(" | ", Enumerable.Range(1, 6).Select(i => $"a{i} & b{i}"));
-        var ast = Parse($"{preamble} | {pairs}");
+        // b_i next to its a_i. Raw construction: parsing would canonically sort the
+        // OR operands (pair terms before the long preamble), interleaving a_i and b_i
+        // in appearance order and handing the static heuristics the good order for free.
+        var preamble = new AndNode(Enumerable.Range(1, 6)
+            .Select(i => (AstNode)new VariableNode($"a{i}")).ToList());
+        var pairTerms = Enumerable.Range(1, 6)
+            .Select(i => (AstNode)new AndNode(new VariableNode($"a{i}"), new VariableNode($"b{i}")));
+        var ast = new OrNode(new AstNode[] { preamble }.Concat(pairTerms).ToList());
 
         var sifted = BinaryDecisionDiagram.BuildWithSiftedOrder(ast);
         var staticBest = BinaryDecisionDiagram.BuildWithBestOrder(ast);

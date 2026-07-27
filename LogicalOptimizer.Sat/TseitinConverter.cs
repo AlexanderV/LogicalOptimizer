@@ -8,7 +8,7 @@ namespace LogicalOptimizer;
 ///     (named _t1, _t2, ...); the result is satisfiable exactly when the input is, and every
 ///     satisfying assignment restricted to the input variables satisfies the input formula.
 /// </summary>
-public static class TseitinConverter
+internal static class TseitinConverter
 {
     public static TseitinCnf Convert(string expression)
     {
@@ -117,34 +117,43 @@ public static class TseitinConverter
             {
                 case AndNode and:
                     {
-                        // XOR children need both polarities; AND/OR pass their own through
-                        var a = Encode(and.Left, polarity);
-                        var b = Encode(and.Right, polarity);
+                        // XOR children need both polarities; AND/OR pass their own through.
+                        // N-ary gates get the direct n-ary Tseitin clauses: one auxiliary
+                        // variable for the whole connective, n + 1 clauses instead of a
+                        // binary chain of gates.
+                        var operands = EncodeOperands(and.Operands, polarity);
                         if ((polarity & Polarity.Positive) != 0)
-                        {
-                            // g -> a & b
-                            _clauses.Add(new[] { -gate, a });
-                            _clauses.Add(new[] { -gate, b });
-                        }
+                            // g -> x1 & ... & xn
+                            foreach (var operand in operands)
+                                _clauses.Add(new[] { -gate, operand });
 
                         if ((polarity & Polarity.Negative) != 0)
-                            // a & b -> g
-                            _clauses.Add(new[] { gate, -a, -b });
+                        {
+                            // x1 & ... & xn -> g
+                            var clause = new int[operands.Length + 1];
+                            clause[0] = gate;
+                            for (var i = 0; i < operands.Length; i++) clause[i + 1] = -operands[i];
+                            _clauses.Add(clause);
+                        }
+
                         break;
                     }
                 case OrNode or:
                     {
-                        var a = Encode(or.Left, polarity);
-                        var b = Encode(or.Right, polarity);
+                        var operands = EncodeOperands(or.Operands, polarity);
                         if ((polarity & Polarity.Positive) != 0)
-                            // g -> a | b
-                            _clauses.Add(new[] { -gate, a, b });
-                        if ((polarity & Polarity.Negative) != 0)
                         {
-                            // a | b -> g
-                            _clauses.Add(new[] { gate, -a });
-                            _clauses.Add(new[] { gate, -b });
+                            // g -> x1 | ... | xn
+                            var clause = new int[operands.Length + 1];
+                            clause[0] = -gate;
+                            for (var i = 0; i < operands.Length; i++) clause[i + 1] = operands[i];
+                            _clauses.Add(clause);
                         }
+
+                        if ((polarity & Polarity.Negative) != 0)
+                            // x1 | ... | xn -> g
+                            foreach (var operand in operands)
+                                _clauses.Add(new[] { gate, -operand });
 
                         break;
                     }
@@ -172,6 +181,14 @@ public static class TseitinConverter
             }
 
             _emitted[node] = _emitted.GetValueOrDefault(node, Polarity.None) | polarity;
+        }
+
+        private int[] EncodeOperands(IReadOnlyList<AstNode> operands, Polarity polarity)
+        {
+            var literals = new int[operands.Count];
+            for (var i = 0; i < operands.Count; i++)
+                literals[i] = Encode(operands[i], polarity);
+            return literals;
         }
 
         private static Polarity Flip(Polarity polarity)
@@ -260,21 +277,31 @@ public sealed class TseitinCnf
     /// <summary>CNF as an AST over input and auxiliary (_tN) variables.</summary>
     public AstNode ToAst()
     {
-        AstNode? conjunction = null;
+        var clauseNodes = new List<AstNode>(Clauses.Count);
         foreach (var clause in Clauses)
         {
-            AstNode? disjunction = null;
+            var literals = new List<AstNode>(clause.Length);
             foreach (var literal in clause)
             {
                 AstNode node = new VariableNode(VariableName(Math.Abs(literal)));
                 if (literal < 0) node = new NotNode(node);
-                disjunction = disjunction == null ? node : new OrNode(disjunction, node);
+                literals.Add(node);
             }
 
-            conjunction = conjunction == null ? disjunction : new AndNode(conjunction, disjunction!);
+            clauseNodes.Add(literals.Count switch
+            {
+                0 => ConstantNode.False,
+                1 => literals[0],
+                _ => new OrNode(literals)
+            });
         }
 
-        return conjunction ?? ConstantNode.True;
+        return clauseNodes.Count switch
+        {
+            0 => ConstantNode.True,
+            1 => clauseNodes[0],
+            _ => new AndNode(clauseNodes)
+        };
     }
 
     public override string ToString()

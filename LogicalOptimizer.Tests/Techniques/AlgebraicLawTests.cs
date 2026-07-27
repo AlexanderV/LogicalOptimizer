@@ -93,8 +93,11 @@ public class AlgebraicLawTests
     {
         foreach (var (f, g, _) in RandomTriples(6, 20))
         {
-            AssertLaw($"{f} | {f} & {g}", f, "OR-absorption");
-            AssertLaw($"{f} & ({f} | {g})", f, "AND-absorption");
+            // Canonical-string identity, not mere equivalence: the optimizer must actually
+            // ABSORB the redundant conjunct and reach byte-identical output to Optimize(f).
+            // Equivalence would hold even if AbsorptionRule never fired (f | f&g ≡ f always).
+            Assert.Equal(Optimize(f), Optimize($"{f} | {f} & {g}"));
+            Assert.Equal(Optimize(f), Optimize($"{f} & ({f} | {g})"));
         }
     }
 
@@ -103,8 +106,11 @@ public class AlgebraicLawTests
     {
         foreach (var (f, _, _) in RandomTriples(7, 20))
         {
-            AssertLaw($"{f} & {f}", f, "AND-idempotence");
-            AssertLaw($"{f} | {f}", f, "OR-idempotence");
+            // Canonical-string identity: the optimizer must collapse the duplicate operand
+            // to byte-identical output. Equivalence alone (f & f ≡ f) holds unconditionally
+            // and would not detect a broken idempotent-dedup.
+            Assert.Equal(Optimize(f), Optimize($"{f} & {f}"));
+            Assert.Equal(Optimize(f), Optimize($"{f} | {f}"));
         }
     }
 
@@ -120,11 +126,13 @@ public class AlgebraicLawTests
         Assert.Equal("1", Optimize("a | 1"));
         Assert.Equal("a", Optimize("!!a"));
 
-        // Expression-level: F & !F ≡ 0, F | !F ≡ 1 as laws (semantic)
+        // Expression-level: the optimizer must EMIT the constant, not merely stay
+        // equivalent to it (equivalence to 0/1 is guaranteed by soundness regardless of
+        // whether the complement law fired).
         foreach (var (f, _, _) in RandomTriples(8, 15))
         {
-            AssertLaw($"{f} & !({f})", "0", "expression complement AND");
-            AssertLaw($"{f} | !({f})", "1", "expression complement OR");
+            Assert.Equal("0", Optimize($"{f} & !({f})"));
+            Assert.Equal("1", Optimize($"{f} | !({f})"));
         }
     }
 

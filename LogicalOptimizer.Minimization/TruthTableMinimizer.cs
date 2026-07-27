@@ -120,7 +120,7 @@ public static class TruthTableMinimizer
 
         // Each complement product (x & !y) becomes a clause (!x | y)
         var clauses = cover.Select(implicant => BuildClause(variables, implicant)).ToList();
-        return clauses.Aggregate((a, b) => new AndNode(a, b));
+        return clauses.Count == 1 ? clauses[0] : new AndNode(clauses);
     }
 
     private static List<Implicant> GeneratePrimeImplicants(int variableCount, HashSet<int> careSet,
@@ -406,13 +406,13 @@ public static class TruthTableMinimizer
         var terms = cover
             .Select(implicant => BuildTerm(variables, implicant))
             .ToList();
-        return terms.Aggregate((a, b) => new OrNode(a, b));
+        return terms.Count == 1 ? terms[0] : new OrNode(terms);
     }
 
     private static AstNode BuildTerm(IReadOnlyList<string> variables, Implicant implicant)
     {
         var literals = BuildLiterals(variables, implicant, negate: false);
-        return literals.Aggregate((a, b) => new AndNode(a, b));
+        return literals.Count == 1 ? literals[0] : new AndNode(literals);
     }
 
     private static AstNode BuildClause(IReadOnlyList<string> variables, Implicant implicant)
@@ -420,7 +420,7 @@ public static class TruthTableMinimizer
         if (implicant.Mask == 0) return ConstantNode.False;
 
         var literals = BuildLiterals(variables, implicant, negate: true);
-        return literals.Aggregate((a, b) => new OrNode(a, b));
+        return literals.Count == 1 ? literals[0] : new OrNode(literals);
     }
 
     private static List<AstNode> BuildLiterals(IReadOnlyList<string> variables, Implicant implicant, bool negate)

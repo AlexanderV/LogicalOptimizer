@@ -11,7 +11,8 @@ public class OptimizationQualityAnalyzerTests
     [Fact]
     public void AnalyzeOptimization_ComplexExpression_ShouldCalculateCorrectComplexity()
     {
-        // Arrange - Or(Or(And(a,b), And(c,d)), And(e,f)): 2 OR + 3 AND operators, 6 literals, depth 3
+        // Arrange - Or(And(a,b), And(c,d), And(e,f)): ONE n-ary OR + 3 AND operators,
+        // 6 literals, variables at depth 2 (v2 cost model: n-ary node is one operator)
         var result = new OptimizationResult
         {
             Original = "(a & b) | (c & d) | (e & f)",
@@ -27,20 +28,21 @@ public class OptimizationQualityAnalyzerTests
         // Assert
         Assert.NotNull(qualityMetrics);
         Assert.Equal(6, qualityMetrics.LiteralCount);
-        Assert.Equal(5, qualityMetrics.OperatorCount);
-        Assert.Equal(3, qualityMetrics.MaxDepth);
+        Assert.Equal(4, qualityMetrics.OperatorCount);
+        Assert.Equal(2, qualityMetrics.MaxDepth);
         Assert.Equal(1.0, qualityMetrics.CompressionRatio, 2);
-        // Complexity = operators * 1.0 + literals * 0.5 + depth * 0.8 = 5 + 3 + 2.4
-        Assert.Equal(10.4, qualityMetrics.Complexity, 1);
+        // Complexity = operators * 1.0 + literals * 0.5 + depth * 0.8 = 4 + 3 + 1.6
+        Assert.Equal(8.6, qualityMetrics.Complexity, 1);
     }
 
     [Fact]
     public void AnalyzeOptimization_HighlyOptimizedExpression_ShouldIndicateOptimal()
     {
-        // Arrange
+        // Arrange - the original must not fold at parse time (the factory dedups exact
+        // duplicates), so absorption-shaped redundancy provides the compression
         var result = new OptimizationResult
         {
-            Original = "a & a & a & a",
+            Original = "a & b | a & !b | a",
             Optimized = "a",
             CNF = "a",
             DNF = "a",
@@ -52,8 +54,11 @@ public class OptimizationQualityAnalyzerTests
 
         // Assert
         Assert.NotNull(qualityMetrics);
-        Assert.True(qualityMetrics.CompressionRatio < 0.5); // High compression
-        Assert.True(qualityMetrics.OptimalityScore >= 85); // Should be considered optimal
+        // Deterministic analyzer: original parses to a 9-node tree (OR of a&b, a&!b, a),
+        // optimized "a" is 1 node → ratio exactly 1/9.
+        Assert.Equal(1.0 / 9, qualityMetrics.CompressionRatio, 3);
+        // Score = base 50 + 30 (ratio<0.5) + 15 (depth 3→0) − 10 (no rules) = 85.
+        Assert.Equal(85, qualityMetrics.OptimalityScore);
         Assert.True(qualityMetrics.IsOptimal);
     }
 
@@ -76,7 +81,9 @@ public class OptimizationQualityAnalyzerTests
         // Assert
         Assert.NotNull(qualityMetrics);
         Assert.Equal(1.0, qualityMetrics.CompressionRatio, 2); // No compression
-        Assert.NotEmpty(qualityMetrics.PossibleImprovements); // Should suggest improvements
+        // Ratio > 0.9 ⇒ the analyzer emits this exact low-compression advice
+        Assert.Contains("Low compression ratio - check for additional transformations",
+            qualityMetrics.PossibleImprovements);
     }
 
     [Fact]
@@ -118,15 +125,17 @@ public class OptimizationQualityAnalyzerTests
         // Assert
         Assert.NotNull(report);
         Assert.NotEmpty(report);
-        Assert.Contains("OPTIMIZATION QUALITY REPORT", report);
+        // "a & a | b & b" folds to "a | b" (ratio 1.0) ⇒ the report must carry the
+        // specific low-compression improvement line, not just section headers.
+        Assert.Contains("Low compression ratio - check for additional transformations", report);
         Assert.Contains("Compression", report);
         Assert.Contains("Complexity", report);
     }
 
     [Theory]
-    [InlineData("a", "a", 1.0)]           // No optimization: 1 node → 1 node = 1.0
-    [InlineData("a & a", "a", 0.33)]      // Good optimization: 3 nodes → 1 node = 0.33 
-    [InlineData("a | a | a", "a", 0.2)]   // Excellent optimization: 5 nodes → 1 node = 0.2
+    [InlineData("a", "a", 1.0)] // No optimization: 1 node → 1 node = 1.0
+    [InlineData("a | a & b", "a", 0.2)] // Good optimization: 5 nodes → 1 node = 0.2
+    [InlineData("a & b | a & !b | a & c | a", "a", 0.1)] // Excellent: 12 nodes → 1 node
     public void AnalyzeOptimization_CompressionRatio_ShouldBeCalculatedCorrectly(string original, string optimized, double expectedRatio)
     {
         // Arrange

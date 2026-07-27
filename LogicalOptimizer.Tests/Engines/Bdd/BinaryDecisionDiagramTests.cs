@@ -42,11 +42,21 @@ public class BinaryDecisionDiagramTests
     [InlineData("a & b | a & c | b & c", 4)] // majority of 3: 4 of 8
     [InlineData("a & !b | !a & b", 2)] // xor: 2 of 4
     [InlineData("a", 1)] // single variable: 1 of 2
-    [InlineData("a | !a", 2)] // tautology over one variable
     public void CountSatisfyingAssignments_KnownFunctions(string expression, int expected)
     {
         var bdd = BinaryDecisionDiagram.Build(Parse(expression));
         Assert.Equal(new BigInteger(expected), bdd.CountSatisfyingAssignments(bdd.Root));
+    }
+
+    [Fact]
+    public void CountSatisfyingAssignments_TautologyOverOneVariable()
+    {
+        // Raw construction: parsing "a | !a" folds to constant 1 at build time and the
+        // variable would vanish from the BDD's support (counting would give 2^0 = 1)
+        var a = new VariableNode("a");
+        var bdd = BinaryDecisionDiagram.Build(new OrNode(a, new NotNode(a)));
+
+        Assert.Equal(new BigInteger(2), bdd.CountSatisfyingAssignments(bdd.Root));
     }
 
     [Fact]

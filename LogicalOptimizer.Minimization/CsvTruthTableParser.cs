@@ -21,8 +21,7 @@ public class CsvTruthTableParser
     ///     reported as don't-care minterms. Bit convention: bit j of a minterm index
     ///     is the value of Variables[j], variables sorted alphabetically.
     /// </summary>
-    public static (List<string> Variables, HashSet<int> OnSet, HashSet<int> DontCareSet) ParseCsvToPartialTable(
-        string csvContent)
+    public static PartialTruthTable ParseCsvToPartialTable(string csvContent)
     {
         var (variableNames, truthRows) = ParseCsvRows(csvContent);
         var variables = variableNames.OrderBy(v => v).ToList();
@@ -46,7 +45,7 @@ public class CsvTruthTableParser
             if (!specified.Contains(m))
                 dontCareSet.Add(m);
 
-        return (variables, onSet, dontCareSet);
+        return new PartialTruthTable(variables, onSet, dontCareSet);
     }
 
     /// <summary>
@@ -373,6 +372,30 @@ public class CsvTruthTableParser
         public Dictionary<string, bool> Variables { get; } = new();
         public bool Result { get; set; }
     }
+}
+
+/// <summary>
+///     A partially specified single-output truth table parsed from CSV. Rows absent from
+///     the CSV are don't-care minterms. Bit convention: bit j of a minterm index is the
+///     value of Variables[j], variables sorted alphabetically.
+/// </summary>
+public sealed class PartialTruthTable
+{
+    internal PartialTruthTable(List<string> variables, HashSet<int> onSet, HashSet<int> dontCareSet)
+    {
+        Variables = variables;
+        OnSet = onSet;
+        DontCareSet = dontCareSet;
+    }
+
+    /// <summary>Sorted input variable names; bit j of a minterm is Variables[j].</summary>
+    public IReadOnlyList<string> Variables { get; }
+
+    /// <summary>Minterms where the function is 1.</summary>
+    public IReadOnlyCollection<int> OnSet { get; }
+
+    /// <summary>Minterms the CSV leaves unspecified (free for the minimizer).</summary>
+    public IReadOnlyCollection<int> DontCareSet { get; }
 }
 
 /// <summary>A multi-output truth table: shared inputs, one ON-set per output.</summary>

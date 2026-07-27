@@ -1,3 +1,4 @@
+using LogicalOptimizer.Rewrite;
 using Xunit;
 
 namespace LogicalOptimizer.Tests;
@@ -7,7 +8,7 @@ namespace LogicalOptimizer.Tests;
 ///     Guards against unsound rewrite rules, e.g. the simultaneous consensus-removal
 ///     bug that silently dropped minterms of XOR-shaped functions.
 ///     Tests assert both logical equivalence AND that the pipeline's soundness guard
-///     did not fire — rules must be sound on their own, the guard is a last resort.
+///     did not fire â€” rules must be sound on their own, the guard is a last resort.
 /// </summary>
 public class OptimizerSoundnessTests
 {
@@ -36,7 +37,7 @@ public class OptimizerSoundnessTests
     {
         var metrics = new OptimizationMetrics();
         var input = Parse(expression);
-        var optimized = new ExpressionOptimizer().Optimize(input, metrics);
+        var optimized = new RewriteEngine().Optimize(input, metrics);
 
         Assert.True(TruthTable.AreEquivalent(input, optimized),
             $"Non-equivalent optimization: '{expression}' -> '{optimized}'");

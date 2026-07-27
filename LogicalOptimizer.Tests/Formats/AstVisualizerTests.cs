@@ -1,4 +1,5 @@
 using System;
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace LogicalOptimizer.Tests;
@@ -151,10 +152,15 @@ public class AstVisualizerTests
         // Act
         var result = AstVisualizer.VisualizeTree(ast);
 
-        // Assert
-        Assert.Contains("Variable: 'x1'", result);
-        Assert.Contains("Variable: 'x2'", result);
-        Assert.Contains("Variable: 'x3'", result);
-        Assert.Contains("AND (&)", result);
+        // Assert: "x1 & x2 & x3" is ONE flat n-ary AND with three direct variable children.
+        // A nested-binary regression (AND(AND(x1,x2),x3)) would render TWO "AND (&)" nodes
+        // and would indent x1/x2 one level deeper, so both checks below would fail.
+        Assert.Single(Regex.Matches(result, @"AND \(&\)"));
+
+        // The three variables are DIRECT children of the single AND (prefix "   ", one
+        // indent level below the root), pinning the flat n-ary shape.
+        Assert.Contains("   ├─ Variable: 'x1'", result);
+        Assert.Contains("   ├─ Variable: 'x2'", result);
+        Assert.Contains("   └─ Variable: 'x3'", result);
     }
 }

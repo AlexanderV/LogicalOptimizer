@@ -150,26 +150,14 @@ namespace LogicalOptimizer
     public sealed class BinaryDecisionDiagram
     {
         public const int DefaultNodeBudget = 1000000;
-        public const int FalseNode = 0;
-        public const int TrueNode = 1;
-        public BinaryDecisionDiagram(System.Collections.Generic.IEnumerable<string> variables, int nodeBudget = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
-        public BinaryDecisionDiagram(System.Collections.Generic.IEnumerable<string> variables, bool sortVariables, int nodeBudget = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
         public int NodeCount { get; }
-        public int Root { get; }
         public System.Collections.Generic.IReadOnlyList<string> Variables { get; }
-        public int Compose(int node, string variable, int replacement) { }
-        public System.Numerics.BigInteger CountSatisfyingAssignments(int node) { }
-        public System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyDictionary<string, bool>> EnumerateSatisfyingAssignments(int node) { }
-        public bool Evaluate(int node, System.Collections.Generic.IReadOnlyDictionary<string, bool> assignment) { }
-        public int Exists(int node, params string[] variables) { }
-        public System.Collections.Generic.IReadOnlyDictionary<string, bool> FindSatisfyingAssignment(int node) { }
-        public int ForAll(int node, params string[] variables) { }
-        public int FromAst(LogicalOptimizer.AstNode node) { }
-        public bool IsContradiction(int node) { }
-        public bool IsTautology(int node) { }
-        public int Ite(int f, int g, int h) { }
-        public int Negate(int node) { }
-        public int Restrict(int node, string variable, bool value) { }
+        public System.Numerics.BigInteger CountSatisfyingAssignments() { }
+        public System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyDictionary<string, bool>> EnumerateSatisfyingAssignments() { }
+        public bool Evaluate(System.Collections.Generic.IReadOnlyDictionary<string, bool> assignment) { }
+        public System.Collections.Generic.IReadOnlyDictionary<string, bool> FindSatisfyingAssignment() { }
+        public bool IsContradiction() { }
+        public bool IsTautology() { }
         public static bool? AreEquivalent(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, int nodeBudget = 1000000) { }
         public static LogicalOptimizer.BinaryDecisionDiagram Build(LogicalOptimizer.AstNode ast, int nodeBudget = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
         public static LogicalOptimizer.BinaryDecisionDiagram BuildWithBestOrder(LogicalOptimizer.AstNode ast, int nodeBudget = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
@@ -180,30 +168,15 @@ namespace LogicalOptimizer
 // ===== LogicalOptimizer.Core =====
 namespace LogicalOptimizer
 {
-    public sealed class AndInverterGraph
+    public sealed class AndNode : LogicalOptimizer.NaryNode
     {
-        public const int FalseLiteral = 0;
-        public const int TrueLiteral = 1;
-        public AndInverterGraph() { }
-        public int AndNodeCount { get; }
-        public System.Collections.Generic.IReadOnlyList<string> Inputs { get; }
-        public int Root { get; }
-        public int And(int a, int b) { }
-        public LogicalOptimizer.AndInverterGraph Cleanup() { }
-        public int CreateInput(string name) { }
-        public bool Evaluate(int literal, System.Collections.Generic.IReadOnlyDictionary<string, bool> assignment) { }
-        public int Ite(int f, int g, int h) { }
-        public int Or(int a, int b) { }
-        public LogicalOptimizer.AstNode ToAst(int literal) { }
-        public int Xor(int a, int b) { }
-        public static LogicalOptimizer.AndInverterGraph FromAst(LogicalOptimizer.AstNode ast) { }
-        public static int Not(int literal) { }
-    }
-    public sealed class AndNode : LogicalOptimizer.BinaryNode
-    {
-        public AndNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, bool forceParens = false) { }
+        public AndNode(System.Collections.Generic.IReadOnlyList<LogicalOptimizer.AstNode> operands) { }
+        public AndNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right) { }
         public override string Operator { get; }
-        public override LogicalOptimizer.AstNode Clone() { }
+    }
+    public static class AstFormatter
+    {
+        public static string Format(LogicalOptimizer.AstNode node) { }
     }
     public static class AstMetrics
     {
@@ -221,13 +194,18 @@ namespace LogicalOptimizer
         public abstract System.Collections.Generic.HashSet<string> GetVariables();
         public abstract override string ToString() { }
     }
+    public static class AstVisualizer
+    {
+        public static string GetCompactVisualization(LogicalOptimizer.AstNode node) { }
+        public static string VisualizeTree(LogicalOptimizer.AstNode node, string prefix = "", bool isLast = true) { }
+    }
     public abstract class BinaryNode : LogicalOptimizer.AstNode
     {
-        protected BinaryNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, bool forceParens = false) { }
-        public bool ForceParentheses { get; set; }
+        protected BinaryNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right) { }
         public LogicalOptimizer.AstNode Left { get; }
         public abstract string Operator { get; }
         public LogicalOptimizer.AstNode Right { get; }
+        public override LogicalOptimizer.AstNode Clone() { }
         public override bool Equals(object? obj) { }
         public override int GetHashCode() { }
         public override System.Collections.Generic.HashSet<string> GetVariables() { }
@@ -247,9 +225,8 @@ namespace LogicalOptimizer
     }
     public sealed class EqvNode : LogicalOptimizer.BinaryNode
     {
-        public EqvNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, bool forceParens = false) { }
+        public EqvNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right) { }
         public override string Operator { get; }
-        public override LogicalOptimizer.AstNode Clone() { }
     }
     public sealed class FormulaFactory
     {
@@ -270,26 +247,29 @@ namespace LogicalOptimizer
     }
     public sealed class ImpNode : LogicalOptimizer.BinaryNode
     {
-        public ImpNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, bool forceParens = false) { }
+        public ImpNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right) { }
         public override string Operator { get; }
-        public override LogicalOptimizer.AstNode Clone() { }
-    }
-    public class Lexer
-    {
-        public Lexer(string input) { }
-        public System.Collections.Generic.List<LogicalOptimizer.Token> Tokenize() { }
     }
     public sealed class NandNode : LogicalOptimizer.BinaryNode
     {
-        public NandNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, bool forceParens = false) { }
+        public NandNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right) { }
         public override string Operator { get; }
+    }
+    public abstract class NaryNode : LogicalOptimizer.AstNode
+    {
+        protected NaryNode(System.Collections.Generic.IReadOnlyList<LogicalOptimizer.AstNode> operands) { }
+        public System.Collections.Generic.IReadOnlyList<LogicalOptimizer.AstNode> Operands { get; }
+        public abstract string Operator { get; }
         public override LogicalOptimizer.AstNode Clone() { }
+        public override bool Equals(object? obj) { }
+        public override int GetHashCode() { }
+        public override System.Collections.Generic.HashSet<string> GetVariables() { }
+        public override string ToString() { }
     }
     public sealed class NorNode : LogicalOptimizer.BinaryNode
     {
-        public NorNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, bool forceParens = false) { }
+        public NorNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right) { }
         public override string Operator { get; }
-        public override LogicalOptimizer.AstNode Clone() { }
     }
     public sealed class NotNode : LogicalOptimizer.AstNode
     {
@@ -316,16 +296,11 @@ namespace LogicalOptimizer
         public void AddStep(string step) { }
         public override string ToString() { }
     }
-    public sealed class OrNode : LogicalOptimizer.BinaryNode
+    public sealed class OrNode : LogicalOptimizer.NaryNode
     {
-        public OrNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, bool forceParens = false) { }
+        public OrNode(System.Collections.Generic.IReadOnlyList<LogicalOptimizer.AstNode> operands) { }
+        public OrNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right) { }
         public override string Operator { get; }
-        public override LogicalOptimizer.AstNode Clone() { }
-    }
-    public class Parser
-    {
-        public Parser(System.Collections.Generic.List<LogicalOptimizer.Token> tokens) { }
-        public LogicalOptimizer.AstNode Parse() { }
     }
     public sealed class ResourceBudget
     {
@@ -337,23 +312,6 @@ namespace LogicalOptimizer
         public int SatConflictLimit { get; init; }
         public int SoundnessGuardConflictLimit { get; init; }
         public static LogicalOptimizer.ResourceBudget Default { get; }
-    }
-    public sealed class Token
-    {
-        public Token() { }
-        public int Position { get; init; }
-        public LogicalOptimizer.TokenType Type { get; init; }
-        public string Value { get; init; }
-    }
-    public enum TokenType
-    {
-        Variable = 0,
-        Not = 1,
-        And = 2,
-        Or = 3,
-        LeftParen = 4,
-        RightParen = 5,
-        End = 6,
     }
     public class TruthTable
     {
@@ -388,9 +346,8 @@ namespace LogicalOptimizer
     }
     public sealed class XorNode : LogicalOptimizer.BinaryNode
     {
-        public XorNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, bool forceParens = false) { }
+        public XorNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right) { }
         public override string Operator { get; }
-        public override LogicalOptimizer.AstNode Clone() { }
     }
 }
 
@@ -405,11 +362,7 @@ namespace LogicalOptimizer
         public static string ParseCsvFileToExpression(string filePath) { }
         public static string ParseCsvToExpression(string csvContent) { }
         public static LogicalOptimizer.MultiOutputTable ParseCsvToMultiOutputTable(string csvContent, System.Collections.Generic.IReadOnlyCollection<string> outputColumns) { }
-        [return: System.Runtime.CompilerServices.TupleElementNames(new string[] {
-                "Variables",
-                "OnSet",
-                "DontCareSet"})]
-        public static System.ValueTuple<System.Collections.Generic.List<string>, System.Collections.Generic.HashSet<int>, System.Collections.Generic.HashSet<int>> ParseCsvToPartialTable(string csvContent) { }
+        public static LogicalOptimizer.PartialTruthTable ParseCsvToPartialTable(string csvContent) { }
     }
     public sealed class MultiOutputFunction
     {
@@ -420,6 +373,12 @@ namespace LogicalOptimizer
     public sealed class MultiOutputTable
     {
         public System.Collections.Generic.IReadOnlyList<LogicalOptimizer.MultiOutputFunction> Outputs { get; }
+        public System.Collections.Generic.IReadOnlyList<string> Variables { get; }
+    }
+    public sealed class PartialTruthTable
+    {
+        public System.Collections.Generic.IReadOnlyCollection<int> DontCareSet { get; }
+        public System.Collections.Generic.IReadOnlyCollection<int> OnSet { get; }
         public System.Collections.Generic.IReadOnlyList<string> Variables { get; }
     }
     public static class TruthTableMinimizer
@@ -481,12 +440,6 @@ namespace LogicalOptimizer
         public static void AtLeast(LogicalOptimizer.CnfBuilder builder, System.Collections.Generic.IReadOnlyList<int> literals, System.Collections.Generic.IReadOnlyList<long> weights, long bound) { }
         public static void AtMost(LogicalOptimizer.CnfBuilder builder, System.Collections.Generic.IReadOnlyList<int> literals, System.Collections.Generic.IReadOnlyList<long> weights, long bound) { }
     }
-    public readonly struct SatProofStep : System.IEquatable<LogicalOptimizer.SatProofStep>
-    {
-        public SatProofStep(bool IsDeletion, int[] Literals) { }
-        public bool IsDeletion { get; init; }
-        public int[] Literals { get; init; }
-    }
     public enum SatResult
     {
         Satisfiable = 0,
@@ -497,7 +450,6 @@ namespace LogicalOptimizer
     {
         public SatSolver(int variableCount) { }
         public int ConflictCount { get; }
-        public System.Collections.Generic.IReadOnlyList<LogicalOptimizer.SatProofStep>? Proof { get; }
         public System.Collections.Generic.IReadOnlyList<int>? UnsatCore { get; }
         public void AddClause(System.Collections.Generic.IReadOnlyCollection<int> literals) { }
         public void AddClause(params int[] literals) { }
@@ -518,11 +470,5 @@ namespace LogicalOptimizer
         public string ToDimacs() { }
         public override string ToString() { }
         public string VariableName(int index) { }
-    }
-    public static class TseitinConverter
-    {
-        public static LogicalOptimizer.TseitinCnf Convert(LogicalOptimizer.AstNode ast) { }
-        public static LogicalOptimizer.TseitinCnf Convert(string expression) { }
-        public static LogicalOptimizer.TseitinCnf Convert(LogicalOptimizer.AstNode ast, LogicalOptimizer.CnfEncodingStyle style) { }
     }
 }

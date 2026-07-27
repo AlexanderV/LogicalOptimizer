@@ -21,7 +21,7 @@ public class EqvIntegrationTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Contains("↔", result.Advanced);
+        Assert.Contains("a ↔ b", result.Advanced);
     }
 
     [Fact]
@@ -38,7 +38,7 @@ public class EqvIntegrationTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Contains("↔", result.Advanced);
+        Assert.Contains("a ↔ b", result.Advanced);
         Assert.Contains("c", result.Advanced);
     }
 

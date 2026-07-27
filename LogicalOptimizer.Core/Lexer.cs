@@ -1,6 +1,6 @@
 namespace LogicalOptimizer;
 
-public class Lexer
+internal class Lexer
 {
     private readonly string _input;
     private int _position;

@@ -23,7 +23,7 @@ public sealed class ConstantNode : AstNode
 
     public override string ToString()
     {
-        return Value ? "1" : "0";
+        return AstFormatter.Format(this);
     }
 
     public override HashSet<string> GetVariables()

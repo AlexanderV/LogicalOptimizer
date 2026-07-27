@@ -91,12 +91,7 @@ public class ConsoleInterfaceTests
         Assert.NotEmpty(result.Variables);
     }
 
-    [Fact]
-    public void PerformanceValidator_ValidateIterations_AboveLimit_ThrowsInvalidOperationException()
-    {
-        // Triggering the iteration limit through a real optimization requires a
-        // pathological expression, so validate the guard directly
-        Assert.Throws<InvalidOperationException>(() =>
-            PerformanceValidator.ValidateIterations(51));
-    }
+    // PerformanceValidator.ValidateIterations is covered by the stronger twin
+    // PerformanceValidatorTests.ValidateIterations_TooManyIterations, which also pins
+    // the message ("optimization iterations", "20"); the weaker duplicate was removed.
 }

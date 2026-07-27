@@ -133,18 +133,11 @@ public class OptimizerTruthTableTests
     [Fact]
     public void Optimizer_ConsensusRule_ShouldMaintainEquivalence()
     {
-        // Arrange - classic consensus: a & b | !a & c | b & c => a & b | !a & c
-        var input = "a & b | !a & c | b & c";
-
-        // Act
-        var result = _optimizer.OptimizeExpression(input, true);
-
-        // Assert - check equivalence through truth tables
-        Assert.True(result.IsEquivalent(),
-            $"Optimized expression '{result.Optimized}' is not equivalent to original '{result.Original}'");
-
-        // The redundant consensus term must actually be eliminated
-        Assert.DoesNotContain("b & c", result.Optimized);
+        // Classic consensus: a & b | !a & c | b & c => a & b | !a & c. Pinning the exact
+        // canonical output (verified via CLI: "a & b | c & !a") subsumes both the
+        // equivalence check and the consensus-removal intent (the redundant "b & c" term
+        // is gone), unlike a bare substring-absence check.
+        TruthTableAssert.AssertOptimizationEquivalence("a & b | !a & c | b & c", "a & b | c & !a", _optimizer);
     }
 
     [Fact]

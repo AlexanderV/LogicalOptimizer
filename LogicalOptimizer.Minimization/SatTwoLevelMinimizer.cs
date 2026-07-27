@@ -173,22 +173,21 @@ internal static class SatTwoLevelMinimizer
 
     private static AstNode BuildSop(IReadOnlyList<string> variables, List<(int Mask, int Value)> cubes)
     {
-        AstNode? sop = null;
+        var terms = new List<AstNode>(cubes.Count);
         foreach (var cube in cubes)
         {
-            AstNode? term = null;
+            var literals = new List<AstNode>();
             for (var j = 0; j < variables.Count; j++)
             {
                 if ((cube.Mask & (1 << j)) == 0) continue;
-                AstNode literal = (cube.Value & (1 << j)) != 0
+                literals.Add((cube.Value & (1 << j)) != 0
                     ? new VariableNode(variables[j])
-                    : new NotNode(new VariableNode(variables[j]));
-                term = term == null ? literal : new AndNode(term, literal);
+                    : new NotNode(new VariableNode(variables[j])));
             }
 
-            sop = sop == null ? term! : new OrNode(sop, term!);
+            terms.Add(literals.Count == 1 ? literals[0] : new AndNode(literals));
         }
 
-        return sop!;
+        return terms.Count == 1 ? terms[0] : new OrNode(terms);
     }
 }

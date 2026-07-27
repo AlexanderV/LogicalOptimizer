@@ -4,10 +4,17 @@ using Xunit;
 namespace LogicalOptimizer.Tests;
 
 /// <summary>
-/// Tests for the Parser component - building AST from tokens
+/// Tests for the Parser component. The parser builds through FormulaFactory, so its
+/// output is canonical: associativity chains are flattened into a single n-ary node
+/// and operands are sorted by the canonical key (complexity score, then string key).
 /// </summary>
 public class ParserTests
 {
+    private static AstNode Parse(string input)
+    {
+        return new Parser(new Lexer(input).Tokenize()).Parse();
+    }
+
     [Theory]
     [InlineData("a &")]
     [InlineData("| b")]
@@ -28,13 +35,8 @@ public class ParserTests
     [Fact]
     public void Parser_SimpleVariable_ShouldCreateVariableNode()
     {
-        // Arrange
-        var lexer = new Lexer("a");
-        var tokens = lexer.Tokenize();
-        var parser = new Parser(tokens);
-
         // Act
-        var ast = parser.Parse();
+        var ast = Parse("a");
 
         // Assert
         Assert.IsType<VariableNode>(ast);
@@ -44,13 +46,8 @@ public class ParserTests
     [Fact]
     public void Parser_Negation_ShouldCreateNotNode()
     {
-        // Arrange
-        var lexer = new Lexer("!a");
-        var tokens = lexer.Tokenize();
-        var parser = new Parser(tokens);
-
         // Act
-        var ast = parser.Parse();
+        var ast = Parse("!a");
 
         // Assert
         Assert.IsType<NotNode>(ast);
@@ -62,64 +59,70 @@ public class ParserTests
     [Fact]
     public void Parser_AndOperation_ShouldCreateAndNode()
     {
-        // Arrange
-        var lexer = new Lexer("a & b");
-        var tokens = lexer.Tokenize();
-        var parser = new Parser(tokens);
-
         // Act
-        var ast = parser.Parse();
+        var ast = Parse("a & b");
 
         // Assert
-        Assert.IsType<AndNode>(ast);
-        var andNode = (AndNode)ast;
-        Assert.IsType<VariableNode>(andNode.Left);
-        Assert.IsType<VariableNode>(andNode.Right);
-        Assert.Equal("a", ((VariableNode)andNode.Left).Name);
-        Assert.Equal("b", ((VariableNode)andNode.Right).Name);
+        var andNode = Assert.IsType<AndNode>(ast);
+        Assert.Equal(2, andNode.Operands.Count);
+        Assert.Equal("a", ((VariableNode)andNode.Operands[0]).Name);
+        Assert.Equal("b", ((VariableNode)andNode.Operands[1]).Name);
     }
 
     [Fact]
     public void Parser_OrOperation_ShouldCreateOrNode()
     {
-        // Arrange
-        var lexer = new Lexer("a | b");
-        var tokens = lexer.Tokenize();
-        var parser = new Parser(tokens);
-
         // Act
-        var ast = parser.Parse();
+        var ast = Parse("a | b");
 
         // Assert
-        Assert.IsType<OrNode>(ast);
-        var orNode = (OrNode)ast;
-        Assert.IsType<VariableNode>(orNode.Left);
-        Assert.IsType<VariableNode>(orNode.Right);
-        Assert.Equal("a", ((VariableNode)orNode.Left).Name);
-        Assert.Equal("b", ((VariableNode)orNode.Right).Name);
+        var orNode = Assert.IsType<OrNode>(ast);
+        Assert.Equal(2, orNode.Operands.Count);
+        Assert.Equal("a", ((VariableNode)orNode.Operands[0]).Name);
+        Assert.Equal("b", ((VariableNode)orNode.Operands[1]).Name);
+    }
+
+    [Fact]
+    public void Parser_AssociativityChain_ShouldFlattenIntoSingleNaryNode()
+    {
+        // Act - a & b & c is ONE n-ary node, not a nested binary chain
+        var ast = Parse("a & b & c");
+
+        // Assert
+        var andNode = Assert.IsType<AndNode>(ast);
+        Assert.Equal(3, andNode.Operands.Count);
+        Assert.All(andNode.Operands, o => Assert.IsType<VariableNode>(o));
+        Assert.Equal(new[] { "a", "b", "c" },
+            andNode.Operands.Select(o => ((VariableNode)o).Name));
+    }
+
+    [Fact]
+    public void Parser_CommutedOperands_ShouldSortCanonically()
+    {
+        // Act - parser output is canonical, so "c & a" and "a & c" are identical
+        var commuted = Parse("c & a");
+
+        // Assert
+        var andNode = Assert.IsType<AndNode>(commuted);
+        Assert.Equal(new[] { "a", "c" },
+            andNode.Operands.Select(o => ((VariableNode)o).Name));
+        Assert.Equal(Parse("a & c"), commuted);
     }
 
     [Fact]
     public void Parser_ComplexExpression_ShouldRespectPrecedence()
     {
-        // Arrange - AND has higher precedence than OR
-        var lexer = new Lexer("a | b & c");
-        var tokens = lexer.Tokenize();
-        var parser = new Parser(tokens);
+        // Act - AND has higher precedence than OR
+        var ast = Parse("a | b & c");
 
-        // Act
-        var ast = parser.Parse();
+        // Assert - Or(a, And(b, c)); the simple literal sorts before the AND term
+        var orNode = Assert.IsType<OrNode>(ast);
+        Assert.Equal(2, orNode.Operands.Count);
+        Assert.Equal("a", ((VariableNode)orNode.Operands[0]).Name);
 
-        // Assert
-        Assert.IsType<OrNode>(ast);
-        var orNode = (OrNode)ast;
-        Assert.IsType<VariableNode>(orNode.Left);
-        Assert.IsType<AndNode>(orNode.Right);
-        Assert.Equal("a", ((VariableNode)orNode.Left).Name);
-
-        var rightAnd = (AndNode)orNode.Right;
-        Assert.Equal("b", ((VariableNode)rightAnd.Left).Name);
-        Assert.Equal("c", ((VariableNode)rightAnd.Right).Name);
+        var innerAnd = Assert.IsType<AndNode>(orNode.Operands[1]);
+        Assert.Equal(new[] { "b", "c" },
+            innerAnd.Operands.Select(o => ((VariableNode)o).Name));
     }
 
     [Theory]
@@ -127,67 +130,48 @@ public class ParserTests
     [InlineData("(a & b) | c")] // Redundant parentheses produce the same structure
     public void Parser_AndOrPrecedence_ShouldPlaceAndBelowOr(string input)
     {
-        // Arrange
-        var lexer = new Lexer(input);
-        var tokens = lexer.Tokenize();
-        var parser = new Parser(tokens);
-
         // Act
-        var ast = parser.Parse();
+        var ast = Parse(input);
 
-        // Assert - Or(And(a, b), c)
-        Assert.IsType<OrNode>(ast);
-        var orNode = (OrNode)ast;
-        Assert.IsType<AndNode>(orNode.Left);
-        Assert.Equal("c", ((VariableNode)orNode.Right).Name);
+        // Assert - Or(c, And(a, b)): canonical order puts the literal first
+        var orNode = Assert.IsType<OrNode>(ast);
+        Assert.Equal(2, orNode.Operands.Count);
+        Assert.Equal("c", ((VariableNode)orNode.Operands[0]).Name);
 
-        var leftAnd = (AndNode)orNode.Left;
-        Assert.Equal("a", ((VariableNode)leftAnd.Left).Name);
-        Assert.Equal("b", ((VariableNode)leftAnd.Right).Name);
+        var innerAnd = Assert.IsType<AndNode>(orNode.Operands[1]);
+        Assert.Equal(new[] { "a", "b" },
+            innerAnd.Operands.Select(o => ((VariableNode)o).Name));
     }
 
     [Fact]
     public void Parser_ParenthesesOnRight_ShouldGroupOrUnderAnd()
     {
-        // Arrange
-        var lexer = new Lexer("a & (b | c)");
-        var tokens = lexer.Tokenize();
-        var parser = new Parser(tokens);
-
         // Act
-        var ast = parser.Parse();
+        var ast = Parse("a & (b | c)");
 
         // Assert - And(a, Or(b, c))
-        Assert.IsType<AndNode>(ast);
-        var andNode = (AndNode)ast;
-        Assert.Equal("a", ((VariableNode)andNode.Left).Name);
-        Assert.IsType<OrNode>(andNode.Right);
+        var andNode = Assert.IsType<AndNode>(ast);
+        Assert.Equal(2, andNode.Operands.Count);
+        Assert.Equal("a", ((VariableNode)andNode.Operands[0]).Name);
 
-        var rightOr = (OrNode)andNode.Right;
-        Assert.Equal("b", ((VariableNode)rightOr.Left).Name);
-        Assert.Equal("c", ((VariableNode)rightOr.Right).Name);
+        var innerOr = Assert.IsType<OrNode>(andNode.Operands[1]);
+        Assert.Equal(new[] { "b", "c" },
+            innerOr.Operands.Select(o => ((VariableNode)o).Name));
     }
 
     [Fact]
     public void Parser_ParenthesesExpression_ShouldRespectGrouping()
     {
-        // Arrange
-        var lexer = new Lexer("(a | b) & c");
-        var tokens = lexer.Tokenize();
-        var parser = new Parser(tokens);
-
         // Act
-        var ast = parser.Parse();
+        var ast = Parse("(a | b) & c");
 
-        // Assert
-        Assert.IsType<AndNode>(ast);
-        var andNode = (AndNode)ast;
-        Assert.IsType<OrNode>(andNode.Left);
-        Assert.IsType<VariableNode>(andNode.Right);
-        Assert.Equal("c", ((VariableNode)andNode.Right).Name);
+        // Assert - And(c, Or(a, b)): the literal sorts before the OR group
+        var andNode = Assert.IsType<AndNode>(ast);
+        Assert.Equal(2, andNode.Operands.Count);
+        Assert.Equal("c", ((VariableNode)andNode.Operands[0]).Name);
 
-        var leftOr = (OrNode)andNode.Left;
-        Assert.Equal("a", ((VariableNode)leftOr.Left).Name);
-        Assert.Equal("b", ((VariableNode)leftOr.Right).Name);
+        var innerOr = Assert.IsType<OrNode>(andNode.Operands[1]);
+        Assert.Equal(new[] { "a", "b" },
+            innerOr.Operands.Select(o => ((VariableNode)o).Name));
     }
 }

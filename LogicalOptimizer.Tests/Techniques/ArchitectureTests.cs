@@ -42,18 +42,18 @@ public class ArchitectureTests
     [Fact]
     public void RewritePipeline_StaysInternal()
     {
-        // Individual rewrite rules are an implementation detail behind the facade
-        Types().That().ResideInNamespace("LogicalOptimizer.Optimizers")
+        // The rewrite engine and its rules are an implementation detail behind the facade
+        Types().That().ResideInNamespace("LogicalOptimizer.Rewrite")
             .Should().NotBePublic()
             .Because("rewrite rules are internal machinery; the public surface is the facade")
             .Check(Arch);
     }
 
     [Fact]
-    public void OptimizerImplementations_LiveInTheOptimizersNamespace()
+    public void RewriteRules_LiveInTheRewriteNamespace()
     {
-        Classes().That().ImplementInterface(typeof(Optimizers.IOptimizer))
-            .Should().ResideInNamespace("LogicalOptimizer.Optimizers")
+        Classes().That().ImplementInterface(typeof(Rewrite.IRewriteRule))
+            .Should().ResideInNamespace("LogicalOptimizer.Rewrite")
             .Check(Arch);
     }
 
@@ -122,20 +122,26 @@ public class ArchitectureTests
         // reviewed decision — extend the list together with the README/API docs
         var expected = new HashSet<string>
         {
-            "AndNode", "OrNode", "NotNode", "ImpNode", "XorNode", "NandNode", "NorNode", "EqvNode",
-            "AstNode", "BinaryNode", "VariableNode", "ConstantNode", "FormulaFactory",
-            "BooleanExpressionOptimizer", "OptimizationOptions", "OptimizationResult",
-            "OptimizationMetrics", "AstMetrics", "OptimizationQualityAnalyzer",
-            "CnfMode", "MinimizationStatus", "ComputationStatus", "ResourceBudget",
-            "Lexer", "Parser", "Token", "TokenType", "TruthTable", "TruthTableMinimizer",
-            "CsvTruthTableParser", "MultiOutputTable", "MultiOutputFunction",
+            // Core (20)
+            "AstNode", "NaryNode", "AndNode", "OrNode", "NotNode", "VariableNode", "ConstantNode",
+            "BinaryNode", "ImpNode", "XorNode", "NandNode", "NorNode", "EqvNode",
+            "FormulaFactory", "AstFormatter", "AstVisualizer", "TruthTable",
+            "OptimizationMetrics", "AstMetrics", "ResourceBudget",
+            // Sat (10)
+            "SatSolver", "SatResult", "MaxSatSolver", "MaxSatResult", "MaxSatStatus",
+            "CnfBuilder", "CardinalityEncoder", "PseudoBooleanEncoder", "CnfEncodingStyle", "TseitinCnf",
+            // Bdd (1)
+            "BinaryDecisionDiagram",
+            // Minimization (5)
+            "TruthTableMinimizer", "CsvTruthTableParser", "PartialTruthTable",
+            "MultiOutputTable", "MultiOutputFunction",
+            // Facade (17)
+            "BooleanExpressionOptimizer", "OptimizationResult", "OptimizationOptions",
+            "CnfMode", "MinimizationStatus", "ComputationStatus",
             "EquivalenceChecker", "EquivalenceCheckResult", "IEquivalenceChecker",
             "HybridEquivalenceChecker", "BddEquivalenceChecker",
-            "TseitinConverter", "TseitinCnf", "CnfEncodingStyle", "SatSolver", "SatResult", "SatProofStep",
-            "BinaryDecisionDiagram", "AndInverterGraph", "FormulaAnalysis", "BackboneResult",
-            "CnfBuilder", "CardinalityEncoder", "PseudoBooleanEncoder",
-            "MaxSatSolver", "MaxSatResult", "MaxSatStatus",
-            "Transformations", "BooleanExpressionExporter", "CSharpExpressionExporter"
+            "FormulaAnalysis", "BackboneResult", "Transformations",
+            "BooleanExpressionExporter", "CSharpExpressionExporter", "OptimizationQualityAnalyzer"
         };
 
         var actual = LibraryAssemblies.DistinctBy(a => a.FullName)
@@ -183,17 +189,16 @@ public class ArchitectureTests
     [Fact]
     public void ImmutableAstContract_NoPublicSettersOnNodes()
     {
-        // AST nodes are shared between optimizers; a mutable node would corrupt
-        // sibling references. ForceParentheses is the one documented exception: a
-        // display-only hint excluded from equality (REFACTORING_PLAN 2.5, kept until
-        // the v2.0 AST redesign). (Reflection instead of ArchUnitNET: init-only
-        // setters are misclassified by NotHavePublicSetter in v0.13.)
+        // AST nodes are shared between rewrites and interned by the factory; a mutable
+        // node would corrupt sibling references. Since v2 there are NO exceptions:
+        // ForceParentheses is gone and trees are fully immutable. (Reflection instead
+        // of ArchUnitNET: init-only setters are misclassified by NotHavePublicSetter
+        // in v0.13.)
         var offenders = new List<string>();
         foreach (var type in typeof(AstNode).Assembly.GetTypes()
                      .Where(t => typeof(AstNode).IsAssignableFrom(t)))
             foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
             {
-                if (property.Name == nameof(BinaryNode.ForceParentheses)) continue;
                 var setter = property.SetMethod;
                 if (setter is not { IsPublic: true }) continue;
                 var isInitOnly = setter.ReturnParameter.GetRequiredCustomModifiers()

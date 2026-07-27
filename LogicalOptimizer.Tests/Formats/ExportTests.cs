@@ -19,6 +19,18 @@ public class ExportTests
         Assert.Contains("p cnf", result);
     }
 
+    [Fact]
+    public void ToDimacs_OrExpression_ShouldEmitExactHeaderAndClause()
+    {
+        // Act: "a | b" is a single 2-literal clause over 2 variables (a=1, b=2)
+        var result = BooleanExpressionExporter.ToDimacs("a | b");
+
+        // Assert: pin the exact problem line and clause body, not just the "p cnf" prefix.
+        Assert.Contains("c Boolean expression: a | b", result);
+        Assert.Contains("p cnf 2 1", result);
+        Assert.Contains("1 2 0", result);
+    }
+
     [Theory]
     [InlineData("a & b")]
     [InlineData("a | b")]
@@ -32,6 +44,32 @@ public class ExportTests
         Assert.Contains(".inputs", result);
         Assert.Contains(".outputs out", result);
         Assert.Contains(".end", result);
+    }
+
+    [Fact]
+    public void ToBlif_NaryAnd_ShouldEmitSingleThreeInputGate()
+    {
+        // "a & b & c" parses to a flat 3-operand AndNode → one multi-input BLIF gate.
+        var result = BooleanExpressionExporter.ToBlif("a & b & c");
+
+        // Assert: all three inputs on ONE .names line + a 3-wide cover row (nested binary
+        // would instead emit two 2-input AND gates).
+        Assert.Contains(".inputs a b c", result);
+        Assert.Contains(".names a b c a0", result);
+        Assert.Contains("111 1", result);
+    }
+
+    [Fact]
+    public void ToBlif_NaryOr_ShouldEmitThreeInputGateWithPerInputCoverRows()
+    {
+        // "a | b | c" parses to a flat 3-operand OrNode → one 3-input OR gate with one
+        // cover row per input.
+        var result = BooleanExpressionExporter.ToBlif("a | b | c");
+
+        Assert.Contains(".names a b c o0", result);
+        Assert.Contains("1-- 1", result);
+        Assert.Contains("-1- 1", result);
+        Assert.Contains("--1 1", result);
     }
 
     [Theory]
@@ -48,6 +86,25 @@ public class ExportTests
         Assert.Contains("input", result);
         Assert.Contains("output out", result);
         Assert.Contains("endmodule", result);
+    }
+
+    [Fact]
+    public void ToVerilog_NaryAnd_ShouldEmitAllThreeInputsInOneAssign()
+    {
+        // "a & b & c" → flat 3-operand AndNode → a single multi-input assign.
+        var result = BooleanExpressionExporter.ToVerilog("a & b & c");
+
+        // Assert: three inputs joined in ONE assign (nested binary would need two assigns).
+        Assert.Contains("assign w0 = a & b & c;", result);
+    }
+
+    [Fact]
+    public void ToVerilog_NaryOr_ShouldEmitAllThreeInputsInOneAssign()
+    {
+        // "a | b | c" → flat 3-operand OrNode → a single multi-input assign.
+        var result = BooleanExpressionExporter.ToVerilog("a | b | c");
+
+        Assert.Contains("assign w0 = a | b | c;", result);
     }
 
     [Theory]

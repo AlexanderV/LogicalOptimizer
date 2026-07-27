@@ -12,20 +12,19 @@
 
 #### Code Usage:
 ```csharp
-var exporter = new BooleanExpressionExporter();
+// All BooleanExpressionExporter methods are static and take the expression string.
 
 // Export to DIMACS for SAT solvers
-string dimacs = exporter.ToDimacs("(a | b) & (a | c)");
+string dimacs = BooleanExpressionExporter.ToDimacs("(a | b) & (a | c)");
 
 // Export to BLIF for circuit synthesis  
-string blif = exporter.ToBlif("a & b | c", "mymodule");
+string blif = BooleanExpressionExporter.ToBlif("a & b | c", "mymodule");
 
 // Export to Verilog
-string verilog = exporter.ToVerilog("!(a & b)", "logic_gate");
+string verilog = BooleanExpressionExporter.ToVerilog("!(a & b)", "logic_gate");
 
 // Export truth table to CSV
-var truthTable = TruthTable.Generate(ast, variables);
-string csv = exporter.TruthTableToCsv(truthTable);
+string csv = BooleanExpressionExporter.TruthTableToCsv("a & b | c");
 ```
 
 ### 2. **Optimization Quality Analysis System**
@@ -39,8 +38,8 @@ string csv = exporter.TruthTableToCsv(truthTable);
 
 #### Usage:
 ```csharp
-var analyzer = new OptimizationQualityAnalyzer();
-var metrics = analyzer.AnalyzeOptimization(result);
+// AnalyzeOptimization is a static method returning OptimizationQualityAnalyzer.QualityMetrics.
+var metrics = OptimizationQualityAnalyzer.AnalyzeOptimization(result);
 
 Console.WriteLine($"Compression: {metrics.CompressionRatio:P1}");
 Console.WriteLine($"Complexity: {metrics.Complexity:F1}");
@@ -109,30 +108,31 @@ Complex expression...                    20→12    1.90       ✓
 
 #### Text visualization:
 ```csharp
-var visualizer = AstVisualizer.VisualizeTree(ast);
-Console.WriteLine(visualizer);
+// AstVisualizer is a static class. Both members take an AstNode
+// (e.g. FormulaFactory.Parse("a & (b | c)")).
+string tree = AstVisualizer.VisualizeTree(ast);
+Console.WriteLine(tree);
 ```
 
 ```
-└── AND
-    ├── VAR: a
-    └── OR
-        ├── VAR: b
-        └── VAR: c
+└─ AND (&)
+   ├─ Variable: 'a'
+   └─ OR (|)
+      ├─ Variable: 'b'
+      └─ Variable: 'c'
 ```
 
-#### DOT format (for Graphviz):
+#### Compact visualization (expression + tree):
 ```csharp
-string dotGraph = AstVisualizer.VisualizeDot(ast);
-// Can be saved and visualized in Graphviz
+string compact = AstVisualizer.GetCompactVisualization(ast);
+// "AST: a & (b | c)" followed by the tree rendering above
 ```
 
 ### 6. **Mathematical Notation**
 
 #### Export to mathematical format:
 ```csharp
-var exporter = new BooleanExpressionExporter();
-string mathNotation = exporter.ConvertToMathNotation(ast);
+string mathNotation = BooleanExpressionExporter.ToMathematicalNotation("a & (b | c)");
 // Result: "a ∧ (b ∨ c)" instead of "a & (b | c)"
 ```
 

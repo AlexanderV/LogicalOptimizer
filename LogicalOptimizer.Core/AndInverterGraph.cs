@@ -9,7 +9,7 @@ namespace LogicalOptimizer;
 ///     Full cut-based rewriting is future work — see <see cref="Cleanup" /> for the
 ///     rebuild pass provided today.
 /// </summary>
-public sealed class AndInverterGraph
+internal sealed class AndInverterGraph
 {
     public const int FalseLiteral = 0;
     public const int TrueLiteral = 1;
@@ -96,8 +96,8 @@ public sealed class AndInverterGraph
             ConstantNode constant => constant.Value ? TrueLiteral : FalseLiteral,
             VariableNode variable => CreateInput(variable.Name),
             NotNode not => Not(Translate(not.Operand, cache)),
-            AndNode and => And(Translate(and.Left, cache), Translate(and.Right, cache)),
-            OrNode or => Or(Translate(or.Left, cache), Translate(or.Right, cache)),
+            AndNode and => TranslateNary(and.Operands, cache, And),
+            OrNode or => TranslateNary(or.Operands, cache, Or),
             XorNode xor => Xor(Translate(xor.Left, cache), Translate(xor.Right, cache)),
             EqvNode eqv => Not(Xor(Translate(eqv.Left, cache), Translate(eqv.Right, cache))),
             ImpNode imp => Or(Not(Translate(imp.Left, cache)), Translate(imp.Right, cache)),
@@ -107,6 +107,27 @@ public sealed class AndInverterGraph
         };
         cache[node] = literal;
         return literal;
+    }
+
+    /// <summary>
+    ///     Fold an n-ary connective into two-input gates via balanced pairwise reduction,
+    ///     keeping the resulting circuit depth logarithmic in the operand count.
+    /// </summary>
+    private int TranslateNary(IReadOnlyList<AstNode> operands, Dictionary<AstNode, int> cache,
+        Func<int, int, int> combine)
+    {
+        var literals = new List<int>(operands.Count);
+        foreach (var operand in operands) literals.Add(Translate(operand, cache));
+
+        while (literals.Count > 1)
+        {
+            var next = new List<int>((literals.Count + 1) / 2);
+            for (var i = 0; i + 1 < literals.Count; i += 2) next.Add(combine(literals[i], literals[i + 1]));
+            if (literals.Count % 2 == 1) next.Add(literals[^1]);
+            literals = next;
+        }
+
+        return literals[0];
     }
 
     /// <summary>Evaluate a literal under an assignment (missing variables default to false).</summary>

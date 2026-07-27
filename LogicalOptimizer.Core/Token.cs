@@ -1,6 +1,6 @@
 namespace LogicalOptimizer;
 
-public sealed class Token
+internal sealed class Token
 {
     public TokenType Type { get; init; }
     public string Value { get; init; } = "";

@@ -12,7 +12,7 @@ public class TransformationsTests
     [Theory]
     [InlineData("a & b | a", "a")]
     [InlineData("a | a & b | c & d & a | b", "a | b")]
-    [InlineData("a & b | c", "a & b | c")] // nothing absorbed
+    [InlineData("a & b | c", "c | a & b")] // nothing absorbed (canonical order: literal first)
     public void SubsumeDnf_DropsAbsorbedTerms(string input, string expected)
     {
         Assert.Equal(expected, Transformations.SubsumeDnf(Parse(input)).ToString());

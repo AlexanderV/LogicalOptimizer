@@ -5,14 +5,11 @@ namespace LogicalOptimizer;
 /// </summary>
 public sealed class ImpNode : BinaryNode
 {
-    public ImpNode(AstNode left, AstNode right, bool forceParens = false) : base(left, right, forceParens)
+    /// <summary>Creates an implication left → right.</summary>
+    public ImpNode(AstNode left, AstNode right) : base(left, right)
     {
     }
 
+    /// <inheritdoc />
     public override string Operator => "→";
-
-    public override AstNode Clone()
-    {
-        return new ImpNode(Left.Clone(), Right.Clone(), ForceParentheses);
-    }
 }

@@ -1,10 +1,10 @@
 ﻿=== Debug Information ===
 Original AST:
-└─ OR (|) 
-   ├─ AND (&) 
+└─ OR (|)
+   ├─ AND (&)
    │  ├─ Variable: 'a'
    │  └─ Variable: 'b'
-   └─ AND (&) 
+   └─ AND (&)
       ├─ Variable: 'a'
       └─ NOT (!)
          └─ Variable: 'b'

@@ -65,10 +65,10 @@ public class FormulaFactoryTests
         var second = f.And(f.Variable("a"), f.Variable("b"));
         Assert.Same(first, second);
 
-        // Shared suffixes of right-folded n-ary chains are shared instances too
-        var chain1 = f.And(f.Variable("x"), f.Variable("y"), f.Variable("z"));
-        var chain2 = f.And(f.Variable("w"), f.Variable("y"), f.Variable("z"));
-        Assert.Same(((AndNode)chain1).Right, ((AndNode)chain2).Right);
+        // Flattening + canonical sorting make differently grouped chains the same instance
+        var chain1 = f.And(f.Variable("x"), f.And(f.Variable("y"), f.Variable("z")));
+        var chain2 = f.And(f.And(f.Variable("z"), f.Variable("y")), f.Variable("x"));
+        Assert.Same(chain1, chain2);
     }
 
     [Fact]
@@ -76,6 +76,27 @@ public class FormulaFactoryTests
     {
         var rng = new Random(999);
         var f = new FormulaFactory();
+
+        // Raw, un-canonical tree built directly with node constructors (NOT through the
+        // factory), carrying deliberate redundancy: a nested same-op AND with a duplicated
+        // operand, a double negation, and a duplicated OR operand. Because the input never
+        // went through the factory, Import has real folding work to do here — so the literal
+        // count must drop STRICTLY (a & a & (b | b) == a & b), which genuinely exercises the
+        // flatten/dedup/double-negation folding that the random corpus (already canonical)
+        // cannot.
+        var raw = new AndNode(new AstNode[]
+        {
+            new AndNode(new VariableNode("a"), new VariableNode("a")), // nested same-op + duplicate
+            new NotNode(new NotNode(new VariableNode("b"))),           // double negation
+            new OrNode(new VariableNode("b"), new VariableNode("b"))   // duplicated OR operand
+        });
+        var importedRaw = f.Import(raw);
+        Assert.True(TruthTable.AreEquivalent(raw, importedRaw),
+            $"Import changed semantics of raw tree '{raw}'");
+        Assert.True(AstMetrics.CountLiterals(importedRaw) < AstMetrics.CountLiterals(raw),
+            $"Import failed to fold redundancy: raw literals={AstMetrics.CountLiterals(raw)}, " +
+            $"imported literals={AstMetrics.CountLiterals(importedRaw)} ('{raw}' -> '{importedRaw}')");
+
         for (var trial = 0; trial < 60; trial++)
         {
             var ast = RandomExpressions.Parse(

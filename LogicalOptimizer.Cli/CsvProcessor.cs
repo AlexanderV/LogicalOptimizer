@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using LogicalOptimizer.Optimizers;
 
 namespace LogicalOptimizer;
 
@@ -51,10 +50,10 @@ internal class CsvProcessor
         try
         {
             // Joint minimization: independent minimal covers, then PLA-style cube sharing
-            var commutativity = new CommutativityOptimizer();
+            var factory = new FormulaFactory();
             return MultiOutputMinimizer
                 .Minimize(table, qmBudget, ResourceBudget.DefaultCoverStepLimit,
-                    canonicalize: node => commutativity.Optimize(node))
+                    canonicalize: node => factory.Import(node))
                 .Select(r => (r.Name, r.Expression.ToString()))
                 .ToList();
         }
@@ -92,16 +91,17 @@ internal class CsvProcessor
 
     private static string BuildExpression(string csvContent)
     {
-        var (variables, onSet, dontCareSet) = CsvTruthTableParser.ParseCsvToPartialTable(csvContent);
+        var table = CsvTruthTableParser.ParseCsvToPartialTable(csvContent);
 
         // Incomplete tables: unspecified rows are don't-cares, which the exact
         // minimizer can exploit for a cheaper cover
-        if (dontCareSet.Count > 0 && variables.Count <= PerformanceValidator.MAX_EXACT_MINIMIZATION_VARIABLES)
+        if (table.DontCareSet.Count > 0 &&
+            table.Variables.Count <= PerformanceValidator.MAX_EXACT_MINIMIZATION_VARIABLES)
             try
             {
-                Console.Error.WriteLine($"Unspecified rows treated as don't-care: {dontCareSet.Count}");
-                var minimal = new CommutativityOptimizer()
-                    .Optimize(TruthTableMinimizer.MinimalSop(variables, onSet, dontCareSet,
+                Console.Error.WriteLine($"Unspecified rows treated as don't-care: {table.DontCareSet.Count}");
+                var minimal = new FormulaFactory()
+                    .Import(TruthTableMinimizer.MinimalSop(table.Variables, table.OnSet, table.DontCareSet,
                         PerformanceValidator.QM_PAIR_COMPARISON_LIMIT));
                 return minimal.ToString();
             }

@@ -281,14 +281,14 @@ public class FuzzingTests
     public void FormulaFactoryFuzz_DeepRandomConstruction_NeverProducesRedundantShapes()
     {
         // Random construction sequences: the factory invariants (no nested same-op
-        // when flattenable, no duplicate operands, no constants inside connectives)
-        // must hold for every produced formula
+        // when flattenable, no duplicate operands, no complement pairs, canonical
+        // sortedness, no constants inside connectives) must hold for every formula
         var rng = new Random(90008);
         var factory = new FormulaFactory();
         for (var trial = 0; trial < 300; trial++)
         {
             var formula = RandomFactoryFormula(factory, rng, 4);
-            AssertFactoryInvariants(formula);
+            AssertFactoryInvariants(formula, factory);
         }
     }
 
@@ -308,44 +308,45 @@ public class FuzzingTests
         return rng.Next(2) == 0 ? factory.And(operands) : factory.Or(operands);
     }
 
-    private static void AssertFactoryInvariants(AstNode node)
+    // Full canonical-shape walk, mirroring CanonicalInvariantTests.AssertCanonicalShape:
+    // flatten (no nested same-op), no constants, operand dedup, no complement pair, and
+    // canonical sortedness/interning (rebuilding from the operand list returns the very
+    // same instance). The factory must be the one that built the tree for the Assert.Same
+    // interning check to hold.
+    private static void AssertFactoryInvariants(AstNode node, FormulaFactory factory)
     {
         switch (node)
         {
-            case AndNode and:
-                foreach (var term in FlattenSame<AndNode>(and, n => (n.Left, n.Right)))
+            case NaryNode nary:
+                Assert.True(nary.Operands.Count >= 2,
+                    $"N-ary node with {nary.Operands.Count} operand(s): {nary}");
+
+                var seen = new HashSet<AstNode>();
+                foreach (var term in nary.Operands)
                 {
-                    Assert.False(term is ConstantNode, $"constant inside AND chain: {node}");
-                    AssertFactoryInvariants(term);
+                    Assert.False(term.GetType() == nary.GetType(),
+                        $"nested same-type operand survived flattening: {node}");
+                    Assert.False(term is ConstantNode, $"constant inside connective: {node}");
+                    Assert.True(seen.Add(term), $"duplicate operand '{term}' under {node}");
                 }
 
-                break;
-            case OrNode or:
-                foreach (var term in FlattenSame<OrNode>(or, n => (n.Left, n.Right)))
-                {
-                    Assert.False(term is ConstantNode, $"constant inside OR chain: {node}");
-                    AssertFactoryInvariants(term);
-                }
+                foreach (var term in nary.Operands)
+                    Assert.False(term is NotNode not && seen.Contains(not.Operand),
+                        $"complement pair '{(term as NotNode)?.Operand}'/'{term}' under {node}");
 
+                // Canonical sortedness + interning: rebuilding from the node's own operand
+                // list must be a no-op that returns the identical instance.
+                var rebuilt = nary is AndNode ? factory.And(nary.Operands) : factory.Or(nary.Operands);
+                Assert.Same(nary, rebuilt);
+
+                foreach (var term in nary.Operands) AssertFactoryInvariants(term, factory);
                 break;
             case NotNode not:
                 Assert.False(not.Operand is NotNode, $"double negation survived: {node}");
                 Assert.False(not.Operand is ConstantNode, $"negated constant survived: {node}");
-                AssertFactoryInvariants(not.Operand);
+                AssertFactoryInvariants(not.Operand, factory);
                 break;
         }
-    }
-
-    private static IEnumerable<AstNode> FlattenSame<T>(T root, Func<T, (AstNode, AstNode)> children)
-        where T : AstNode
-    {
-        var (left, right) = children(root);
-        foreach (var side in new[] { left, right })
-            if (side is T same)
-                foreach (var inner in FlattenSame(same, children))
-                    yield return inner;
-            else
-                yield return side;
     }
 
     [Fact]

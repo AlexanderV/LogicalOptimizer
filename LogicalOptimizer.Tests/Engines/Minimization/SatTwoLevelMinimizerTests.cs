@@ -32,8 +32,16 @@ public class SatTwoLevelMinimizerTests
     [Fact]
     public void TryMinimize_TautologyAndContradiction()
     {
-        Assert.Equal("1", Minimize(Parse("a | !a | b"))!.ToString());
-        Assert.Equal("0", Minimize(Parse("a & !a"))!.ToString());
+        // Raw constructors: the parser folds complements to constants at build time,
+        // and TryMinimize declines constant inputs (no variables) — the tautology /
+        // contradiction handling being pinned here only triggers on real trees
+        var a = new VariableNode("a");
+        var b = new VariableNode("b");
+        var tautology = new OrNode(new AstNode[] { a, new NotNode(a), b });
+        var contradiction = new AndNode(a, new NotNode(a));
+
+        Assert.Equal("1", Minimize(tautology)!.ToString());
+        Assert.Equal("0", Minimize(contradiction)!.ToString());
     }
 
     [Fact]
@@ -47,6 +55,7 @@ public class SatTwoLevelMinimizerTests
         {
             var expression = RandomExpression(random, variables, 4);
             var ast = Parse(expression);
+            if (ast is ConstantNode) continue; // parse-time folding; TryMinimize declines constants
             var satResult = Minimize(ast);
             Assert.NotNull(satResult);
             Assert.True(TruthTable.AreEquivalent(ast, satResult!), $"Non-equivalent for '{expression}'");
@@ -120,16 +129,26 @@ public class SatTwoLevelMinimizerTests
 public class MultiOutputSharingTests
 {
     [Fact]
-    public void Minimize_SharedCube_ReusedAcrossOutputs()
+    public void Minimize_SharedCube_ReplacesAnIndependentCube()
     {
-        // X = a&b | c&d, Y = a&b | !c&!d: the a&b cube must be shared, total distinct
-        // cubes 3 instead of 4
+        // X = !c&d | a&b&!c   (ON-set {3,8,9,10,11})
+        // Y = c | d           (ON-set {4..15})
+        //
+        // Independent minimal covers: X = {!c&d, a&b&!c}, Y = {c, d} — 4 distinct cubes.
+        // The X-only cube "!c & d" covers exactly Y's c=0,d=1 region, so the shared
+        // re-cover reuses it inside Y and drops Y's "d" cube: Y becomes {!c&d, c}, and
+        // the two outputs together use only 3 distinct cubes — strictly cheaper
+        // ((literals 6, cubes 3) vs the independent (7, 4)), so TrySharedCovers wins.
+        //
+        // This is the observable sharing outcome the previous version missed: with the
+        // shared path DISABLED, chosen == the independent covers, Y renders "c | d"
+        // (no "!c & d") and the distinct-cube total is 4 — every assertion below flips.
         var csv = "a,b,c,d,X,Y\n" + string.Join("\n",
             Enumerable.Range(0, 16).Select(m =>
             {
                 bool A = (m & 1) != 0, B = (m & 2) != 0, C = (m & 4) != 0, D = (m & 8) != 0;
-                var x = A && B || C && D;
-                var y = A && B || !C && !D;
+                var x = !C && D || A && B && !C;
+                var y = C || D;
                 return $"{(A ? 1 : 0)},{(B ? 1 : 0)},{(C ? 1 : 0)},{(D ? 1 : 0)},{(x ? 1 : 0)},{(y ? 1 : 0)}";
             }));
 
@@ -137,6 +156,9 @@ public class MultiOutputSharingTests
         var results = MultiOutputMinimizer.Minimize(table, null, ResourceBudget.DefaultCoverStepLimit);
 
         Assert.Equal(2, results.Count);
+
+        // Every output stays provably equivalent to its table (the sharing must not
+        // change semantics, only reuse cubes).
         foreach (var (name, expression) in results)
         {
             var index = name == "X" ? 0 : 1;
@@ -152,8 +174,54 @@ public class MultiOutputSharingTests
                 };
                 Assert.Equal(onSet.Contains(m), TruthTable.Evaluate(expression, assignment));
             }
-
-            Assert.Contains("a & b", expression.ToString());
         }
+
+        var x = results.Single(r => r.Name == "X").Expression;
+        var y = results.Single(r => r.Name == "Y").Expression;
+
+        // Observable outcome 1: the cube "!c & d" — from X's cover — appears in Y, whose
+        // OWN minimal cover ("c | d") would never contain it. Only the shared re-cover
+        // puts it there.
+        Assert.Contains("!c & d", y.ToString());
+
+        // Observable outcome 2: the two expressions share a cube, so the number of
+        // DISTINCT product terms across both is 3.
+        var sharedDistinct = DistinctCubes(x).Concat(DistinctCubes(y)).Distinct().Count();
+        Assert.Equal(3, sharedDistinct);
+
+        // Independent-cover oracle (the product's own per-output minimum, computed
+        // directly): 4 distinct cubes. Sharing is a STRICT win — this is exactly what
+        // TrySharedCovers exists to produce, and what a disabled shared path would lose.
+        Assert.Equal(4, IndependentDistinctCubeCount(table));
+        Assert.True(sharedDistinct < IndependentDistinctCubeCount(table));
+    }
+
+    /// <summary>Distinct product-term strings of a sum-of-products expression.</summary>
+    private static IEnumerable<string> DistinctCubes(AstNode expression)
+    {
+        return expression is OrNode or
+            ? or.Operands.Select(operand => operand.ToString()!)
+            : new[] { expression.ToString()! };
+    }
+
+    /// <summary>
+    ///     Number of distinct cubes across every output's INDEPENDENT minimal cover,
+    ///     computed straight from the product minimizer — the baseline the shared
+    ///     re-cover must beat.
+    /// </summary>
+    private static int IndependentDistinctCubeCount(MultiOutputTable table)
+    {
+        var cubes = new HashSet<(int Mask, int Value)>();
+        foreach (var output in table.Outputs)
+        {
+            var on = new HashSet<int>(output.OnSet);
+            var dc = new HashSet<int>(output.DontCareSet);
+            dc.ExceptWith(on);
+            var (cover, _) = TruthTableMinimizer.MinimalCoverCubes(table.Variables.Count, on, dc,
+                null, default, ResourceBudget.DefaultCoverStepLimit);
+            foreach (var cube in cover) cubes.Add(cube);
+        }
+
+        return cubes.Count;
     }
 }

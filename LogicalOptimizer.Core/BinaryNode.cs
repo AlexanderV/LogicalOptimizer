@@ -1,29 +1,47 @@
 namespace LogicalOptimizer;
 
+/// <summary>
+///     Base class for the derived binary connectives (<see cref="ImpNode" />,
+///     <see cref="XorNode" />, <see cref="NandNode" />, <see cref="NorNode" />,
+///     <see cref="EqvNode" />) that live outside the canonical core. The core
+///     connectives And/Or are n-ary (<see cref="NaryNode" />);
+///     <see cref="FormulaFactory.Import" /> decomposes derived nodes into And/Or/Not.
+///     Nodes are immutable and the hash code is computed once in the constructor.
+/// </summary>
 public abstract class BinaryNode : AstNode
 {
-    protected BinaryNode(AstNode left, AstNode right, bool forceParens = false)
+    private readonly int _hashCode;
+
+    /// <summary>Creates a derived binary node over the two operands.</summary>
+    protected BinaryNode(AstNode left, AstNode right)
     {
         Left = left ?? throw new ArgumentNullException(nameof(left));
         Right = right ?? throw new ArgumentNullException(nameof(right));
-        ForceParentheses = forceParens;
+        _hashCode = HashCode.Combine(GetType(), Left, Right);
     }
 
+    /// <summary>Left operand.</summary>
     public AstNode Left { get; }
+
+    /// <summary>Right operand.</summary>
     public AstNode Right { get; }
 
-    /// <summary>Display hint only; not part of structural equality.</summary>
-    public bool ForceParentheses { get; set; }
+    /// <summary>Operator symbol used when rendering.</summary>
     public abstract string Operator { get; }
 
-    public override string ToString()
+    /// <summary>Nodes are fully immutable, so cloning returns the same instance.</summary>
+    public override AstNode Clone()
     {
-        var leftStr = FormatChild(Left);
-        var rightStr = FormatChild(Right);
-        var result = $"{leftStr} {Operator} {rightStr}";
-        return ForceParentheses ? $"({result})" : result;
+        return this;
     }
 
+    /// <inheritdoc />
+    public override string ToString()
+    {
+        return AstFormatter.Format(this);
+    }
+
+    /// <inheritdoc />
     public override HashSet<string> GetVariables()
     {
         var vars = Left.GetVariables();
@@ -31,6 +49,7 @@ public abstract class BinaryNode : AstNode
         return vars;
     }
 
+    /// <summary>Structural equality: same runtime type and equal operands.</summary>
     public override bool Equals(object? obj)
     {
         return obj is BinaryNode other &&
@@ -39,36 +58,9 @@ public abstract class BinaryNode : AstNode
                Right.Equals(other.Right);
     }
 
+    /// <inheritdoc />
     public override int GetHashCode()
     {
-        return System.HashCode.Combine(GetType(), Left, Right);
-    }
-
-    private string FormatChild(AstNode child)
-    {
-        var text = child.ToString();
-        // A child with ForceParentheses already wrapped itself in ToString —
-        // wrapping again would print ((...))
-        return child is BinaryNode { ForceParentheses: false } childBinary && NeedsParentheses(childBinary)
-            ? $"({text})"
-            : text;
-    }
-
-    private bool NeedsParentheses(BinaryNode child)
-    {
-        // Extended operators (XOR, NAND, NOR, EQV, IMP) have no defined precedence
-        // in the input grammar, so their binary children are always parenthesized.
-        if (GetPrecedence(this) == 0) return true;
-        return GetPrecedence(child) < GetPrecedence(this);
-    }
-
-    private static int GetPrecedence(BinaryNode node)
-    {
-        return node switch
-        {
-            AndNode => 2,
-            OrNode => 1,
-            _ => 0
-        };
+        return _hashCode;
     }
 }

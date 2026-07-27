@@ -1,6 +1,6 @@
 namespace LogicalOptimizer;
 
-public enum TokenType
+internal enum TokenType
 {
     Variable,
     Not,

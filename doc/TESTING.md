@@ -1,10 +1,22 @@
 # Testing Strategy — Analysis, Actuality & Checklist
 
-**Last audited:** 2026-07-24 (full-suite audit: every test method reviewed for duplication,
-tautology, circular oracles and assertion strength; ~180 garbage/duplicate tests removed,
-~30 weak tests strengthened, two whole files with test-local re-implementations of
-production logic deleted).
-**Library:** LogicalOptimizer
+**Last audited:** 2026-07-27 (v2.0 post-migration re-audit: six parallel read-only reviewers
+covered every test file against the four quality criteria — representative, logically correct,
+strong, non-duplicating — and doc/TESTING.md's own audit rules; ~35 fixes applied across all
+folders. Two genuine "green-masking" weakenings introduced by the bulk v2 migration were caught
+and fixed: `ConsensusRule_ValidConsensus_ShouldSimplify` had been softened to a `<=`-count no-op,
+and `PropertyBasedTests` SAT-miter cross-check had degenerated to truth-table-vs-truth-table
+(the SAT engine never ran). Duplicates removed (`OptimizerTests` rows subsumed by
+`OptimizerTruthTableTests`, the consensus slack-scan, CLI validation twins); missing v2 coverage
+added (flat n-ary C#/BLIF/Verilog rendering, n-ary Tseitin clause counts, canonical-order
+tie-breaks, distributive `ToDnf`/`ToCnf`+budget, multi-output cube sharing that actually
+exercises `TrySharedCovers`, a gate-visible mid-flight cancellation test, a >12-var SAT-miter
+differential). Suite: **880 cases, 0 failed, 0 skipped** (net10.0, CI filter).
+**Previous audit:** 2026-07-24 (full-suite audit: ~180 garbage/duplicate tests removed,
+~30 weak tests strengthened, two whole files with test-local re-implementations of production
+logic deleted).
+**Library:** LogicalOptimizer (v2.0 — n-ary AST, single `RewriteEngine`, `FormulaFactory`
+construction-time canonicalization)
 
 ---
 
@@ -15,14 +27,14 @@ Status legend: ☑ current and verified in the last audit · ◪ present with kn
 | # | Technique | Applicability | Status | Coverage today | Effort to extend | Priority |
 |---|-----------|:---:|:---:|---|:---:|:---:|
 | 1 | **Property-Based (CsCheck)** | ★★★★★ | ☑ | 14 properties incl. extended-operator generators, `Techniques/PropertyBasedTests.cs` | Med | P0 |
-| 2 | **Metamorphic** | ★★★★★ | ☑ | 7 relations, `Techniques/MetamorphicTests.cs` | Med | P0 |
+| 2 | **Metamorphic** | ★★★★★ | ☑ | 11 relations (permutation MRs now pin byte-identical canonical output), `Techniques/MetamorphicTests.cs` | Med | P0 |
 | 3 | **Mutation (Stryker.NET)** | ★★★★☆ | ☑ | per-module runs + killer tests (Part 5); Transformations.cs 100% | Low | P1 |
 | 4 | **Algebraic** | ★★★★★ | ☑ | all axioms as laws, `Techniques/AlgebraicLawTests.cs` | Low | P1 |
 | 5 | **Snapshot / Approval (Verify)** | ★★★★☆ | ☑ | 7 approved snapshots, `Techniques/SnapshotTests.cs` | Low | P1 |
-| 6 | **Architecture (ArchUnitNET)** | ★★★☆☆ | ☑ | 8 rules incl. pinned public-API list, `Techniques/ArchitectureTests.cs` | Low | P2 |
-| 7 | **Differential** | ★★★★★ | ☑ | 7 internal-engine suites + SymPy oracle (CI) + Z3 oracle (Microsoft.Z3, runs locally) | Med | P0 |
-| 8 | **Fuzzing** | ★★★★☆ | ☑ | 7 deterministic fuzzers, `Techniques/FuzzingTests.cs` | Med | P2 |
-| 9 | **Characterization** | ★★★☆☆ | ☑ | 31-expression golden master, `Techniques/CharacterizationTests.cs` | Low | P3 |
+| 6 | **Architecture (ArchUnitNET)** | ★★★☆☆ | ☑ | 9 rules incl. pinned v2 public-API list (53 types) + `IRewriteRule`-in-`Rewrite`-namespace, `Techniques/ArchitectureTests.cs` | Low | P2 |
+| 7 | **Differential** | ★★★★★ | ☑ | internal-engine suites (incl. a >12-var SAT-miter-vs-BDD test) + SymPy oracle (CI) + Z3 oracle (Microsoft.Z3, runs locally) | Med | P0 |
+| 8 | **Fuzzing** | ★★★★☆ | ☑ | deterministic fuzzers (factory-invariant walker now checks dedup/complement/sortedness), `Techniques/FuzzingTests.cs` | Med | P2 |
+| 9 | **Characterization** | ★★★☆☆ | ☑ | 32-expression golden master, `Techniques/CharacterizationTests.cs` | Low | P3 |
 | 10 | **Combinatorial / Pairwise** | ★★★☆☆ | ☑ | covering array over 7 option axes + full 2⁷ grid | Low | P3 |
 
 Former gaps — all closed 2026-07-25:
@@ -52,35 +64,43 @@ above live in `Techniques/` and cut across all subjects.
 
 ```
 LogicalOptimizer.Tests/
-├── Core/                  Lexer, Parser, AST node contracts, TruthTable engine
-│     LexerTests · ParserTests · BinaryNodeContractTests (parameterized over
-│     Xor/Nand/Nor/Eqv/Imp) · TruthTableGenerationTests · TruthTableMethodTests ·
-│     TruthTableAdvancedTests
-├── Optimizers/            individual rewrite rules, pattern detection
-│     CommutativityOptimizerTests · DistributiveOptimizerTests · ConsensusRuleTests ·
-│     RuleCompletenessTests · OptimizerSoundnessTests · ExtendedOptimizationRulesTests ·
+├── Core/                  Lexer, Parser (canonical output), AST node contracts, TruthTable
+│     LexerTests · ParserTests · NaryNodeContractTests (n-ary invariants: ≥2 operands,
+│     defensive copy, order-sensitive equality, cached hash, Clone==this; + derived-op
+│     contracts) · FormulaFactoryTests (canonicalization + interning) ·
+│     TruthTableGenerationTests · TruthTableMethodTests · TruthTableAdvancedTests
+├── Optimizers/            rewrite rules (RewriteEngine/IRewriteRule), pattern detection
+│     CanonicalOrderingTests (construction-time sort) · DistributiveExpanderTests ·
+│     ConsensusRuleTests · RuleCompletenessTests · OptimizerSoundnessTests ·
+│     SubcircuitRewriteTests · ExtendedOptimizationRulesTests (dormant rule library) ·
 │     EqvRulesTests · AdvancedPatternDetectorTests · EqvPatternRecognizerTests ·
 │     TransformationsTests
 ├── Engines/
-│   ├── Sat/               SatSolverTests · IncrementalSatTests · DratProofTests
+│   ├── Sat/               SatSolverTests · SatSolverMutationKillerTests ·
+│   │                      IncrementalSatTests · DratProofTests
 │   ├── Bdd/               BinaryDecisionDiagramTests · BddOperationsTests
-│   ├── Minimization/      TruthTableMinimizerTests · SatTwoLevelMinimizerTests
-│   └── Encodings/         TseitinConverterTests · CnfEncodingTests (Plaisted–Greenbaum) ·
-│                          CardinalityAndMaxSatTests
+│   ├── Aig/               AndInverterGraphTests
+│   ├── Minimization/      TruthTableMinimizerTests · SatTwoLevelMinimizerTests ·
+│   │                      EspressoLiteTests
+│   └── Encodings/         TseitinConverterTests (n-ary clause counts) ·
+│                          CnfEncodingTests (Plaisted–Greenbaum) · CardinalityAndMaxSatTests
 ├── Analysis/              FormulaAnalysisTests (backbone, model enumeration)
 ├── Facade/                BooleanExpressionOptimizer end-to-end
 │     OptimizerTests · EdgeCaseTests · OptimizerTruthTableTests · NormalFormTests ·
-│     OptimizationMetricsTests · OptimizationQualityAnalyzerTests ·
+│     OptimizationMetricsTests (n-ary cost model) · OptimizationQualityAnalyzerTests ·
 │     OptimizationResultTests · EqvIntegrationTests · ConsoleTestedCasesTests
-│     (historical regression corpus) · ConsoleInterfaceTests (limits) ·
+│     (unique regression rows) · ConsoleInterfaceTests (limits) ·
+│     MidFlightCancellationTests (Performance) · MidFlightCancellationGateTests (gate-visible) ·
 │     ResourceBudgetAndCancellationTests · PerformanceValidatorTests (input validation)
-├── Formats/               CsvTruthTableParserTests · MultiOutputCsvTests · ExportTests ·
-│                          CSharpExpressionExporterTests · AstVisualizerTests
+├── Formats/               CsvTruthTableParserTests · MultiOutputCsvTests · ExportTests
+│                          (n-ary BLIF/Verilog gates) · CSharpExpressionExporterTests
+│                          (flat n-ary render) · AstVisualizerTests
 ├── Cli/                   CommandLineProcessorTests · OutputFormatterTests
-├── Techniques/            the ten cross-cutting suites (see Part 3) + snapshots
+├── Techniques/            the ten cross-cutting suites (see Part 3) + CanonicalInvariantTests
+│                          (v2 interning/canonical-shape/Tseitin counts) + snapshots
 ├── TestInfrastructure/    RandomExpressions · TruthTableAssert · SatTestOracles ·
 │                          ExpressionGeneratorTests
-└── TestData/              characterization.golden.txt
+└── TestData/              characterization.golden.txt · PublicApi.approved.txt
 ```
 
 Audit rules that keep the hierarchy healthy (enforced in review):
@@ -144,7 +164,7 @@ re-verified), and limit probing (nesting cap, 10 000-char cap, wide flat chains)
 
 ### Characterization — `Techniques/CharacterizationTests.cs` + `TestData/characterization.golden.txt`
 
-The complete observable output over a fixed 31-expression corpus is pinned. Any drift
+The complete observable output over a fixed 32-expression corpus is pinned. Any drift
 fails the test and writes `.received.txt`. Regenerate intended changes with
 `LOGICALOPTIMIZER_REGENERATE_GOLDEN=1` and review the diff; a guard test re-verifies
 every pinned result is still semantically equivalent, so the golden master can never
@@ -159,11 +179,15 @@ produces `*.received.txt`; approve by replacing the verified file.
 ### Architecture (ArchUnitNET + reflection) — `Techniques/ArchitectureTests.cs`
 
 The library never touches `System.Console` and never references CLI/test frameworks;
-the rewrite pipeline stays internal; every `IOptimizer` lives in the Optimizers
-namespace; AST nodes are sealed/abstract and immutable (`ForceParentheses` is the one
-documented display-hint exception); expensive public entry points take a
-`CancellationToken`; the public API surface is pinned to an explicit reviewed list —
-any new public type fails the build until consciously added.
+the rewrite pipeline stays internal; every rewrite rule (`IRewriteRule`) lives in the
+`LogicalOptimizer.Rewrite` namespace; AST nodes are sealed/abstract and **fully immutable**
+(no exceptions — the v1 `ForceParentheses` display-hint setter was removed in v2, rendering
+now flows through the precedence-based `AstFormatter`); expensive public entry points take a
+`CancellationToken`; the public API surface is pinned to an explicit reviewed list of 53 types
+across the five assemblies (Core 20 · Sat 10 · Bdd 1 · Minimization 5 · facade 17) — any new
+public type fails the build until consciously added, and any removal (the v2 narrowing:
+`Lexer`/`Parser`/`Token`/`AndInverterGraph` and the SAT/BDD low-level internals) is a
+deliberate major-version decision.
 
 ### Combinatorial / pairwise — `Techniques/PairwiseOptionsTests.cs`
 
@@ -188,6 +212,60 @@ Standard mutation level, string mutations ignored, thresholds 80/60 with `break:
 ---
 
 ## Part 4: Audit log
+
+**2026-07-27 — v2.0 post-migration re-audit (all ten techniques re-run against changed
+functionality).** After the binary→n-ary AST migration, the single-`RewriteEngine` rewrite,
+`FormulaFactory` construction-time canonicalization and the API narrowing, six parallel
+read-only reviewers re-graded every test file against the four criteria (representative /
+logically correct / strong / non-duplicating). Each of the ten techniques was re-validated
+against the new behavior and its inventory refreshed:
+
+- **Property-based:** SAT-miter cross-check fixed — it had silently degenerated to
+  truth-table-vs-truth-table (generator ≤6 vars never reaches the SAT path); now calls
+  `EquivalenceChecker.CheckWithSat` so the miter/Tseitin/SAT stack is the real second engine.
+- **Metamorphic:** the two term-permutation MRs now pin **byte-identical** optimized output
+  (v2 canonical construction guarantees it) instead of mere equivalence.
+- **Algebraic:** idempotence/absorption "collapse" laws + the expression-level complement law
+  now assert canonical-string identity / exact `"0"`/`"1"` (were soundness-only, which the
+  optimizer satisfies whether or not the rule fires).
+- **Differential:** the three-engine equivalence tests now genuinely run the SAT engine
+  (`CheckWithSat`); added a >12-variable SAT-miter-vs-BDD test (proof + refutation) so the
+  scale path the class exists for has an independent oracle.
+- **Fuzzing:** the `FormulaFactory` invariant walker now checks operand dedup, complement-pair
+  absence and canonical sortedness (matched to its docstring), not just nested-op/constant.
+- **Characterization / Snapshot:** golden master (32 entries) and the 7 Verify snapshots
+  regenerated for the v2 canonical strings; equivalence guard re-verified every pinned result.
+- **Architecture:** public-surface list repinned to the v2 53-type set; `IRewriteRule`-in-
+  `Rewrite`-namespace rule replaces the old `IOptimizer` rule; `ForceParentheses` immutability
+  exception removed.
+- **Combinatorial / Mutation:** pairwise option grid unchanged (still valid); mutation config
+  unchanged — Part 5 numbers predate v2, re-run pending.
+
+Fixes applied (~35 across all folders):
+- **Green-masking weakenings fixed:** `ConsensusRule_ValidConsensus_ShouldSimplify` (was a
+  `terms.Length <= n` no-op → now pins exact `a & b | c & !a` + 2 terms); the two circular
+  SAT-miter cross-checks above.
+- **Duplicates removed:** `OptimizerTests` rows subsumed by `OptimizerTruthTableTests`; the
+  consensus `AllOptimizationRules_ShouldNotCreateContradictoryTerms` slack-scan (subsumed by the
+  exhaustive `OptimizerSoundnessTests`); `ConsoleInterfaceTests`/`ConsoleTestedCasesTests`
+  validation/case twins.
+- **Wall-clock vanity removed:** the `Stopwatch < 5000 ms` assert in `AdvancedPatternDetectorTests`
+  (rule 4) → now asserts all 50 XOR patterns are detected.
+- **Missing v2 coverage added:** flat n-ary rendering (`(a && b && c)` C#, 3-input BLIF/Verilog
+  gates, single flat AND in the visualizer); n-ary Tseitin clause/aux counts pinned locally;
+  canonical-order tie-breaks (Not-vs-Not, equal-complexity composites); `DistributiveExpander`
+  `ToDnf`/`ToCnf` + budget-exceeded throw; multi-output minimization redesigned to actually
+  exercise `TrySharedCovers` (3 shared cubes strictly beating 4 independent, with an independent
+  cube-count oracle); a **gate-visible** mid-flight cancellation test (the strong ones were
+  `Category=Performance`, excluded from the CI gate); strict folding reduction in
+  `FormulaFactoryTests` (raw un-canonical input, not an already-folded tree).
+- **Weak asserts strengthened:** deterministic quality scores pinned exactly (score 85, ratio
+  1/9); `↔`/`XOR` detections pinned to exact operands; hand-computed truth-table oracle anchors
+  added to the De Morgan laws; constructor-echo `Assert.Same(.Left/.Right)` removed.
+
+Net: 891 → **880 cases** (fewer, stronger — deleted rows were exact-duplicate theory cases;
+added cases are all independent-oracle or exact-string). Facade line coverage 90.15%
+(branch 82.09%, method 93.53%), gate ≥80%.
 
 **2026-07-24 — full-suite audit and cleanup.** Five parallel reviewers covered all
 ~700 test methods; five cleanup passes executed the verdicts:

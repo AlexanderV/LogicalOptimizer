@@ -10,7 +10,7 @@ public enum SatResult
 }
 
 /// <summary>One step of a DRAT proof: a learnt (added) clause or a deleted one.</summary>
-public readonly record struct SatProofStep(bool IsDeletion, int[] Literals);
+internal readonly record struct SatProofStep(bool IsDeletion, int[] Literals);
 
 /// <summary>
 ///     Self-contained CDCL SAT solver: two-watched literals, 1UIP clause learning,
@@ -83,7 +83,7 @@ public sealed class SatSolver
     }
 
     /// <summary>Recorded proof steps, or null if logging was not enabled.</summary>
-    public IReadOnlyList<SatProofStep>? Proof => _proof;
+    internal IReadOnlyList<SatProofStep>? Proof => _proof;
 
     /// <summary>Proof in textual DRAT format ("d " prefix for deletions, 0-terminated lines).</summary>
     public string ToDrat()

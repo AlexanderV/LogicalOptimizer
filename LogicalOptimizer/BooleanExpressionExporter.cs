@@ -49,8 +49,8 @@ public static class BooleanExpressionExporter
         if (node is AndNode andNode)
         {
             // CNF: conjunction of disjunctions
-            ExtractClauses(andNode.Left, varMap, clauses);
-            ExtractClauses(andNode.Right, varMap, clauses);
+            foreach (var operand in andNode.Operands)
+                ExtractClauses(operand, varMap, clauses);
         }
         else
         {
@@ -70,9 +70,13 @@ public static class BooleanExpressionExporter
         switch (node)
         {
             case OrNode orNode:
-                // Non-short-circuit: both sides must contribute their literals
-                return CollectLiterals(orNode.Left, varMap, literals) |
-                       CollectLiterals(orNode.Right, varMap, literals);
+                {
+                    // Non-short-circuit: every operand must contribute its literals
+                    var isTautology = false;
+                    foreach (var operand in orNode.Operands)
+                        isTautology |= CollectLiterals(operand, varMap, literals);
+                    return isTautology;
+                }
 
             case NotNode { Operand: ConstantNode negatedConstant }:
                 return !negatedConstant.Value; // !0 = 1 makes the clause true; !1 contributes nothing
@@ -138,21 +142,34 @@ public static class BooleanExpressionExporter
                 return notGate;
 
             case AndNode andNode:
-                var leftGate = ConvertToBlifGates(andNode.Left, sb, ref gateCounter);
-                var rightGate = ConvertToBlifGates(andNode.Right, sb, ref gateCounter);
-                var andGate = $"a{gateCounter++}";
-                sb.AppendLine($".names {leftGate} {rightGate} {andGate}");
-                sb.AppendLine("11 1");
-                return andGate;
+                {
+                    // N-ary AND maps to a single multi-input BLIF gate
+                    var inputGates = new List<string>(andNode.Operands.Count);
+                    foreach (var operand in andNode.Operands)
+                        inputGates.Add(ConvertToBlifGates(operand, sb, ref gateCounter));
+                    var andGate = $"a{gateCounter++}";
+                    sb.AppendLine($".names {string.Join(" ", inputGates)} {andGate}");
+                    sb.AppendLine(new string('1', inputGates.Count) + " 1");
+                    return andGate;
+                }
 
             case OrNode orNode:
-                var leftOrGate = ConvertToBlifGates(orNode.Left, sb, ref gateCounter);
-                var rightOrGate = ConvertToBlifGates(orNode.Right, sb, ref gateCounter);
-                var orGate = $"o{gateCounter++}";
-                sb.AppendLine($".names {leftOrGate} {rightOrGate} {orGate}");
-                sb.AppendLine("1- 1");
-                sb.AppendLine("-1 1");
-                return orGate;
+                {
+                    // N-ary OR: one cover row per input
+                    var inputGates = new List<string>(orNode.Operands.Count);
+                    foreach (var operand in orNode.Operands)
+                        inputGates.Add(ConvertToBlifGates(operand, sb, ref gateCounter));
+                    var orGate = $"o{gateCounter++}";
+                    sb.AppendLine($".names {string.Join(" ", inputGates)} {orGate}");
+                    for (var i = 0; i < inputGates.Count; i++)
+                    {
+                        var row = new string('-', inputGates.Count).ToCharArray();
+                        row[i] = '1';
+                        sb.AppendLine(new string(row) + " 1");
+                    }
+
+                    return orGate;
+                }
 
             default:
                 throw new NotSupportedException($"Unsupported node type: {node.GetType()}");
@@ -206,20 +223,27 @@ public static class BooleanExpressionExporter
                 return notWire;
 
             case AndNode andNode:
-                var leftWire = ConvertToVerilogLogic(andNode.Left, assignments, ref gateCounter);
-                var rightWire = ConvertToVerilogLogic(andNode.Right, assignments, ref gateCounter);
-                var andWire = $"w{gateCounter++}";
-                assignments.Add($"wire {andWire};");
-                assignments.Add($"assign {andWire} = {leftWire} & {rightWire};");
-                return andWire;
+                {
+                    // N-ary AND becomes a single multi-input assignment
+                    var inputWires = new List<string>(andNode.Operands.Count);
+                    foreach (var operand in andNode.Operands)
+                        inputWires.Add(ConvertToVerilogLogic(operand, assignments, ref gateCounter));
+                    var andWire = $"w{gateCounter++}";
+                    assignments.Add($"wire {andWire};");
+                    assignments.Add($"assign {andWire} = {string.Join(" & ", inputWires)};");
+                    return andWire;
+                }
 
             case OrNode orNode:
-                var leftOrWire = ConvertToVerilogLogic(orNode.Left, assignments, ref gateCounter);
-                var rightOrWire = ConvertToVerilogLogic(orNode.Right, assignments, ref gateCounter);
-                var orWire = $"w{gateCounter++}";
-                assignments.Add($"wire {orWire};");
-                assignments.Add($"assign {orWire} = {leftOrWire} | {rightOrWire};");
-                return orWire;
+                {
+                    var inputWires = new List<string>(orNode.Operands.Count);
+                    foreach (var operand in orNode.Operands)
+                        inputWires.Add(ConvertToVerilogLogic(operand, assignments, ref gateCounter));
+                    var orWire = $"w{gateCounter++}";
+                    assignments.Add($"wire {orWire};");
+                    assignments.Add($"assign {orWire} = {string.Join(" | ", inputWires)};");
+                    return orWire;
+                }
 
             default:
                 throw new NotSupportedException($"Unsupported node type: {node.GetType()}");
@@ -231,51 +255,17 @@ public static class BooleanExpressionExporter
     /// </summary>
     public static string ToMathematicalNotation(string expression)
     {
-        return FormatNode(ParseExpression(expression), "¬", "∧", "∨");
+        return MapOperators(AstFormatter.Format(ParseExpression(expression)), "¬", "∧", "∨");
     }
 
     /// <summary>
-    ///     Shared tree walk for text notations that differ only in operator tokens
+    ///     Parenthesization is <see cref="AstFormatter" />'s job; text notations differ
+    ///     only in operator tokens, which are substituted afterwards (variable names
+    ///     cannot contain the operator characters).
     /// </summary>
-    private static string FormatNode(AstNode node, string notOp, string andOp, string orOp)
+    private static string MapOperators(string formatted, string notOp, string andOp, string orOp)
     {
-        switch (node)
-        {
-            case ConstantNode constant:
-                return constant.Value ? "1" : "0";
-
-            case VariableNode varNode:
-                return varNode.Name;
-
-            case NotNode notNode:
-                var operand = FormatNode(notNode.Operand, notOp, andOp, orOp);
-                return notNode.Operand is VariableNode ? $"{notOp}{operand}" : $"{notOp}({operand})";
-
-            case AndNode andNode:
-                var left = FormatNode(andNode.Left, notOp, andOp, orOp);
-                var right = FormatNode(andNode.Right, notOp, andOp, orOp);
-
-                if (andNode.Left is OrNode)
-                    left = $"({left})";
-                if (andNode.Right is OrNode)
-                    right = $"({right})";
-
-                return $"{left} {andOp} {right}";
-
-            case OrNode orNode:
-                var leftOr = FormatNode(orNode.Left, notOp, andOp, orOp);
-                var rightOr = FormatNode(orNode.Right, notOp, andOp, orOp);
-
-                var result = $"{leftOr} {orOp} {rightOr}";
-
-                if (orNode.ForceParentheses)
-                    result = $"({result})";
-
-                return result;
-
-            default:
-                throw new NotSupportedException($"Unsupported node type: {node.GetType()}");
-        }
+        return formatted.Replace("!", notOp).Replace("&", andOp).Replace("|", orOp);
     }
 
     /// <summary>
@@ -306,6 +296,6 @@ public static class BooleanExpressionExporter
     /// </summary>
     public static string ToLatex(string expression)
     {
-        return FormatNode(ParseExpression(expression), "\\neg ", "\\land", "\\lor");
+        return MapOperators(AstFormatter.Format(ParseExpression(expression)), "\\neg ", "\\land", "\\lor");
     }
 }

@@ -116,10 +116,10 @@ The optimization result contains:
 - `A & (A | B) → A`
 - `A | (A & B) → A`
 
-**Associativity and commutativity:**
-- Automatic grouping of identical operations
+**Associativity and commutativity** (applied at construction time by `FormulaFactory`, since v2.0):
+- Automatic flattening/grouping of identical operations into n-ary nodes
 - Duplicate removal in operation chains
-- Canonical variable ordering
+- Canonical operand ordering (so logically equal formulas print identically)
 
 #### 2.3.3 Factorization
 **Direct factorization (common factor extraction):**
@@ -262,27 +262,21 @@ a,b,c,Result
 ...
 ```
 
-### 2.5 Context-Dependent Parentheses
+### 2.5 Precedence-Based Parentheses
 
-#### 2.5.1 Formatting Problem
-Different optimization algorithms for logically equivalent expressions require different parenthesis placement rules:
+#### 2.5.1 Formatting Rule
+Since v2.0 a single precedence-based renderer, `AstFormatter`, produces every string form (it backs `ToString`, the exporters and the visualizer). Parentheses appear exactly where operator precedence requires them and nowhere else — there is no per-node formatting flag.
 
-**Factorization result:**
-- `(a | b) & (a | c) → a | (b & c)` ← parentheses REQUIRED
+Precedence (highest to lowest): atom → `NOT` → `AND` → `OR` → derived operators. An `OR` child under an `AND` is parenthesized; an `AND` child under an `OR` is not; `NOT` over a compound prints as `!(...)`.
 
-**Distribution result:**  
-- `(a | b) & c → a & c | b & c` ← parentheses FORBIDDEN
+**Examples:**
+- `(a | b) & (a | c) → a | b & c` (AND binds tighter than OR, so no parentheses are needed)
+- `a & (b | c)` (the OR child of an AND is parenthesized)
+- `(a | b) & c → a & c | b & c` (a distribution result needs no parentheses)
+- `!(a & b)` (NOT over a compound)
 
-#### 2.5.2 Solution: contextual flags
-**Concept**: each tree node contains a `ForceParentheses` flag
-- Set by factorization algorithms
-- Overrides standard precedence rules
-- Preserved when cloning nodes
-
-**Places where forced parentheses are set:**
-1. **Reverse factorization**: created `AND` gets `ForceParentheses = true`
-2. **Direct factorization**: created `OR` gets `ForceParentheses = true`
-3. **Complex factorization**: remaining part after common factor extraction
+#### 2.5.2 No formatting flags
+The v1 `ForceParentheses` node flag has been removed entirely. Because And/Or trees are now canonical n-ary structures built by `FormulaFactory` (flattened, operand-sorted, deduplicated), rendering is fully determined by node type and precedence, so logically equal formulas always print identically.
 
 ## 3. Non-Functional Requirements
 
@@ -324,21 +318,27 @@ Different optimization algorithms for logically equivalent expressions require d
 - Character validation
 - Generate informative errors with position indication
 
+*Since v2.0 the `Lexer` type is `internal`; it is not called directly. The public entry point for turning text into an AST is `FormulaFactory.Parse`.*
+
 #### 4.1.2 Parser  
 **Purpose**: build abstract syntax tree (AST)
 **Responsibilities**:
 - Implement boolean expression grammar
 - Handle operator precedence and associativity
-- Build correct AST
+- Build a correct AST **through `FormulaFactory`** so the result is canonical (flattened, operand-sorted, deduplicated, constant/complement-folded and interned) at construction time — degenerate inputs fold immediately (e.g. `a | !a → 1`)
 - Detect syntax errors
 
-#### 4.1.3 Expression Optimizer (ExpressionOptimizer)
-**Purpose**: apply simplification algorithms to AST
+*Since v2.0 the `Parser` type is `internal`; call `FormulaFactory.Parse` instead.*
+
+#### 4.1.3 Rewrite Engine (RewriteEngine)
+**Purpose**: apply simplification rules to the AST
 **Responsibilities**:
-- Iterative application of optimization rules
-- Algorithm convergence control
-- Prevent infinite loops
-- Preserve logical equivalence
+- Iterative application of optimization rules to a fixed point
+- Algorithm convergence control (cycle detection via interned reference identity)
+- Prevent infinite loops (≤ 20 iterations)
+- Preserve logical equivalence (soundness guard rolls back to the input on any refuted rewrite)
+
+*Since v2.0 the single internal `RewriteEngine` replaces the v1 `ExpressionOptimizer` coordinator and its per-rule `IOptimizer` classes. Each remaining rule is an `IRewriteRule` (De Morgan, absorption, consensus, redundancy, factorization) in the `LogicalOptimizer.Rewrite` namespace; the classic constant, complement, associativity/flatten and commutativity laws are now applied at construction time by `FormulaFactory`, not by the engine.*
 
 #### 4.1.4 Normal Form Converter (NormalFormConverter)
 **Purpose**: transform to CNF and DNF
@@ -347,12 +347,14 @@ Different optimization algorithms for logically equivalent expressions require d
 - Control exponential growth
 - Use heuristics for large expressions
 
-#### 4.1.5 Formatting Controller (FormattingController)
-**Purpose**: context-dependent parentheses display
+#### 4.1.5 Formatter (AstFormatter)
+**Purpose**: render an AST to its string form
 **Responsibilities**:
-- Manage forced parentheses flags
-- Apply operator precedence rules
+- Apply operator precedence rules (atom → NOT → AND → OR → derived) to place parentheses exactly where needed
+- Serve as the single renderer behind `ToString`, the exporters and the visualizer
 - Ensure result readability
+
+*Since v2.0 the precedence-based `AstFormatter` replaces the v1 `FormattingController`/`ForceParentheses` scheme; there are no per-node formatting flags.*
 
 #### 4.1.6 Performance Validator
 **Purpose**: validate optimization quality and performance
@@ -376,19 +378,24 @@ Different optimization algorithms for logically equivalent expressions require d
 #### 4.2.1 Abstract Syntax Tree
 **Base node (AstNode)**:
 - Abstract methods: `Clone()`, `ToString()`, `GetVariables()`, `Equals()`, `GetHashCode()`
+- Nodes are immutable; equality is structural (order-sensitive, but operand order is always canonical); `GetHashCode` is cached in the constructor; `Clone()` returns `this`
 
 **Leaf nodes**:
-- `VariableNode`: represents variable or constant
-- Properties: `Name` (string)
+- `VariableNode`: represents a variable — Properties: `Name` (string)
+- `ConstantNode`: represents a logical constant — Property: `Value` (bool), singletons for `0`/`1`
 
 **Unary nodes**:
 - `NotNode`: represents negation operation
 - Properties: `Operand` (AstNode)
 
-**Binary nodes**:
-- `AndNode`: represents conjunction
-- `OrNode`: represents disjunction  
-- Properties: `Left`, `Right` (AstNode), `ForceParentheses` (bool), `Operator` (string)
+**N-ary nodes** (since v2.0):
+- `NaryNode`: abstract base — Property: `Operands` (`IReadOnlyList<AstNode>`, ≥ 2 operands, never nesting the same node type because the factory flattens)
+- `AndNode`: represents conjunction — sealed `NaryNode`
+- `OrNode`: represents disjunction — sealed `NaryNode`
+- One n-ary And/Or node counts as **1 node** in the cost model regardless of operand count
+
+**Derived binary nodes** (display/pattern-recognition only, outside the canonical core):
+- `BinaryNode`: abstract base with `Left`, `Right` (AstNode) and `Operator` (string) — the base **only** for `ImpNode` (→), `XorNode` (XOR), `NandNode` (~&), `NorNode` (~|), `EqvNode` (↔). And/Or are no longer `BinaryNode`, and the v1 `ForceParentheses` flag no longer exists
 
 ### 4.3 Tree Traversal Algorithms
 

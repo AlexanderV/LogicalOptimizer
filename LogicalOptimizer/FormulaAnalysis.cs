@@ -109,33 +109,53 @@ public static class FormulaAnalysis
         if (backbone.IsSatisfiable == false) return ConstantNode.False;
         if (backbone.IsSatisfiable == null || backbone.ForcedVariables!.Count == 0) return formula;
 
-        var substituted = Substitute(formula, backbone.ForcedVariables);
-        var folded = new Optimizers.ConstantsOptimizer().Optimize(substituted, null);
+        // Substitution builds through a factory, so constant folding happens as the
+        // tree is reconstructed (no separate folding pass needed)
+        var factory = new FormulaFactory();
+        var folded = Substitute(formula, backbone.ForcedVariables, factory);
 
         // Re-attach the forced literals: x & f[x:=1] is equivalent to the original
-        AstNode result = folded;
-        foreach (var (name, value) in backbone.ForcedVariables.OrderBy(kv => kv.Key))
-        {
-            AstNode literal = value ? new VariableNode(name) : new NotNode(new VariableNode(name));
-            result = Optimizers.AstUtilities.IsTrue(result) ? literal : new AndNode(literal, result);
-        }
+        // (the factory drops a constant-true remainder automatically)
+        var literals = backbone.ForcedVariables
+            .OrderBy(kv => kv.Key)
+            .Select(kv => kv.Value
+                ? factory.Variable(kv.Key)
+                : factory.Not(factory.Variable(kv.Key)));
 
-        return result;
+        return factory.And(literals.Append(folded));
     }
 
-    private static AstNode Substitute(AstNode node, IReadOnlyDictionary<string, bool> values)
+    private static AstNode Substitute(AstNode node, IReadOnlyDictionary<string, bool> values,
+        FormulaFactory factory)
     {
         switch (node)
         {
             case VariableNode variable when values.TryGetValue(variable.Name, out var value):
-                return value ? ConstantNode.True : ConstantNode.False;
-            case VariableNode or ConstantNode:
-                return node;
+                return value ? factory.True : factory.False;
+            case VariableNode variable:
+                return factory.Variable(variable.Name);
+            case ConstantNode constant:
+                return constant.Value ? factory.True : factory.False;
             case NotNode not:
-                return new NotNode(Substitute(not.Operand, values));
-            case BinaryNode binary:
-                return Optimizers.AstUtilities.Rebuild(binary,
-                    Substitute(binary.Left, values), Substitute(binary.Right, values));
+                return factory.Not(Substitute(not.Operand, values, factory));
+            case AndNode and:
+                return factory.And(and.Operands.Select(o => Substitute(o, values, factory)));
+            case OrNode or:
+                return factory.Or(or.Operands.Select(o => Substitute(o, values, factory)));
+            case XorNode xor:
+                return factory.Xor(Substitute(xor.Left, values, factory), Substitute(xor.Right, values, factory));
+            case EqvNode eqv:
+                return factory.Equivalence(Substitute(eqv.Left, values, factory),
+                    Substitute(eqv.Right, values, factory));
+            case ImpNode imp:
+                return factory.Implication(Substitute(imp.Left, values, factory),
+                    Substitute(imp.Right, values, factory));
+            case NandNode nand:
+                return factory.Not(factory.And(Substitute(nand.Left, values, factory),
+                    Substitute(nand.Right, values, factory)));
+            case NorNode nor:
+                return factory.Not(factory.Or(Substitute(nor.Left, values, factory),
+                    Substitute(nor.Right, values, factory)));
             default:
                 throw new NotSupportedException($"Unsupported node type: {node.GetType()}");
         }

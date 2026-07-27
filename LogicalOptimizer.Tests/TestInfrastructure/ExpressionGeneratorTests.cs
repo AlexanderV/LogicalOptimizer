@@ -86,33 +86,36 @@ public class ExpressionGeneratorTests
     }
 
     [Fact]
-    public void AllGeneratedExpressions_ShouldOptimizeWithoutErrors()
+    public void AllGeneratedExpressions_ShouldOptimizeEquivalently()
     {
         // Arrange
         var optimizer = new BooleanExpressionOptimizer();
         var demonstrations = ExpressionGenerator.GetDemonstrationExpressions();
         var benchmarks = ExpressionGenerator.GetBenchmarkExpressions();
 
-        // Act & Assert
+        // Act & Assert: optimizing must not throw AND must preserve semantics — an
+        // optimizer that returned a non-equivalent result would pass a no-throw check.
         foreach (var expr in demonstrations.Values.Concat(benchmarks.Values))
         {
-            var exception = Record.Exception(() => optimizer.OptimizeExpression(expr));
-            Assert.Null(exception);
+            var result = optimizer.OptimizeExpression(expr);
+            Assert.True(result.IsEquivalent(),
+                $"Optimized '{result.Optimized}' is not equivalent to original '{result.Original}'.");
         }
     }
 
     [Fact]
-    public void RandomExpressions_ShouldOptimizeWithoutErrors()
+    public void RandomExpressions_ShouldOptimizeEquivalently()
     {
         // Arrange
         var optimizer = new BooleanExpressionOptimizer();
 
-        // Act & Assert
+        // Act & Assert: no throw AND semantic equivalence preserved for each random input.
         for (int i = 0; i < 5; i++)
         {
             var expr = ExpressionGenerator.GenerateRandomExpression(3);
-            var exception = Record.Exception(() => optimizer.OptimizeExpression(expr));
-            Assert.Null(exception);
+            var result = optimizer.OptimizeExpression(expr);
+            Assert.True(result.IsEquivalent(),
+                $"Optimized '{result.Optimized}' is not equivalent to original '{result.Original}'.");
         }
     }
 }

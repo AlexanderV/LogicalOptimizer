@@ -326,32 +326,32 @@ internal static class EspressoLiteMinimizer
     {
         if (cover.Count == 0) return ConstantNode.False;
 
-        AstNode? sum = null;
+        var terms = new List<AstNode>(cover.Count);
         foreach (var cube in cover)
         {
-            AstNode? product = null;
+            var literals = new List<AstNode>();
             for (var v = 0; v < variables.Count; v++)
-            {
-                AstNode? literal = cube.HasPos(v) ? new VariableNode(variables[v])
-                    : cube.HasNeg(v) ? new NotNode(new VariableNode(variables[v]))
-                    : null;
-                if (literal == null) continue;
-                product = product == null ? literal : new AndNode(product, literal);
-            }
+                if (cube.HasPos(v)) literals.Add(new VariableNode(variables[v]));
+                else if (cube.HasNeg(v)) literals.Add(new NotNode(new VariableNode(variables[v])));
 
-            product ??= ConstantNode.True;
-            sum = sum == null ? product : new OrNode(sum, product);
+            terms.Add(literals.Count switch
+            {
+                0 => ConstantNode.True,
+                1 => literals[0],
+                _ => new AndNode(literals)
+            });
         }
 
-        return sum!;
+        return terms.Count == 1 ? terms[0] : new OrNode(terms);
     }
 
     private static IEnumerable<AstNode> AstUtilitiesFlattenOr(AstNode node)
     {
         if (node is OrNode or)
         {
-            foreach (var t in AstUtilitiesFlattenOr(or.Left)) yield return t;
-            foreach (var t in AstUtilitiesFlattenOr(or.Right)) yield return t;
+            foreach (var operand in or.Operands)
+                foreach (var t in AstUtilitiesFlattenOr(operand))
+                    yield return t;
         }
         else
         {
@@ -363,8 +363,9 @@ internal static class EspressoLiteMinimizer
     {
         if (node is AndNode and)
         {
-            foreach (var t in FlattenAnd(and.Left)) yield return t;
-            foreach (var t in FlattenAnd(and.Right)) yield return t;
+            foreach (var operand in and.Operands)
+                foreach (var t in FlattenAnd(operand))
+                    yield return t;
         }
         else
         {

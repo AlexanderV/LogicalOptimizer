@@ -1,4 +1,4 @@
-using LogicalOptimizer.Optimizers;
+using LogicalOptimizer.Rewrite;
 
 namespace LogicalOptimizer;
 
@@ -26,14 +26,18 @@ public class BooleanExpressionOptimizer
 
         try
         {
+            // One factory per optimization run: every canonical node of this call is
+            // built and interned through it
+            var factory = new FormulaFactory();
+
             var lexer = new Lexer(expression);
             var tokens = lexer.Tokenize();
 
-            var parser = new Parser(tokens);
+            var parser = new Parser(tokens, factory);
             var ast = parser.Parse();
 
             var metrics = options.IncludeMetrics ? new OptimizationMetrics() : null;
-            var optimizer = new ExpressionOptimizer();
+            var optimizer = new RewriteEngine(factory);
             var optimized = optimizer.Optimize(ast, metrics, options.CancellationToken, options.Budget);
 
             var variables = ast.GetVariables().OrderBy(v => v).ToList();
@@ -61,7 +65,6 @@ public class BooleanExpressionOptimizer
                         : options.Budget.QmPairComparisonLimit;
 
                     var onSet = ComputeOnSet(ast, variables);
-                    var commutativity = new CommutativityOptimizer();
                     var (rawMinSop, provenMinimal) = TruthTableMinimizer.MinimalSopWithStatus(variables, onSet,
                         pairComparisonLimit: qmBudget, cancellationToken: options.CancellationToken,
                         coverStepLimit: variables.Count <= PerformanceValidator.EXACT_GUARANTEE_VARIABLES
@@ -70,7 +73,8 @@ public class BooleanExpressionOptimizer
                     minimizationStatus = provenMinimal
                         ? MinimizationStatus.MinimalProven
                         : MinimizationStatus.BudgetExceeded;
-                    var minSop = commutativity.Optimize(rawMinSop);
+                    // Import canonicalizes the raw minimizer output (flatten/sort/intern)
+                    var minSop = factory.Import(rawMinSop);
                     var factoredMinSop =
                         AstMetrics.CountNodes(minSop) <= PerformanceValidator.MAX_FACTORED_MIN_SOP_NODES
                             ? optimizer.Optimize(minSop, null, options.CancellationToken, options.Budget)
@@ -88,7 +92,7 @@ public class BooleanExpressionOptimizer
 
                     if (options.ComputeDnf) dnfText = minSop.ToString();
                     if (computeEquivalentCnf)
-                        cnfText = commutativity.Optimize(TruthTableMinimizer.MinimalPos(variables, onSet,
+                        cnfText = factory.Import(TruthTableMinimizer.MinimalPos(variables, onSet,
                             pairComparisonLimit: qmBudget, cancellationToken: options.CancellationToken)).ToString();
                     exactCompleted = true;
                 }
@@ -105,7 +109,7 @@ public class BooleanExpressionOptimizer
                 // Local exact rewriting first: every AND/OR/NOT subtree over ≤3 distinct
                 // variables drops to its provably minimal library form (sound by
                 // construction — each entry is an exact-minimizer result)
-                var locallyRewritten = SubcircuitLibrary.RewriteSubcircuits(optimized);
+                var locallyRewritten = factory.Import(SubcircuitLibrary.RewriteSubcircuits(optimized));
                 if (AstMetrics.CountLiterals(locallyRewritten) < AstMetrics.CountLiterals(optimized))
                 {
                     if (metrics != null)
@@ -132,7 +136,7 @@ public class BooleanExpressionOptimizer
                         EquivalenceChecker.CheckWithSat(optimized, satSop,
                             options.Budget.SatConflictLimit, options.CancellationToken).AreEquivalent == true)
                     {
-                        satSop = new CommutativityOptimizer().Optimize(satSop);
+                        satSop = factory.Import(satSop);
                         var factoredSatSop =
                             AstMetrics.CountNodes(satSop) <= PerformanceValidator.MAX_FACTORED_MIN_SOP_NODES
                                 ? optimizer.Optimize(satSop, null, options.CancellationToken, options.Budget)

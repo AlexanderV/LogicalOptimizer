@@ -166,7 +166,7 @@ public class OptimizationMetricsTests
     [InlineData("a & b", 3, 2, 1)]
     [InlineData("a | b", 3, 2, 1)]
     [InlineData("!a", 2, 2, 1)]
-    [InlineData("a & b & c", 5, 3, 2)]
+    [InlineData("a & b & c", 4, 2, 1)] // ONE n-ary AndNode + 3 variables (v2 cost model)
     [InlineData("(a & b) | c", 5, 3, 2)]
     [InlineData("!(a & b)", 4, 3, 2)] // NotNode + AndNode + 2 variables
     [InlineData("a & (b | (c & d))", 7, 4, 3)] // Deep nesting: And -> Or -> And -> variable

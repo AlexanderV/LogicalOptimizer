@@ -336,8 +336,8 @@ namespace LogicalOptimizer.Tests
             var notNode = (NotNode)result;
             Assert.IsType<AndNode>(notNode.Operand);
             var andNode = (AndNode)notNode.Operand;
-            Assert.Equal(a, andNode.Left);
-            Assert.Equal(b, andNode.Right);
+            Assert.Equal(a, andNode.Operands[0]);
+            Assert.Equal(b, andNode.Operands[1]);
         }
 
         #endregion
@@ -491,8 +491,8 @@ namespace LogicalOptimizer.Tests
             var notNode = (NotNode)result;
             Assert.IsType<OrNode>(notNode.Operand);
             var orNode = (OrNode)notNode.Operand;
-            Assert.Equal(a, orNode.Left);
-            Assert.Equal(b, orNode.Right);
+            Assert.Equal(a, orNode.Operands[0]);
+            Assert.Equal(b, orNode.Operands[1]);
         }
 
         #endregion

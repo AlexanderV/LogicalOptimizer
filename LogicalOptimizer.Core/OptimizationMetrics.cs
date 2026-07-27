@@ -43,12 +43,19 @@ public class OptimizationMetrics
     }
 }
 
+/// <summary>
+///     Size and shape metrics over expression trees. Cost model: an n-ary And/Or node
+///     counts as ONE node (and one operator) regardless of its operand count — the flat
+///     list is a single connective, not a chain of binary ones.
+/// </summary>
 public static class AstMetrics
 {
+    /// <summary>Total node count; an n-ary node counts as 1 plus its operands.</summary>
     public static int CountNodes(AstNode node)
     {
         return node switch
         {
+            NaryNode nary => 1 + nary.Operands.Sum(CountNodes),
             BinaryNode binary => 1 + CountNodes(binary.Left) + CountNodes(binary.Right),
             NotNode not => 1 + CountNodes(not.Operand),
             _ => 1
@@ -62,25 +69,30 @@ public static class AstMetrics
         {
             VariableNode => 1,
             NotNode not => CountLiterals(not.Operand),
+            NaryNode nary => nary.Operands.Sum(CountLiterals),
             BinaryNode binary => CountLiterals(binary.Left) + CountLiterals(binary.Right),
             _ => 0
         };
     }
 
+    /// <summary>Tree depth; an n-ary node contributes one level over its deepest operand.</summary>
     public static int GetDepth(AstNode node)
     {
         return node switch
         {
+            NaryNode nary => 1 + nary.Operands.Max(GetDepth),
             BinaryNode binary => 1 + Math.Max(GetDepth(binary.Left), GetDepth(binary.Right)),
             NotNode not => 1 + GetDepth(not.Operand),
             _ => 1
         };
     }
 
+    /// <summary>Operator count; an n-ary connective counts as one operator.</summary>
     public static int CountOperators(AstNode node)
     {
         return node switch
         {
+            NaryNode nary => 1 + nary.Operands.Sum(CountOperators),
             BinaryNode binary => 1 + CountOperators(binary.Left) + CountOperators(binary.Right),
             NotNode not => 1 + CountOperators(not.Operand),
             _ => 0

@@ -1,21 +1,37 @@
 namespace LogicalOptimizer;
 
-public class Parser
+/// <summary>
+///     Recursive-descent parser for the boolean expression grammar (Or → And → Not →
+///     Primary). All nodes are built through a <see cref="FormulaFactory" />, so the
+///     parser output is canonical: operator chains like <c>a &amp; b &amp; c</c> are
+///     collected into a single n-ary node, constants are folded and operands are in
+///     canonical order.
+/// </summary>
+internal class Parser
 {
     private const int MaxNestingDepth = 1000;
 
+    private readonly FormulaFactory _factory;
     private readonly List<Token> _tokens;
     private int _depth;
     private int _position;
 
-    public Parser(List<Token> tokens)
+    /// <summary>Creates a parser with a private <see cref="FormulaFactory" /> instance.</summary>
+    public Parser(List<Token> tokens) : this(tokens, new FormulaFactory())
+    {
+    }
+
+    /// <summary>Creates a parser that builds nodes through the given factory.</summary>
+    public Parser(List<Token> tokens, FormulaFactory factory)
     {
         _tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
+        _factory = factory ?? throw new ArgumentNullException(nameof(factory));
         _position = 0;
     }
 
     private Token CurrentToken => _position < _tokens.Count ? _tokens[_position] : _tokens[^1];
 
+    /// <summary>Parses the token stream into a canonical expression tree.</summary>
     public AstNode Parse()
     {
         if (_tokens.Count == 0 || (_tokens.Count == 1 && _tokens[0].Type == TokenType.End))
@@ -37,30 +53,28 @@ public class Parser
 
     private AstNode ParseOrExpression()
     {
-        var left = ParseAndExpression();
+        var operands = new List<AstNode> { ParseAndExpression() };
 
         while (CurrentToken.Type == TokenType.Or)
         {
             Consume(TokenType.Or);
-            var right = ParseAndExpression();
-            left = new OrNode(left, right);
+            operands.Add(ParseAndExpression());
         }
 
-        return left;
+        return operands.Count == 1 ? operands[0] : _factory.Or(operands);
     }
 
     private AstNode ParseAndExpression()
     {
-        var left = ParseNotExpression();
+        var operands = new List<AstNode> { ParseNotExpression() };
 
         while (CurrentToken.Type == TokenType.And)
         {
             Consume(TokenType.And);
-            var right = ParseNotExpression();
-            left = new AndNode(left, right);
+            operands.Add(ParseNotExpression());
         }
 
-        return left;
+        return operands.Count == 1 ? operands[0] : _factory.And(operands);
     }
 
     private AstNode ParseNotExpression()
@@ -71,7 +85,7 @@ public class Parser
             EnterNesting();
             var operand = ParseNotExpression();
             _depth--;
-            return new NotNode(operand);
+            return _factory.Not(operand);
         }
 
         return ParsePrimaryExpression();
@@ -81,11 +95,11 @@ public class Parser
     {
         if (CurrentToken.Type == TokenType.Variable)
         {
-            AstNode node = CurrentToken.Value switch
+            var node = CurrentToken.Value switch
             {
-                "1" => ConstantNode.True,
-                "0" => ConstantNode.False,
-                _ => new VariableNode(CurrentToken.Value)
+                "1" => _factory.True,
+                "0" => _factory.False,
+                _ => _factory.Variable(CurrentToken.Value)
             };
             Consume(TokenType.Variable);
             return node;

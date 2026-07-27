@@ -5,16 +5,13 @@ namespace LogicalOptimizer;
 /// </summary>
 public sealed class XorNode : BinaryNode
 {
-    public XorNode(AstNode left, AstNode right, bool forceParens = false) : base(left, right, forceParens)
+    /// <summary>Creates an exclusive-or of the two operands.</summary>
+    public XorNode(AstNode left, AstNode right) : base(left, right)
     {
     }
 
+    /// <inheritdoc />
     public override string Operator => "XOR";
-
-    public override AstNode Clone()
-    {
-        return new XorNode(Left.Clone(), Right.Clone(), ForceParentheses);
-    }
 }
 
 /// <summary>
@@ -22,16 +19,13 @@ public sealed class XorNode : BinaryNode
 /// </summary>
 public sealed class NandNode : BinaryNode
 {
-    public NandNode(AstNode left, AstNode right, bool forceParens = false) : base(left, right, forceParens)
+    /// <summary>Creates a NAND of the two operands.</summary>
+    public NandNode(AstNode left, AstNode right) : base(left, right)
     {
     }
 
+    /// <inheritdoc />
     public override string Operator => "~&";
-
-    public override AstNode Clone()
-    {
-        return new NandNode(Left.Clone(), Right.Clone(), ForceParentheses);
-    }
 }
 
 /// <summary>
@@ -39,16 +33,13 @@ public sealed class NandNode : BinaryNode
 /// </summary>
 public sealed class NorNode : BinaryNode
 {
-    public NorNode(AstNode left, AstNode right, bool forceParens = false) : base(left, right, forceParens)
+    /// <summary>Creates a NOR of the two operands.</summary>
+    public NorNode(AstNode left, AstNode right) : base(left, right)
     {
     }
 
+    /// <inheritdoc />
     public override string Operator => "~|";
-
-    public override AstNode Clone()
-    {
-        return new NorNode(Left.Clone(), Right.Clone(), ForceParentheses);
-    }
 }
 
 /// <summary>
@@ -56,16 +47,13 @@ public sealed class NorNode : BinaryNode
 /// </summary>
 public sealed class EqvNode : BinaryNode
 {
-    public EqvNode(AstNode left, AstNode right, bool forceParens = false) : base(left, right, forceParens)
+    /// <summary>Creates an equivalence (biconditional) of the two operands.</summary>
+    public EqvNode(AstNode left, AstNode right) : base(left, right)
     {
     }
 
+    /// <inheritdoc />
     public override string Operator => "↔";
-
-    public override AstNode Clone()
-    {
-        return new EqvNode(Left.Clone(), Right.Clone(), ForceParentheses);
-    }
 }
 
 /// <summary>

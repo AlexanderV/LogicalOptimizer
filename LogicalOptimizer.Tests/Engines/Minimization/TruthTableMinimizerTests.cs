@@ -314,12 +314,11 @@ public class TruthTableMinimizerTests
     [Fact]
     public void CsvPartialTable_UnspecifiedRowsAreDontCare()
     {
-        var (variables, onSet, dontCare) =
-            CsvTruthTableParser.ParseCsvToPartialTable("a,b,Result\n0,0,0\n0,1,1\n1,0,1");
+        var table = CsvTruthTableParser.ParseCsvToPartialTable("a,b,Result\n0,0,0\n0,1,1\n1,0,1");
 
-        Assert.Equal(new List<string> { "a", "b" }, variables);
-        Assert.Equal(new HashSet<int> { 1, 2 }, onSet);
-        Assert.Equal(new HashSet<int> { 3 }, dontCare);
+        Assert.Equal(new List<string> { "a", "b" }, table.Variables);
+        Assert.Equal(new[] { 1, 2 }, table.OnSet.OrderBy(m => m));
+        Assert.Equal(new[] { 3 }, table.DontCareSet.OrderBy(m => m));
     }
 
     [Fact]

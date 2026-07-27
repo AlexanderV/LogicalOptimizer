@@ -45,8 +45,8 @@ internal static class RandomExpressions
             VariableNode v => v,
             ConstantNode c => c,
             NotNode n => new NotNode(Rename(n.Operand, map)),
-            AndNode a => new AndNode(Rename(a.Left, map), Rename(a.Right, map)),
-            OrNode o => new OrNode(Rename(o.Left, map), Rename(o.Right, map)),
+            AndNode a => new AndNode(a.Operands.Select(o => Rename(o, map)).ToList()),
+            OrNode o => new OrNode(o.Operands.Select(op => Rename(op, map)).ToList()),
             _ => throw new InvalidOperationException($"Unexpected node type {node.GetType().Name}")
         };
     }
@@ -60,8 +60,8 @@ internal static class RandomExpressions
             VariableNode v => v,
             ConstantNode c => c,
             NotNode n => new NotNode(Substitute(n.Operand, variable, value)),
-            AndNode a => new AndNode(Substitute(a.Left, variable, value), Substitute(a.Right, variable, value)),
-            OrNode o => new OrNode(Substitute(o.Left, variable, value), Substitute(o.Right, variable, value)),
+            AndNode a => new AndNode(a.Operands.Select(o => Substitute(o, variable, value)).ToList()),
+            OrNode o => new OrNode(o.Operands.Select(op => Substitute(op, variable, value)).ToList()),
             _ => throw new InvalidOperationException($"Unexpected node type {node.GetType().Name}")
         };
     }

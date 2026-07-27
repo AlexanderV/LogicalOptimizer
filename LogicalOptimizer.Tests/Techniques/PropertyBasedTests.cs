@@ -55,7 +55,7 @@ public class PropertyBasedTests
     private static readonly Gen<AstNode> AnyExtendedAst = ExtendedAst(3);
 
     [Fact]
-    public void Property_OptimizationPreservesSemantics()
+    public void Property_OptimizationPreservesSemanticsAndNeverWorsensLiterals()
     {
         AnyAst.Sample(ast =>
         {
@@ -63,6 +63,15 @@ public class PropertyBasedTests
                 .OptimizeExpression(ast.ToString(), ResultOnly);
             Assert.True(TruthTable.AreEquivalent(ast.ToString(), result.Optimized),
                 $"Semantics broken for '{ast}' -> '{result.Optimized}'");
+
+            // Quality floor: the result never has more literals than the canonical
+            // (factory-imported) form of the input — every pipeline stage either
+            // improves the (literals, nodes) cost or is rolled back
+            var canonicalInput = new FormulaFactory().Import(ast);
+            var optimized = RandomExpressions.Parse(result.Optimized);
+            Assert.True(AstMetrics.CountLiterals(optimized) <= AstMetrics.CountLiterals(canonicalInput),
+                $"Optimizer worsened '{canonicalInput}' ({AstMetrics.CountLiterals(canonicalInput)} literals) " +
+                $"to '{result.Optimized}' ({AstMetrics.CountLiterals(optimized)} literals)");
         }, iter: 200);
     }
 
@@ -84,17 +93,18 @@ public class PropertyBasedTests
     [Fact]
     public void Property_PrintParseRoundTripIsSemanticIdentityAndPrintFixpoint()
     {
-        // ToString deliberately flattens associativity chains, so structural equality
-        // is NOT promised. What IS promised: reparsing loses no semantics, and the
-        // printed form is a fixpoint (print ∘ parse ∘ print = print)
+        // Parsing canonicalizes (flatten, sort, fold), so structural equality with a
+        // raw AST is NOT promised. What IS promised: reparsing loses no semantics, and
+        // once canonical, the printed form is a fixpoint (print ∘ parse ∘ print = print)
         AnyAst.Sample(ast =>
         {
             var printed = ast.ToString();
             var reparsed = RandomExpressions.Parse(printed);
             Assert.True(TruthTable.AreEquivalent(ast, reparsed),
                 $"Round trip changed the semantics of '{printed}'");
-            Assert.True(printed == reparsed.ToString(),
-                $"Printing is not a fixpoint: '{printed}' reprints as '{reparsed}'");
+            var canonical = reparsed.ToString();
+            Assert.True(canonical == RandomExpressions.Parse(canonical).ToString(),
+                $"Printing is not a fixpoint: '{canonical}' reprints as '{RandomExpressions.Parse(canonical)}'");
         }, iter: 300);
     }
 
@@ -104,8 +114,9 @@ public class PropertyBasedTests
         Gen.Select(AnyAst, Gen.Int[0, int.MaxValue], (ast, seed) => (ast, seed)).Sample(t =>
         {
             // Pad only at token boundaries — whitespace INSIDE an identifier is a
-            // different token stream, not insignificant whitespace
-            var text = t.ast.ToString();
+            // different token stream, not insignificant whitespace. Compare canonical
+            // parses: the raw AST's print order is not canonical, its parse is.
+            var text = RandomExpressions.Parse(t.ast.ToString()).ToString();
             var rng = new Random(t.seed);
             var padded = new System.Text.StringBuilder();
             for (var i = 0; i < text.Length; i++)
@@ -155,7 +166,11 @@ public class PropertyBasedTests
         Gen.Select(Ast(3), Ast(3), (l, r) => (l, r)).Sample(pair =>
         {
             var byTable = TruthTable.AreEquivalent(pair.l, pair.r);
-            var bySat = EquivalenceChecker.Check(pair.l, pair.r).AreEquivalent;
+            // Force the SAT/miter/Tseitin stack (the generator makes <=6-var formulas, which
+            // EquivalenceChecker.Check would route to the truth table — the SAME oracle).
+            // CheckWithSat is internal but reachable via InternalsVisibleTo.
+            var bySat = EquivalenceChecker
+                .CheckWithSat(pair.l, pair.r, EquivalenceChecker.DefaultMaxConflicts).AreEquivalent;
             Assert.True(bySat == byTable,
                 $"SAT={bySat}, oracle={byTable} for '{pair.l}' vs '{pair.r}'");
         }, iter: 150);
@@ -288,8 +303,8 @@ public class PropertyBasedTests
             var factory = new FormulaFactory();
             var once = factory.Import(ast);
             var twice = factory.Import(once);
-            Assert.True(ReferenceEquals(once, twice) || once.Equals(twice),
-                $"Import not stable for '{ast}'");
+            // Interning promises full reference equality, not just structural stability
+            Assert.Same(once, twice);
             Assert.Same(factory.Import(ast), once);
         }, iter: 200);
     }
@@ -325,9 +340,6 @@ public class PropertyBasedTests
     private static List<AstNode> SplitTopLevelOr(AstNode node)
     {
         if (node is not OrNode or) return new List<AstNode> { node };
-        var result = new List<AstNode>();
-        result.AddRange(SplitTopLevelOr(or.Left));
-        result.AddRange(SplitTopLevelOr(or.Right));
-        return result;
+        return or.Operands.SelectMany(SplitTopLevelOr).ToList();
     }
 }

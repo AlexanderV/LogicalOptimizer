@@ -1,14 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using LogicalOptimizer.Optimizers;
 
 namespace LogicalOptimizer;
 
 /// <summary>
 /// Detection and conversion of advanced logical patterns (XOR, IMP, EQV) in multi-term
 /// OR expressions. The pattern-matching primitives live in <see cref="PatternRecognizer" />;
-/// this class contributes the pair-scan strategy over flattened OR terms.
+/// this class contributes the pair-scan strategy over the OR node's operand list.
 /// </summary>
 internal class AdvancedPatternDetector
 {
@@ -116,16 +115,7 @@ internal class AdvancedPatternDetector
         // If no pattern found, recursively convert children
         var convertedNode = node switch
         {
-            OrNode orNode => new OrNode(
-                ConvertAstToAdvancedForms(orNode.Left),
-                ConvertAstToAdvancedForms(orNode.Right),
-                orNode.ForceParentheses
-            ),
-            AndNode andNode => new AndNode(
-                ConvertAstToAdvancedForms(andNode.Left),
-                ConvertAstToAdvancedForms(andNode.Right),
-                andNode.ForceParentheses
-            ),
+            NaryNode nary => RebuildNary(nary, nary.Operands.Select(ConvertAstToAdvancedForms).ToList()),
             NotNode notNode => new NotNode(
                 ConvertAstToAdvancedForms(notNode.Operand)
             ),
@@ -134,6 +124,11 @@ internal class AdvancedPatternDetector
 
         // Try to detect patterns in the converted node one more time
         return DetectAndReplacePatterns(convertedNode);
+    }
+
+    private static AstNode RebuildNary(NaryNode template, IReadOnlyList<AstNode> operands)
+    {
+        return template is AndNode ? new AndNode(operands) : new OrNode(operands);
     }
 
     /// <summary>
@@ -179,7 +174,7 @@ internal class AdvancedPatternDetector
             if (direct != null) return direct;
         }
 
-        var remaining = AstUtilities.FlattenOr(orNode);
+        var remaining = orNode.Operands.ToList();
         if (remaining.Count < 2) return null;
 
         // Terms already converted to advanced forms count as found patterns
@@ -220,7 +215,7 @@ internal class AdvancedPatternDetector
         if (!foundAny) return null;
 
         var allNodes = patterns.Concat(remaining).ToList();
-        return allNodes.Count == 1 ? allNodes[0] : allNodes.Aggregate((a, b) => new OrNode(a, b));
+        return allNodes.Count == 1 ? allNodes[0] : new OrNode(allNodes);
     }
 
     /// <summary>
@@ -228,43 +223,33 @@ internal class AdvancedPatternDetector
     /// </summary>
     public AstNode? DetectEquivalencePatternInAst(AstNode node)
     {
-        // Handle OrNode - check for direct EQV pattern
+        // Handle OrNode - check for direct EQV pattern first
         if (node is OrNode orNode)
         {
-            // Try to find EQV pattern in direct children first
             var directEqv = TryFindDirectEqvPattern(orNode);
             if (directEqv != null) return directEqv;
-
-            // Recursively process children
-            var leftProcessed = DetectEquivalencePatternInAst(orNode.Left);
-            var rightProcessed = DetectEquivalencePatternInAst(orNode.Right);
-
-            // If any child was transformed, create new OR node
-            if (leftProcessed != orNode.Left || rightProcessed != orNode.Right)
-            {
-                return new OrNode(leftProcessed!, rightProcessed!);
-            }
         }
-        // Handle AndNode - recursively process children
-        else if (node is AndNode andNode)
-        {
-            var leftProcessed = DetectEquivalencePatternInAst(andNode.Left);
-            var rightProcessed = DetectEquivalencePatternInAst(andNode.Right);
 
-            // If any child was transformed, create new AND node
-            if (leftProcessed != andNode.Left || rightProcessed != andNode.Right)
+        // Recursively process n-ary children
+        if (node is NaryNode nary)
+        {
+            var processed = new List<AstNode>(nary.Operands.Count);
+            var changed = false;
+            foreach (var operand in nary.Operands)
             {
-                return new AndNode(leftProcessed!, rightProcessed!);
+                var processedOperand = DetectEquivalencePatternInAst(operand) ?? operand;
+                changed |= !ReferenceEquals(processedOperand, operand);
+                processed.Add(processedOperand);
             }
+
+            if (changed) return RebuildNary(nary, processed);
         }
         // Handle NotNode - recursively process child
         else if (node is NotNode notNode)
         {
             var childProcessed = DetectEquivalencePatternInAst(notNode.Operand);
-            if (childProcessed != notNode.Operand)
-            {
-                return new NotNode(childProcessed!);
-            }
+            if (childProcessed != null && !ReferenceEquals(childProcessed, notNode.Operand))
+                return new NotNode(childProcessed);
         }
 
         // If no pattern found, return original node
@@ -284,7 +269,7 @@ internal class AdvancedPatternDetector
     /// </summary>
     private AstNode? TryFindDirectXorPattern(OrNode orNode)
     {
-        if (orNode.Left is AndNode leftAnd && orNode.Right is AndNode rightAnd &&
+        if (orNode.Operands is [AndNode leftAnd, AndNode rightAnd] &&
             _recognizer.IsXorPattern(leftAnd, rightAnd, out var var1, out var var2))
             return new XorNode(var1, var2);
 
@@ -304,7 +289,7 @@ internal class AdvancedPatternDetector
     /// </summary>
     public AstNode? TryFindDirectEqvPattern(OrNode orNode)
     {
-        if (orNode.Left is AndNode leftAnd && orNode.Right is AndNode rightAnd &&
+        if (orNode.Operands is [AndNode leftAnd, AndNode rightAnd] &&
             _recognizer.IsEqvPattern(leftAnd, rightAnd, out var var1, out var var2))
             return new EqvNode(var1, var2);
 

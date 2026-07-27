@@ -147,16 +147,15 @@ public class FormulaAnalysisTests
         Assert.True(AstMetrics.CountLiterals(simplified) <= AstMetrics.CountLiterals(input));
 
         var forced = new Dictionary<string, bool>();
-        var core = simplified;
-        while (core is AndNode andNode && IsLiteral(andNode.Left, out var name, out var value)
-               && (name == "a" || name == "b"))
-        {
-            forced[name] = value;
-            core = andNode.Right;
-        }
+        var coreOperands = new List<AstNode>();
+        foreach (var operand in Assert.IsType<AndNode>(simplified).Operands)
+            if (IsLiteral(operand, out var name, out var value) && (name == "a" || name == "b"))
+                forced[name] = value;
+            else
+                coreOperands.Add(operand);
 
         Assert.Equal(new Dictionary<string, bool> { ["a"] = false, ["b"] = true }, forced);
-        var coreVariables = core.GetVariables();
+        var coreVariables = new HashSet<string>(coreOperands.SelectMany(o => o.GetVariables()));
         Assert.DoesNotContain("a", coreVariables);
         Assert.DoesNotContain("b", coreVariables);
         Assert.Equal(new HashSet<string> { "c", "d" }, coreVariables);

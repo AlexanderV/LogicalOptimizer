@@ -72,6 +72,13 @@ public class OptimizationQualityAnalyzer
                 CalculateStatsRecursive(notNode.Operand, stats, currentDepth + 1);
                 break;
 
+            case NaryNode naryNode:
+                // Cost model: an n-ary connective counts as one operator/node
+                stats.OperatorCount++;
+                foreach (var operand in naryNode.Operands)
+                    CalculateStatsRecursive(operand, stats, currentDepth + 1);
+                break;
+
             case BinaryNode binaryNode:
                 stats.OperatorCount++;
                 CalculateStatsRecursive(binaryNode.Left, stats, currentDepth + 1);
@@ -116,7 +123,7 @@ public class OptimizationQualityAnalyzer
         var improvements = new List<string>();
 
         // Analysis of patterns that can be improved
-        if (ContainsPattern(ast, node => node is AndNode and { Left: VariableNode, Right: VariableNode }))
+        if (ContainsPattern(ast, node => node is AndNode and && and.Operands.All(o => o is VariableNode)))
             improvements.Add("Possible additional variable factorization");
 
         if (ContainsPattern(ast, node => node is NotNode { Operand: NotNode }))
@@ -140,6 +147,9 @@ public class OptimizationQualityAnalyzer
         {
             case NotNode notNode:
                 return ContainsPattern(notNode.Operand, pattern);
+
+            case NaryNode naryNode:
+                return naryNode.Operands.Any(operand => ContainsPattern(operand, pattern));
 
             case BinaryNode binaryNode:
                 return ContainsPattern(binaryNode.Left, pattern) ||

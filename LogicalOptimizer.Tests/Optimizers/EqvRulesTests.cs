@@ -154,21 +154,22 @@ public class EqvRulesTests
         var orNode = (OrNode)result;
 
         // Should be (a & b) | (!a & !b)
-        Assert.IsType<AndNode>(orNode.Left);
-        Assert.IsType<AndNode>(orNode.Right);
+        Assert.Equal(2, orNode.Operands.Count);
+        Assert.IsType<AndNode>(orNode.Operands[0]);
+        Assert.IsType<AndNode>(orNode.Operands[1]);
 
-        var leftAnd = (AndNode)orNode.Left;
-        var rightAnd = (AndNode)orNode.Right;
+        var leftAnd = (AndNode)orNode.Operands[0];
+        var rightAnd = (AndNode)orNode.Operands[1];
 
         // Left side: a & b
-        Assert.Same(a, leftAnd.Left);
-        Assert.Same(b, leftAnd.Right);
+        Assert.Same(a, leftAnd.Operands[0]);
+        Assert.Same(b, leftAnd.Operands[1]);
 
         // Right side: !a & !b
-        Assert.IsType<NotNode>(rightAnd.Left);
-        Assert.IsType<NotNode>(rightAnd.Right);
-        Assert.Same(a, ((NotNode)rightAnd.Left).Operand);
-        Assert.Same(b, ((NotNode)rightAnd.Right).Operand);
+        Assert.IsType<NotNode>(rightAnd.Operands[0]);
+        Assert.IsType<NotNode>(rightAnd.Operands[1]);
+        Assert.Same(a, ((NotNode)rightAnd.Operands[0]).Operand);
+        Assert.Same(b, ((NotNode)rightAnd.Operands[1]).Operand);
     }
 
     [Theory]
