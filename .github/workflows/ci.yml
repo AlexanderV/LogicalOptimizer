@@ -50,9 +50,10 @@ jobs:
       # so it can never slow or fail the PR gate; the script self-skips absent tools.
       - name: Comparison table (SymPy/PyEDA, non-gating)
         continue-on-error: true
+        timeout-minutes: 8
         run: |
           python -m pip install pyeda || true
-          python tools/compare_sympy_pyeda.py --max-vars 16
+          python tools/compare_sympy_pyeda.py --max-vars 16 --timeout 10
 
       # All six NuGet packages must always be packable
       - name: Pack (verification)

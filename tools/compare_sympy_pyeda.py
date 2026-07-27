@@ -27,11 +27,40 @@ from __future__ import annotations
 
 import argparse
 import os
+import signal
 import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_CORPUS = os.path.join(HERE, "comparison_corpus.txt")
+
+
+class _Timeout(BaseException):
+    """Raised to abort a single measurement. Inherits BaseException so the
+    per-line `except Exception` guards do NOT swallow it."""
+
+
+def call_with_timeout(seconds, fn, *args):
+    """Run fn(*args) but abort with _Timeout after `seconds` (POSIX only).
+
+    Competitor two-level minimizers can blow up (e.g. exponential DNF
+    expansion) on some corpus functions; this keeps one pathological function
+    from hanging the whole run. On platforms without SIGALRM (e.g. Windows,
+    where the tools are absent anyway) there is no per-call timeout.
+    """
+    if seconds is None or seconds <= 0 or not hasattr(signal, "SIGALRM"):
+        return fn(*args)
+
+    def _handler(signum, frame):
+        raise _Timeout()
+
+    previous = signal.signal(signal.SIGALRM, _handler)
+    signal.setitimer(signal.ITIMER_REAL, seconds)
+    try:
+        return fn(*args)
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)
 
 
 def read_corpus(path):
@@ -91,9 +120,11 @@ def run_sympy(expression):
 def try_import_pyeda():
     try:
         import pyeda  # noqa: F401
-        # Use the public `pyeda.inter` interface: `espresso_exprs` lives in
-        # pyeda.boolalg.minimization (NOT pyeda.boolalg.expr), and inter re-exports both.
-        from pyeda.inter import expr, espresso_exprs  # noqa: F401
+        # Use the public `pyeda.inter` interface. Run Espresso over a truth
+        # table (`expr2truthtable` + `espresso_tts`) rather than `to_dnf()` +
+        # `espresso_exprs`: the truth-table path is bounded by 2^n (like SymPy),
+        # whereas algebraic to_dnf() can blow up exponentially and hang.
+        from pyeda.inter import expr, expr2truthtable, espresso_tts  # noqa: F401
         return pyeda
     except Exception:
         return None
@@ -117,13 +148,14 @@ def pyeda_literals(node):
 
 def run_pyeda(expression):
     """Return (literal_count, milliseconds) for PyEDA's Espresso SOP, or None on error."""
-    from pyeda.inter import expr, espresso_exprs
+    from pyeda.inter import expr, expr2truthtable, espresso_tts
     try:
         f = expr(to_operator_syntax(expression))
-        # Espresso needs a DNF/cover input; to_dnf() gives one without extra deps.
-        cover = f.to_dnf()
+        # Truth-table input keeps the work bounded by 2^n (no exponential
+        # to_dnf() expansion). espresso_tts returns a tuple of minimized SOPs.
+        table = expr2truthtable(f)
         start = time.perf_counter()
-        (minimized,) = espresso_exprs(cover)
+        (minimized,) = espresso_tts(table)
         elapsed_ms = (time.perf_counter() - start) * 1000.0
         return pyeda_literals(minimized), elapsed_ms
     except Exception as exc:  # pragma: no cover - per-line robustness
@@ -144,6 +176,9 @@ def main(argv=None):
     parser.add_argument("--corpus", default=DEFAULT_CORPUS, help="Path to comparison_corpus.txt")
     parser.add_argument("--max-vars", type=int, default=None,
                         help="Skip functions with more than N variables (both tools build 2^n rows).")
+    parser.add_argument("--timeout", type=float, default=10.0,
+                        help="Per-function wall-clock budget in seconds (POSIX). A function that "
+                             "exceeds it is marked 'timeout' rather than hanging the run. 0 disables.")
     args = parser.parse_args(argv)
 
     if not os.path.exists(args.corpus):
@@ -189,13 +224,19 @@ def main(argv=None):
 
         sym_lits = sym_ms = "—"
         if sympy_mod is not None:
-            result = run_sympy(expression)
+            try:
+                result = call_with_timeout(args.timeout, run_sympy, expression)
+            except _Timeout:
+                result, sym_lits, sym_ms = None, "timeout", f">{args.timeout:g}s"
             if result is not None:
                 sym_lits, sym_ms = result[0], f"{result[1]:.3f}"
 
         pye_lits = pye_ms = "—"
         if pyeda_mod is not None:
-            result = run_pyeda(expression)
+            try:
+                result = call_with_timeout(args.timeout, run_pyeda, expression)
+            except _Timeout:
+                result, pye_lits, pye_ms = None, "timeout", f">{args.timeout:g}s"
             if result is not None:
                 pye_lits, pye_ms = result[0], f"{result[1]:.3f}"
 

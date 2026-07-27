@@ -23,7 +23,10 @@ by a committed, self-skipping script where the tools are installed (never fabric
 
 Result size (literal count) and optimization time on a **shared** function set,
 against SymPy's `simplify_logic` (Quine–McCluskey / minterm two-level DNF) and
-PyEDA's `espresso_exprs` (Espresso two-level SOP).
+PyEDA's Espresso over a truth table (`expr2truthtable` + `espresso_tts`, a
+two-level SOP; the truth-table path is bounded by 2ⁿ, avoiding the exponential
+`to_dnf()` blow-up). Each function runs under a per-function timeout so a
+pathological case is marked `timeout` rather than hanging the run.
 
 ### Shared corpus
 
