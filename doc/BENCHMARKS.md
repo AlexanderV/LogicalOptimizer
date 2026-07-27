@@ -13,10 +13,114 @@ X64 RyuJIT AVX2, ShortRun job (3 iterations - indicative, not publication-grade;
 re-run with the default job for tighter error bars).
 
 Cross-library comparison methodology note: numeric comparison against SymPy/PyEDA
-requires a shared corpus, one machine and one cost model; the differential
-correctness corpus against SymPy lives in the test suite
-(`SymPyDifferentialTests`, CI) - timing comparisons are deliberately NOT published
-until they can be produced under those controls.
+requires a shared corpus, one machine and one cost model. The differential
+*correctness* corpus against SymPy lives in the test suite
+(`SymPyDifferentialTests`, CI). The *result-size / time* comparison table now lives
+in [Comparison vs SymPy / PyEDA](#comparison-vs-sympy--pyeda-roadmap-b2) below:
+OUR column is measured under those controls; the SymPy/PyEDA columns are produced
+by a committed, self-skipping script where the tools are installed (never fabricated).
+## Comparison vs SymPy / PyEDA (roadmap B2)
+
+Result size (literal count) and optimization time on a **shared** function set,
+against SymPy's `simplify_logic` (Quine–McCluskey / minterm two-level DNF) and
+PyEDA's `espresso_exprs` (Espresso two-level SOP).
+
+### Shared corpus
+
+The corpus is a single committed file,
+[`tools/comparison_corpus.txt`](../tools/comparison_corpus.txt) — read verbatim by
+**both** sides so the comparison is genuinely on the same functions. 17 Boolean
+functions, one per line (`<zone> | <name> | <expression>`, syntax `!`/`&`/`|`, no
+constants), spanning:
+
+- **small** — 10 functions, ≤ 10 variables: our *exact guarantee* zone, where the
+  result is provably minimal (`MinimizationStatus == MinimalProven`).
+- **mid** — 7 functions, 11–24 variables: our SAT-based prime-cover zone
+  (verified, not truth-table-exhaustive).
+
+The set is deliberately capped at 24 variables: SymPy's `simplify_logic` builds a
+2ⁿ truth table, so beyond that a QM comparison is infeasible — our > 24-variable
+heuristic zone has no practical SymPy comparator and is intentionally out of this
+shared table.
+
+### Methodology (exact commands to reproduce)
+
+Two independent, single-machine, single-cost-model measurements. **Cost model:**
+literal count = number of variable occurrences (`AstMetrics.CountLiterals`; for
+SymPy/PyEDA, the count of literal leaves in the minimized expression). Our result
+size is measured on the optimized form returned by `OptimizeExpression` — which may
+be **multi-level (factored)**, so on some functions ours is smaller than a purely
+two-level SOP; that is a genuine product difference, not a measurement artifact.
+
+Our side (real numbers below):
+
+```powershell
+dotnet run -c Release --project LogicalOptimizer.Benchmarks -- compare
+```
+
+Competitor side (fills the SymPy/PyEDA columns where the tools are installed):
+
+```powershell
+python tools/compare_sympy_pyeda.py            # optionally: --max-vars 16
+```
+
+The Python script **self-skips** any tool that is not importable (printing a clear
+note, exit 0) and never fabricates numbers — mirroring `SymPyDifferentialTests`'
+skip behavior. Timings are wall-clock, machine-dependent, and indicative (our
+harness reports the median of 7 runs after a warm-up); they are **not**
+publication-grade error bars — the BenchmarkDotNet suites below remain the
+authority for tight measurement.
+
+### OUR measured results (real)
+
+Environment: .NET 10 (SDK 10.0.301), Windows 11, X64. Single run of the `compare`
+harness; median-of-7 per function.
+
+| Zone | Function | Vars | Input literals | LogicalOptimizer literals | Status | Time (ms) |
+|------|----------|-----:|---------------:|--------------------------:|--------|----------:|
+| small | maj3 | 3 | 6 | 5 | MinimalProven | 0.545 |
+| small | consensus3 | 3 | 6 | 4 | MinimalProven | 0.411 |
+| small | xor2 | 2 | 4 | 4 | MinimalProven | 0.200 |
+| small | xor3 | 3 | 12 | 10 | MinimalProven | 1.623 |
+| small | maj4 | 4 | 12 | 9 | MinimalProven | 1.304 |
+| small | mux2 | 3 | 4 | 4 | MinimalProven | 0.315 |
+| small | pos6 | 6 | 6 | 6 | MinimalProven | 2.548 |
+| small | eq5 | 5 | 10 | 10 | MinimalProven | 0.452 |
+| small | pairs8 | 8 | 8 | 8 | MinimalProven | 2.189 |
+| small | pairs10 | 10 | 10 | 10 | MinimalProven | 11.020 |
+| mid | pairs12 | 12 | 12 | 12 | Heuristic | 11.654 |
+| mid | collapse14 | 14 | 28 | 7 | Heuristic | 1.723 |
+| mid | pairs16 | 16 | 16 | 16 | Heuristic | 4.750 |
+| mid | collapse18 | 18 | 36 | 9 | Heuristic | 1.536 |
+| mid | pairs20 | 20 | 20 | 20 | Heuristic | 5.319 |
+| mid | chain22 | 22 | 60 | 40 | Heuristic | 79.119 |
+| mid | pairs24 | 24 | 24 | 24 | Heuristic | 8.752 |
+
+Reading the table: within the guarantee zone every result is `MinimalProven`
+(e.g. `consensus3` 6 → 4, `maj4` 12 → 9). In the mid zone the reductions come from
+the verified SAT prime cover — e.g. `collapse14` 28 → 7 and `collapse18` 36 → 9
+collapse the `pᵢ&qᵢ | pᵢ&!qᵢ` pairs to `pᵢ`. The `pairsN` families are already
+minimal on input, so a correct minimizer leaves the literal count unchanged.
+
+### SymPy / PyEDA columns — PENDING (measured where tools exist)
+
+**Not measured in this environment.** `python -c "import sympy"` and
+`import pyeda` both fail here (PyPI is blocked on the maintainer's network; SymPy
+is pip-installed only in CI). These columns are therefore left as an explicit
+placeholder — no numbers are invented. To fill them, run the committed script
+where the tools are installed and paste its markdown output here:
+
+```powershell
+python tools/compare_sympy_pyeda.py
+```
+
+| Zone | Function | Vars | SymPy literals | SymPy ms | PyEDA literals | PyEDA ms |
+|------|----------|-----:|:--------------:|:--------:|:--------------:|:--------:|
+| — | *(all 17 rows)* | — | — (run script) | — | — (run script) | — |
+
+Once produced, join on `(Zone, Function, Vars)` with the OUR-results table above
+for the side-by-side result-size / time comparison.
+
 ### OptimizationBenchmarks
 
 | Method                    | Mean        | Error       | StdDev    | Gen0     | Gen1     | Gen2     | Allocated  |

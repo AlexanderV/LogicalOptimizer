@@ -1,8 +1,15 @@
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
 using LogicalOptimizer;
+using LogicalOptimizer.Benchmarks;
+
+// Roadmap B2: `-- compare` runs the deterministic cross-tool comparison harness
+// (emits OUR column of the SymPy/PyEDA table); anything else is a BenchmarkDotNet run.
+if (args.Length > 0 && string.Equals(args[0], "compare", StringComparison.OrdinalIgnoreCase))
+    return ComparisonHarness.Run(args);
 
 BenchmarkSwitcher.FromAssembly(typeof(OptimizationBenchmarks).Assembly).Run(args);
+return 0;
 
 /// <summary>
 ///     Performance-regression benchmarks. Run locally with:

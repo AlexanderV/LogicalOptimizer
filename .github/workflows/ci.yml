@@ -45,6 +45,15 @@ jobs:
       - name: Test
         run: dotnet test LogicalOptimizer.sln --no-build --configuration Release --filter "Category!=Performance&Category!=Exhaustive" --logger "trx" /p:CollectCoverage=true /p:Include="[LogicalOptimizer]*" /p:Threshold=80 /p:ThresholdType=line /p:ThresholdStat=total
 
+      # Roadmap B2: emit the SymPy/PyEDA comparison table into the CI log where the
+      # tools exist (sympy installed above; pyeda best-effort). Non-gating and capped
+      # so it can never slow or fail the PR gate; the script self-skips absent tools.
+      - name: Comparison table (SymPy/PyEDA, non-gating)
+        continue-on-error: true
+        run: |
+          pip install pyeda || true
+          python tools/compare_sympy_pyeda.py --max-vars 16
+
       # All six NuGet packages must always be packable
       - name: Pack (verification)
         run: |
