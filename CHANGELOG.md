@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-07-27
+
+### Added
+
+- **BDD complement edges.** BDD edges now carry a complement bit (encoded in the
+  low bit of the edge, with a single terminal node — FALSE is the complemented
+  edge to TRUE) under the canonical rule that every stored node's THEN edge is
+  regular. A function and its negation share the same node, so representing both
+  polarities costs no extra nodes, and `Negate` is an O(1) complement-bit flip
+  instead of a full `ite` recursion. All operations (evaluation, model counting
+  and enumeration, restriction, quantification, composition) decode the
+  complement bit; public behavior is unchanged and canonicity is preserved
+  (equivalent formulas produce the identical edge, complement bit included).
+
+### Tests
+
+- New complement-edge tests: O(1) structural negation, complement-bit canonicity,
+  `modelCount(f) + modelCount(!f) == 2^n`, and zero-extra-node sharing, all
+  cross-checked against the differential and fuzzing brute-force oracles.
+- Made the gate-visible mid-flight cancellation test deterministic (reliably
+  multi-second workload with an early cancel) instead of racing a timer.
+
 ## [2.0.0] - 2026-07-27
 
 First exercised major break under the SemVer policy. Migration guide:
