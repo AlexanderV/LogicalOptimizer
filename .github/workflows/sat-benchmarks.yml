@@ -1,0 +1,67 @@
+name: SAT Benchmarks (nightly)
+
+# Runs the SATLIB-style SAT corpus regression suite (Category=Performance) OUTSIDE the PR
+# gate: nightly on a schedule and on demand. The PR gate (ci.yml) deliberately excludes
+# Category=Performance; this job is where that corpus — the "modern CDCL" evidence — runs.
+on:
+  schedule:
+    # 03:17 UTC nightly (off the top of the hour to avoid GitHub's scheduling congestion)
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      run_benchmarkdotnet:
+        description: 'Also run the BenchmarkDotNet SAT micro-benchmarks'
+        type: boolean
+        default: false
+
+jobs:
+  sat-corpus-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore LogicalOptimizer.sln
+
+      - name: Build (Release, warnings as errors)
+        run: dotnet build LogicalOptimizer.sln --no-restore --configuration Release -warnaserror
+
+      # Correctness-under-budget corpus: each vendored instance is solved under a fixed
+      # conflict budget; the verdict must match the known SAT/UNSAT and SAT models are
+      # re-verified against the CNF. No wall-clock assertions (doc/TESTING.md rule 4) —
+      # per-instance timings are printed to the test output for human inspection.
+      - name: Run SAT corpus regression (Category=Performance)
+        run: >
+          dotnet test LogicalOptimizer.sln --no-build --configuration Release
+          --filter "Category=Performance&FullyQualifiedName~SatCorpusRegressionTests"
+          --logger "console;verbosity=detailed" --logger "trx;LogFileName=sat-corpus.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sat-corpus-trx
+          path: '**/TestResults/*.trx'
+          if-no-files-found: ignore
+
+      # Optional: BenchmarkDotNet SAT micro-benchmarks (only on manual dispatch opt-in).
+      - name: Run BenchmarkDotNet SAT bench
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_benchmarkdotnet }}
+        run: >
+          dotnet run -c Release --project LogicalOptimizer.Benchmarks --no-build --
+          --filter '*SatSolverBenchmarks*' --job short
+
+      - name: Upload BenchmarkDotNet artifacts
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_benchmarkdotnet }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: sat-benchmarkdotnet
+          path: BenchmarkDotNet.Artifacts/**
+          if-no-files-found: ignore

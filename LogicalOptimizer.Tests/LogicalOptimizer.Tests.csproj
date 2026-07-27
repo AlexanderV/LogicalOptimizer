@@ -42,6 +42,10 @@
 
   <ItemGroup>
     <None Include="TestData\**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Vendored SATLIB-style SAT corpus (see SatCorpusRegressionTests); copied to the test
+         output so the corpus regression suite can load it independently of the working dir. -->
+    <None Include="..\LogicalOptimizer.Benchmarks\SatCorpus\*.cnf"
+          Link="SatCorpus\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

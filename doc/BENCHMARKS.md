@@ -32,6 +32,55 @@ until they can be produced under those controls.
 | PhaseTransition60Variables     | 471.6 μs | 20.36 μs | 1.12 μs | 29.7852 | 4.8828 | 184.87 KB |
 | DeMorganEquivalence30Variables | 167.7 μs |  8.94 μs | 0.49 μs | 28.3203 | 3.4180 | 174.32 KB |
 
+### SAT corpus (SATLIB-style, generated) — perf-regression
+
+Roadmap **B1**. A small, deterministic corpus of hard-ish SAT instances is vendored at
+[`LogicalOptimizer.Benchmarks/SatCorpus/`](../LogicalOptimizer.Benchmarks/SatCorpus/README.md)
+and driven by `SatCorpusRegressionTests` (`Category=Performance`, excluded from the PR
+gate; run nightly by `.github/workflows/sat-benchmarks.yml`).
+
+**Generated, not downloaded.** These are SATLIB-*style* instances produced in-repo by a
+committed, seeded generator (`SatCorpusGenerator`) — **not** the literal SATLIB `uf`/`uuf`
+archive files. That keeps the corpus fully reproducible and free of external-download /
+provenance concerns; the `uf`/`uuf` naming is borrowed only as a labelling convention.
+Every expected verdict is known **by construction** or **independently brute-force
+verified** at generation time (the solver under test is never the verdict oracle):
+
+- **10 satisfiable** `uf*` — planted random 3-SAT at the phase-transition ratio ≈ 4.26,
+  75–125 variables (320–532 clauses). SAT by construction (a planted assignment satisfies
+  every clause); the solver's returned model is re-verified against the CNF.
+- **6 unsatisfiable** `uuf0*` — forced random 3-SAT (16–18 variables), seed-searched until
+  an exhaustive 2ⁿ brute-force oracle confirms UNSAT.
+- **4 unsatisfiable** `uuf-php*` — pigeonhole PHP(n+1 → n) for n = 4..7 (20–56 variables),
+  UNSAT by construction and exponentially hard for CDCL.
+
+The regression suite solves each instance under a **fixed deterministic conflict budget
+(5,000,000)** and asserts the verdict is not `Unknown` and matches the known SAT/UNSAT
+(plus the independent model / brute-force re-checks). There are **no wall-clock
+assertions** (doc/TESTING.md rule 4). Run locally with:
+
+```powershell
+dotnet test --filter "Category=Performance"
+```
+
+Indicative local numbers (machine-dependent; Release, single run, .NET 10, x64 —
+logged by the test, never asserted on):
+
+| Instance | Verdict | Conflicts | Time |
+|----------|:-------:|----------:|-----:|
+| `uf075-01` (75 v)  | SAT   |    82 |   1 ms |
+| `uf120-01` (120 v) | SAT   | 1,016 |  14 ms |
+| `uf125-01` (125 v) | SAT   |   392 |  18 ms |
+| `uuf018-05` (18 v) | UNSAT |     9 |  <1 ms |
+| `uuf-php6-5` (30 v)| UNSAT |   165 |   1 ms |
+| `uuf-php7-6` (42 v)| UNSAT |   803 |  24 ms |
+| `uuf-php8-7` (56 v)| UNSAT | 3,287 | 101 ms |
+
+All 20 instances resolve to the correct verdict far inside the budget (the hardest,
+pigeonhole PHP(8→7), needs ≈ 3.3k conflicts). The budget carries wide headroom on purpose:
+a future change that makes the solver need materially more search to decide any of these is
+precisely the regression this corpus is meant to surface.
+
 ### ExactMinimizationBenchmarks
 
 | Method                     | Mean     | Error    | StdDev   | Gen0      | Gen1     | Allocated |
