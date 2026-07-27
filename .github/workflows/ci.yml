@@ -51,7 +51,7 @@ jobs:
       - name: Comparison table (SymPy/PyEDA, non-gating)
         continue-on-error: true
         run: |
-          pip install pyeda || true
+          python -m pip install pyeda || true
           python tools/compare_sympy_pyeda.py --max-vars 16
 
       # All six NuGet packages must always be packable

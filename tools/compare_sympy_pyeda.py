@@ -91,7 +91,9 @@ def run_sympy(expression):
 def try_import_pyeda():
     try:
         import pyeda  # noqa: F401
-        from pyeda.boolalg.expr import expr, espresso_exprs  # noqa: F401
+        # Use the public `pyeda.inter` interface: `espresso_exprs` lives in
+        # pyeda.boolalg.minimization (NOT pyeda.boolalg.expr), and inter re-exports both.
+        from pyeda.inter import expr, espresso_exprs  # noqa: F401
         return pyeda
     except Exception:
         return None
@@ -115,7 +117,7 @@ def pyeda_literals(node):
 
 def run_pyeda(expression):
     """Return (literal_count, milliseconds) for PyEDA's Espresso SOP, or None on error."""
-    from pyeda.boolalg.expr import expr, espresso_exprs
+    from pyeda.inter import expr, espresso_exprs
     try:
         f = expr(to_operator_syntax(expression))
         # Espresso needs a DNF/cover input; to_dnf() gives one without extra deps.
