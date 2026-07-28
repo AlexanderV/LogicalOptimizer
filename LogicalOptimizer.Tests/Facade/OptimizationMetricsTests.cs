@@ -38,6 +38,35 @@ public class OptimizationMetricsTests
     }
 
     [Fact]
+    public void OptimizeExpression_WithMetrics_PopulatesConvergenceTrace()
+    {
+        // The rewrite engine records one convergence entry per fixpoint iteration plus the
+        // initial state, so the trace length is Iterations + 1 and the entries carry node counts.
+        var result = new BooleanExpressionOptimizer()
+            .OptimizeExpression("a & b | a & c | b & c", new OptimizationOptions { IncludeMetrics = true });
+
+        Assert.NotNull(result.Metrics);
+        var metrics = result.Metrics!;
+        Assert.NotEmpty(metrics.OptimizationSteps);
+        Assert.Equal(metrics.Iterations + 1, metrics.OptimizationSteps.Count);
+        Assert.StartsWith("iter 0:", metrics.OptimizationSteps[0]);
+        Assert.All(metrics.OptimizationSteps, step => Assert.Contains("nodes", step));
+    }
+
+    [Fact]
+    public void OptimizeExpression_WithMetrics_MeasuresAllocatedBytes()
+    {
+        var result = new BooleanExpressionOptimizer()
+            .OptimizeExpression("a & b | a & c | b & c", new OptimizationOptions { IncludeMetrics = true });
+
+        Assert.NotNull(result.Metrics);
+        // A real optimization run allocates AST/normal-form artifacts, so the thread-local
+        // allocation delta is strictly positive.
+        Assert.True(result.Metrics!.AllocatedBytes > 0,
+            $"Expected positive allocation measurement, got {result.Metrics.AllocatedBytes}");
+    }
+
+    [Fact]
     public void CompressionRatio_WithValidData_ShouldCalculateCorrectly()
     {
         // Arrange

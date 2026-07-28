@@ -157,7 +157,7 @@ internal sealed class DistributiveExpander
     private void CountStep()
     {
         if (++_steps > _maxDistributionSteps)
-            throw new InvalidOperationException(
+            throw new NormalFormTooLargeException(
                 $"Normal form conversion aborted: expression expands beyond {_maxDistributionSteps} distribution steps");
     }
 }

@@ -72,6 +72,6 @@ public class DistributiveExpanderTests
         // A budget of a single distribution step cannot cover the 2x2 cross product.
         var expander = new DistributiveExpander(factory, maxDistributionSteps: 1);
 
-        Assert.Throws<InvalidOperationException>(() => expander.ToDnf(ast));
+        Assert.Throws<NormalFormTooLargeException>(() => expander.ToDnf(ast));
     }
 }

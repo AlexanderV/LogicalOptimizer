@@ -11,7 +11,20 @@ public class OptimizationMetrics
     public int AppliedRules { get; set; }
     public TimeSpan ElapsedTime { get; set; }
     public Dictionary<string, int> RuleApplicationCount { get; set; } = new();
+
+    /// <summary>
+    ///     Convergence trace: one entry per rewrite fixpoint iteration recording the node
+    ///     count at that step, so callers can see how the expression converged (populated
+    ///     only when metrics are requested).
+    /// </summary>
     public List<string> OptimizationSteps { get; set; } = new();
+
+    /// <summary>
+    ///     Bytes allocated on the calling thread across the whole optimization run
+    ///     (measured via <see cref="GC.GetAllocatedBytesForCurrentThread" />). A memory-cost
+    ///     signal for the call; 0 when metrics were not requested.
+    /// </summary>
+    public long AllocatedBytes { get; set; }
 
     public double CompressionRatio => OriginalNodes > 0 ? (double)OptimizedNodes / OriginalNodes : 1.0;
     public bool IsImproved => OptimizedNodes < OriginalNodes;

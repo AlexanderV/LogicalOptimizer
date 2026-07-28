@@ -50,9 +50,11 @@ public sealed class OptimizationOptions
 public enum CnfMode
 {
     /// <summary>
-    ///     Equivalent CNF over the original variables: provably minimal POS for expressions
-    ///     within the exact-minimization threshold, budgeted distribution beyond it
-    ///     (may end as <see cref="ComputationStatus.TooLarge" />).
+    ///     Equivalent CNF over the original variables. In the exact-minimization range it is a
+    ///     minimum-cover POS whose proof status is reported by
+    ///     <see cref="OptimizationResult.CnfMinimizationStatus" /> (proven in the ≤10 guarantee
+    ///     zone, possibly budget-limited at 11–12); beyond the threshold it is budgeted
+    ///     distribution and may end as <see cref="ComputationStatus.TooLarge" />.
     /// </summary>
     Equivalent,
 

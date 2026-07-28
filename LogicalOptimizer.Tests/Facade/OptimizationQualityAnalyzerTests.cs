@@ -39,13 +39,15 @@ public class OptimizationQualityAnalyzerTests
     public void AnalyzeOptimization_HighlyOptimizedExpression_ShouldIndicateOptimal()
     {
         // Arrange - the original must not fold at parse time (the factory dedups exact
-        // duplicates), so absorption-shaped redundancy provides the compression
+        // duplicates), so absorption-shaped redundancy provides the compression.
+        // IsOptimal is now a proven property, so the result must carry MinimalProven.
         var result = new OptimizationResult
         {
             Original = "a & b | a & !b | a",
             Optimized = "a",
             CNF = "a",
             DNF = "a",
+            MinimizationStatus = MinimizationStatus.MinimalProven,
             Metrics = new OptimizationMetrics()
         };
 
@@ -57,9 +59,51 @@ public class OptimizationQualityAnalyzerTests
         // Deterministic analyzer: original parses to a 9-node tree (OR of a&b, a&!b, a),
         // optimized "a" is 1 node → ratio exactly 1/9.
         Assert.Equal(1.0 / 9, qualityMetrics.CompressionRatio, 3);
-        // Score = base 50 + 30 (ratio<0.5) + 15 (depth 3→0) − 10 (no rules) = 85.
+        // Heuristic score = base 50 + 30 (ratio<0.5) + 15 (depth 3→0) − 10 (no rules) = 85.
         Assert.Equal(85, qualityMetrics.OptimalityScore);
+        // IsOptimal reflects the proof status, not the score.
         Assert.True(qualityMetrics.IsOptimal);
+    }
+
+    [Fact]
+    public void AnalyzeOptimization_HighScoreButUnproven_IsNotOptimal()
+    {
+        // A high heuristic score must NOT be reported as optimal when minimality was not
+        // proven: IsOptimal is a formal property tied to MinimizationStatus.MinimalProven.
+        var result = new OptimizationResult
+        {
+            Original = "a & b | a & !b | a",
+            Optimized = "a",
+            CNF = "a",
+            DNF = "a",
+            MinimizationStatus = MinimizationStatus.Heuristic,
+            Metrics = new OptimizationMetrics()
+        };
+
+        var qualityMetrics = OptimizationQualityAnalyzer.AnalyzeOptimization(result);
+
+        Assert.Equal(85, qualityMetrics.OptimalityScore);
+        Assert.False(qualityMetrics.IsOptimal);
+    }
+
+    [Fact]
+    public void GenerateQualityReport_WithMetrics_RendersProvenMinimalAndTelemetry()
+    {
+        // The report must actually render the honest-status line and the convergence/memory
+        // telemetry when the run captured metrics (kills the report-rendering mutants on the
+        // IsOptimal conditional and the OptimizationSteps/AllocatedBytes guards).
+        var result = new BooleanExpressionOptimizer()
+            .OptimizeExpression("a & b | a & c | b & c", new OptimizationOptions { IncludeMetrics = true });
+
+        var report = OptimizationQualityAnalyzer.GenerateQualityReport(result);
+
+        // Provenance line reflects the proven two-level minimum (guarantee zone).
+        Assert.Contains("Proven minimal (two-level): Yes", report);
+        // Heuristic score is labelled as heuristic, not as a proof.
+        Assert.Contains("Heuristic quality score:", report);
+        // Telemetry sections are rendered from the captured metrics.
+        Assert.Contains("Convergence trace:", report);
+        Assert.Contains("Allocated memory:", report);
     }
 
     [Fact]

@@ -177,7 +177,7 @@ public sealed class BinaryDecisionDiagram
         {
             return manager.FromAst(left) == manager.FromAst(right);
         }
-        catch (InvalidOperationException)
+        catch (NodeBudgetExceededException)
         {
             return null;
         }
@@ -503,13 +503,13 @@ public sealed class BinaryDecisionDiagram
                 manager.Root = manager.FromAst(ast);
                 if (best == null || manager.NodeCount < best.NodeCount) best = manager;
             }
-            catch (InvalidOperationException)
+            catch (NodeBudgetExceededException)
             {
                 // This order blew the budget; try the next one
             }
         }
 
-        return best ?? throw new InvalidOperationException(NodeBudgetMessage);
+        return best ?? throw new NodeBudgetExceededException(NodeBudgetMessage);
     }
 
     /// <summary>
@@ -860,7 +860,7 @@ public sealed class BinaryDecisionDiagram
         {
             _cancellationToken.ThrowIfCancellationRequested();
             if (_nodes.Count >= _nodeBudget)
-                throw new InvalidOperationException(NodeBudgetMessage);
+                throw new NodeBudgetExceededException(NodeBudgetMessage);
 
             index = _nodes.Count;
             _nodes.Add(key);

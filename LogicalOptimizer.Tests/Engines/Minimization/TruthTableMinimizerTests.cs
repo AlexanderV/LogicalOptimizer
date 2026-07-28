@@ -88,6 +88,31 @@ public class TruthTableMinimizerTests
     }
 
     [Fact]
+    public void OptimizeExpression_EquivalentCnf_GuaranteeZone_ReportsProvenMinimalPos()
+    {
+        // The equivalent-CNF (POS) carries its own proof status, separate from the SOP-scoped
+        // MinimizationStatus; in the ≤10 guarantee zone it is provably minimal.
+        var result = new BooleanExpressionOptimizer().OptimizeExpression("a & b | a & c | b & c",
+            new OptimizationOptions
+            { ComputeCnf = true, CnfMode = CnfMode.Equivalent, ComputeDnf = false, ComputeAdvancedForms = false });
+
+        Assert.Equal(MinimizationStatus.MinimalProven, result.MinimizationStatus);
+        Assert.Equal(MinimizationStatus.MinimalProven, result.CnfMinimizationStatus);
+    }
+
+    [Fact]
+    public void OptimizeExpression_TseitinCnf_CnfMinimizationStatusStaysHeuristic()
+    {
+        // Tseitin CNF is equisatisfiable, not a minimal POS — two-level minimality does not
+        // apply, so the CNF minimality status must not claim MinimalProven.
+        var result = new BooleanExpressionOptimizer().OptimizeExpression("a & b | a & c | b & c",
+            new OptimizationOptions
+            { ComputeCnf = true, CnfMode = CnfMode.Tseitin, ComputeDnf = false, ComputeAdvancedForms = false });
+
+        Assert.Equal(MinimizationStatus.Heuristic, result.CnfMinimizationStatus);
+    }
+
+    [Fact]
     public void MinimalSop_Parity3_TwelveLiterals()
     {
         AssertMinimalSop(
@@ -307,7 +332,10 @@ public class TruthTableMinimizerTests
             if (random.Next(2) == 0)
                 onSet.Add(m);
 
-        Assert.Throws<InvalidOperationException>(() =>
+        // The budget trip is reported with a dedicated exception type (still an
+        // InvalidOperationException by inheritance) so the facade can tell it apart from a
+        // genuine invariant violation.
+        Assert.Throws<ComputationBudgetExceededException>(() =>
             TruthTableMinimizer.MinimalSop(variables, onSet, pairComparisonLimit: 1_000));
     }
 

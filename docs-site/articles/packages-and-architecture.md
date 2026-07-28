@@ -48,9 +48,11 @@ two-level minimization — or the `LogicalOptimizer` facade for the whole pipeli
 
 ## `FormulaFactory` — the construction entry point
 
-Since v2.0 there is exactly **one** way to build And/Or trees: `FormulaFactory`. It is the
-single entry point for constructing and parsing formulas (`Parse`, `And` / `Or` / `Not` /
-`Variable`, `Import`), and it canonicalizes at construction time:
+Since v2.0 `FormulaFactory` is the single **canonical** way to build And/Or trees: it is the
+entry point for constructing and parsing formulas (`Parse`, `And` / `Or` / `Not` /
+`Variable`, `Import`), and it canonicalizes at construction time. The public low-level
+`AndNode`/`OrNode` constructors still build raw, non-canonical ASTs for callers that need
+them, but only `FormulaFactory` guarantees the invariants below:
 
 - **flatten** — `a & (b & c)` becomes one `AndNode` with operands `[a, b, c]`;
 - **sort** — operands take a stable canonical order (`c & a & b` → `a & b & c`);

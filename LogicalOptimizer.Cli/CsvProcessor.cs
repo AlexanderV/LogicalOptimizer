@@ -57,7 +57,7 @@ internal class CsvProcessor
                 .Select(r => (r.Name, r.Expression.ToString()))
                 .ToList();
         }
-        catch (InvalidOperationException)
+        catch (ComputationBudgetExceededException)
         {
             // Budget exceeded on a dense output: fall back to the raw specified rows
             Console.Error.WriteLine("Exact multi-output minimization budget exceeded; using raw rows");
@@ -105,7 +105,7 @@ internal class CsvProcessor
                         PerformanceValidator.QM_PAIR_COMPARISON_LIMIT));
                 return minimal.ToString();
             }
-            catch (InvalidOperationException)
+            catch (ComputationBudgetExceededException)
             {
                 Console.Error.WriteLine("Exact minimization budget exceeded; using the specified rows directly");
             }

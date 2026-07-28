@@ -366,8 +366,12 @@ Console.WriteLine(result.DebugInfo);
 Built-in optimization quality analyzer provides detailed metrics:
 - Expression complexity reduction percentage
 - Number of optimization rules applied
-- Convergence analysis
-- Memory usage statistics
+- Convergence trace (node count per rewrite fixpoint iteration, via `OptimizationMetrics.OptimizationSteps`)
+- Memory usage: bytes allocated on the calling thread across the run (`OptimizationMetrics.AllocatedBytes`)
+
+Note: the analyzer's `IsOptimal` is a *proven* property — true only when the exact minimizer
+proved the two-level minimum (`MinimizationStatus.MinimalProven`). The 0–100 `OptimalityScore`
+is a separate heuristic quality rating and does not, on its own, assert optimality.
 
 ## Requirements
 
@@ -411,7 +415,9 @@ article; the examples are executed and asserted in
 - Maximum expression length: 10,000 characters
 - Maximum number of variables: 100
 - Maximum nesting depth: 50 levels
-- Maximum processing time: 10 seconds
+- Maximum processing time: 10 seconds (a cooperative deadline: a single linked token bounds
+  every phase and is checked at phase boundaries and inside the cancellable engines; a phase
+  is aborted with `TimeoutException` when it next observes the token)
 - Maximum optimization iterations: 20
 
 ## Architecture
@@ -530,7 +536,7 @@ graph LR
 
 ## Project Statistics
 
-- **Total tests**: 891 (all passing; performance and exhaustive-sweep categories run outside CI via --filter; suite fully audited 2026-07 — see doc/TESTING.md Part 4)
+- **Total tests**: 1035 CI cases (all passing; performance and exhaustive-sweep categories run outside CI via --filter; count is a snapshot, not a contract; suite fully audited 2026-07 — see doc/TESTING.md Part 4)
 - **Code coverage**: ~89% line coverage (CI enforces an 80% floor)
 - **Mutation scores** (Stryker.NET, per module): Transformations 100%, TruthTableMinimizer 82.6%, EspressoLite 72.5%, SatSolver 52.5% — every survivor killed or classified equivalent (doc/TESTING.md Part 5)
 - **Minimization engines**: 4 zones — exact QM (≤12 vars, proven ≤10), SAT prime cover (13–24), Espresso-lite cube lists (beyond), plus the precomputed 3-input subcircuit library

@@ -78,6 +78,10 @@ internal sealed class RewriteEngine
         var iterations = 0;
         var seenStates = new HashSet<AstNode>(ReferenceEqualityComparer.Instance) { node };
 
+        // Convergence trace: the node count at each fixpoint iteration. Recorded only when
+        // metrics are requested; lets callers see how (and whether) the rewrite converged.
+        metrics?.AddStep($"iter 0: {AstMetrics.CountNodes(node)} nodes");
+
         do
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -86,6 +90,7 @@ internal sealed class RewriteEngine
             previous = node;
             node = RewritePass(node, metrics);
             iterations++;
+            metrics?.AddStep($"iter {iterations}: {AstMetrics.CountNodes(node)} nodes");
 
             // Cycle detection: revisiting a state means the rules oscillate — stop
             if (!seenStates.Add(node)) break;
@@ -98,14 +103,15 @@ internal sealed class RewriteEngine
             AstMetrics.CountNodes(node) <= MaxExpandReduceInputNodes)
             node = TryExpandReduce(node);
 
-        // Soundness guard: a rewrite must never change the function. A mismatch means
-        // a rule bug — fall back to the untouched input rather than emit a wrong result.
-        // Small expressions are verified by truth table, larger ones by the SAT-based miter
-        // (a budget-exhausted Unknown keeps the result: the guard only acts on refutation).
+        // Soundness guard: a rewrite must never change the function, and it is accepted only
+        // when equivalence is positively PROVEN. A refutation means a rule bug; an Unknown
+        // (SAT budget exhausted before proving equivalence) is treated the same as a failure —
+        // we fall back to the untouched input rather than ship an unverified result. Small
+        // expressions are verified by truth table, larger ones by the SAT-based miter.
         var guardVerdict = variableCount <= PerformanceValidator.MAX_EQUIVALENCE_CHECK_VARIABLES
             ? TruthTable.AreEquivalent(input, node)
             : EquivalenceChecker.CheckWithSat(input, node,
-                budget.SoundnessGuardConflictLimit, cancellationToken).AreEquivalent != false;
+                budget.SoundnessGuardConflictLimit, cancellationToken).AreEquivalent == true;
         if (!guardVerdict)
         {
             RecordRuleApplication(metrics, "SoundnessRollback", countAsApplied: false);

@@ -20,7 +20,7 @@ public static class BooleanExpressionExporter
         {
             cnfAst = new NormalFormConverter().ConvertToCNF(ast);
         }
-        catch (InvalidOperationException)
+        catch (NormalFormTooLargeException)
         {
             var tseitin = TseitinConverter.Convert(ast);
             return $"c Boolean expression: {expression}\nc Equisatisfiable Tseitin CNF\n{tseitin.ToDimacs()}";

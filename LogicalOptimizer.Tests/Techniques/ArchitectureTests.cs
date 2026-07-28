@@ -124,11 +124,12 @@ public class ArchitectureTests
         // reviewed decision — extend the list together with the README/API docs
         var expected = new HashSet<string>
         {
-            // Core (20)
+            // Core (23)
             "AstNode", "NaryNode", "AndNode", "OrNode", "NotNode", "VariableNode", "ConstantNode",
             "BinaryNode", "ImpNode", "XorNode", "NandNode", "NorNode", "EqvNode",
             "FormulaFactory", "AstFormatter", "AstVisualizer", "TruthTable",
-            "OptimizationMetrics", "AstMetrics", "ResourceBudget",
+            "OptimizationMetrics", "AstMetrics", "ResourceBudget", "ComputationBudgetExceededException",
+            "NodeBudgetExceededException", "NormalFormTooLargeException",
             // Sat (10)
             "SatSolver", "SatResult", "MaxSatSolver", "MaxSatResult", "MaxSatStatus",
             "CnfBuilder", "CardinalityEncoder", "PseudoBooleanEncoder", "CnfEncodingStyle", "TseitinCnf",

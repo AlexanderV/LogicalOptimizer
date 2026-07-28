@@ -193,7 +193,7 @@ public class BddOperationsTests
     public void BuildWithBestOrder_TinyBudget_ThrowsWhenNoOrderFits()
     {
         var expression = string.Join(" | ", Enumerable.Range(1, 6).Select(i => $"a{i} & b{i}"));
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.Throws<NodeBudgetExceededException>(() =>
             BinaryDecisionDiagram.BuildWithBestOrder(Parse(expression), nodeBudget: 3));
     }
 }

@@ -123,6 +123,7 @@ namespace LogicalOptimizer
         public OptimizationResult() { }
         public string Advanced { get; set; }
         public string CNF { get; set; }
+        public LogicalOptimizer.MinimizationStatus CnfMinimizationStatus { get; set; }
         public LogicalOptimizer.ComputationStatus CnfStatus { get; set; }
         public string DNF { get; set; }
         public string DebugInfo { get; set; }
@@ -134,6 +135,7 @@ namespace LogicalOptimizer
         public string Original { get; set; }
         public LogicalOptimizer.TruthTable? OriginalTruthTable { get; set; }
         public System.Collections.Generic.List<string> Variables { get; set; }
+        public LogicalOptimizer.EquivalenceCheckResult CheckEquivalence() { }
         public bool IsEquivalent() { }
         public override string ToString() { }
     }
@@ -213,6 +215,11 @@ namespace LogicalOptimizer
         public override System.Collections.Generic.HashSet<string> GetVariables() { }
         public override string ToString() { }
     }
+    public sealed class ComputationBudgetExceededException : System.InvalidOperationException
+    {
+        public ComputationBudgetExceededException(string message) { }
+        public ComputationBudgetExceededException(string message, System.Exception innerException) { }
+    }
     public sealed class ConstantNode : LogicalOptimizer.AstNode
     {
         public static readonly LogicalOptimizer.ConstantNode False;
@@ -268,10 +275,20 @@ namespace LogicalOptimizer
         public override System.Collections.Generic.HashSet<string> GetVariables() { }
         public override string ToString() { }
     }
+    public sealed class NodeBudgetExceededException : System.InvalidOperationException
+    {
+        public NodeBudgetExceededException(string message) { }
+        public NodeBudgetExceededException(string message, System.Exception innerException) { }
+    }
     public sealed class NorNode : LogicalOptimizer.BinaryNode
     {
         public NorNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right) { }
         public override string Operator { get; }
+    }
+    public sealed class NormalFormTooLargeException : System.InvalidOperationException
+    {
+        public NormalFormTooLargeException(string message) { }
+        public NormalFormTooLargeException(string message, System.Exception innerException) { }
     }
     public sealed class NotNode : LogicalOptimizer.AstNode
     {
@@ -286,6 +303,7 @@ namespace LogicalOptimizer
     public class OptimizationMetrics
     {
         public OptimizationMetrics() { }
+        public long AllocatedBytes { get; set; }
         public int AppliedRules { get; set; }
         public double CompressionRatio { get; }
         public System.TimeSpan ElapsedTime { get; set; }
@@ -407,6 +425,10 @@ namespace LogicalOptimizer
     public static class TruthTableMinimizer
     {
         public static LogicalOptimizer.AstNode MinimalPos(System.Collections.Generic.IReadOnlyList<string> variables, System.Collections.Generic.IReadOnlyCollection<int> onSet, System.Collections.Generic.IReadOnlyCollection<int>? dontCareSet = null, long? pairComparisonLimit = default, System.Threading.CancellationToken cancellationToken = default) { }
+        [return: System.Runtime.CompilerServices.TupleElementNames(new string[] {
+                "Expression",
+                "ProvenMinimal"})]
+        public static System.ValueTuple<LogicalOptimizer.AstNode, bool> MinimalPosWithStatus(System.Collections.Generic.IReadOnlyList<string> variables, System.Collections.Generic.IReadOnlyCollection<int> onSet, System.Collections.Generic.IReadOnlyCollection<int>? dontCareSet = null, long? pairComparisonLimit = default, System.Threading.CancellationToken cancellationToken = default, int coverStepLimit = 200000) { }
         public static LogicalOptimizer.AstNode MinimalSop(System.Collections.Generic.IReadOnlyList<string> variables, System.Collections.Generic.IReadOnlyCollection<int> onSet, System.Collections.Generic.IReadOnlyCollection<int>? dontCareSet = null, long? pairComparisonLimit = default, System.Threading.CancellationToken cancellationToken = default) { }
         [return: System.Runtime.CompilerServices.TupleElementNames(new string[] {
                 "Expression",

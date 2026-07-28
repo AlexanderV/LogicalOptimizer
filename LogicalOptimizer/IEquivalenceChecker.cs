@@ -56,7 +56,7 @@ public sealed class BddEquivalenceChecker : IEquivalenceChecker
             if (manager.FromAst(left) == manager.FromAst(right))
                 return EquivalenceCheckResult.Equivalent();
         }
-        catch (InvalidOperationException)
+        catch (NodeBudgetExceededException)
         {
             return EquivalenceCheckResult.Unknown();
         }

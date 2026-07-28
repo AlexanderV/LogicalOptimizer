@@ -243,7 +243,7 @@ public class KnowledgeCompilationTests
         AstNode parity = vars[0];
         for (var i = 1; i < vars.Count; i++) parity = new XorNode(parity, vars[i]);
 
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        var ex = Assert.Throws<NodeBudgetExceededException>(() =>
             KnowledgeCompilation.CompileToDnnf(parity, nodeBudget: 8));
         Assert.Contains("budget", ex.Message, StringComparison.OrdinalIgnoreCase);
     }

@@ -4,12 +4,14 @@ Every example on this page is mirrored by a test in
 `LogicalOptimizer.Tests/Documentation/DocExamplesTests.cs`, so the outputs shown are the
 real, asserted values.
 
-## `FormulaFactory` — the single construction entry point
+## `FormulaFactory` — the canonical construction entry point
 
-Since v2.0 there is exactly **one** way to build And/Or trees and to parse text:
-`FormulaFactory`. It canonicalizes at construction time — flatten, sort, dedup, fold
-constants/complements, and intern — so equal formulas print identically and are the same
-instance.
+Since v2.0 `FormulaFactory` is the single **canonical** way to build And/Or trees and to parse
+text. It canonicalizes at construction time — flatten, sort, dedup, fold constants/complements,
+and intern — so equal formulas print identically and are the same instance. The public
+low-level `AndNode`/`OrNode` constructors remain available for building raw AST directly (used,
+for example, by tests), but they deliberately skip canonicalization and therefore do **not**
+guarantee those invariants; go through `FormulaFactory` whenever you rely on canonical form.
 
 ```csharp
 using LogicalOptimizer;

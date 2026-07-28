@@ -128,7 +128,7 @@ public class BinaryDecisionDiagramTests
         // Hidden-weighted-bit-style blowup is hard to force cheaply; a tiny budget suffices
         var expression = string.Join(" | ", Enumerable.Range(1, 8).Select(i => $"a{i} & b{i}"));
 
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.Throws<NodeBudgetExceededException>(() =>
             BinaryDecisionDiagram.Build(Parse(expression), nodeBudget: 8));
         Assert.Null(BinaryDecisionDiagram.AreEquivalent(Parse(expression), Parse(expression + " | a1 & b1"),
             nodeBudget: 8));

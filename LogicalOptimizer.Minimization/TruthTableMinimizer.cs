@@ -29,9 +29,9 @@ public static class TruthTableMinimizer
     /// <param name="onSet">Minterms where the function is 1.</param>
     /// <param name="dontCareSet">Minterms whose value is unspecified.</param>
     /// <param name="pairComparisonLimit">
-    ///     Optional work budget for prime-implicant generation; when exceeded an
-    ///     <see cref="InvalidOperationException" /> is thrown so callers can fall back
-    ///     to heuristic simplification (dense functions near 12 variables can otherwise
+    ///     Optional work budget for prime-implicant generation; when exceeded a
+    ///     <see cref="ComputationBudgetExceededException" /> is thrown so callers can fall
+    ///     back to heuristic simplification (dense functions near 12 variables can otherwise
     ///     cost seconds).
     /// </param>
     /// <param name="cancellationToken">
@@ -104,6 +104,23 @@ public static class TruthTableMinimizer
         IReadOnlyCollection<int> onSet, IReadOnlyCollection<int>? dontCareSet = null,
         long? pairComparisonLimit = null, CancellationToken cancellationToken = default)
     {
+        return MinimalPosWithStatus(variables, onSet, dontCareSet, pairComparisonLimit, cancellationToken)
+            .Expression;
+    }
+
+    /// <summary>
+    ///     Like <see cref="MinimalPos" /> but also reports whether the minimum cover search of
+    ///     the complement completed: when ProvenMinimal is true the returned POS is provably
+    ///     minimal in (total literals, then clause count); when false the clause set is sound
+    ///     but the exact search hit <paramref name="coverStepLimit" /> before proving
+    ///     optimality (mirrors <see cref="MinimalSopWithStatus" /> so the POS path is no
+    ///     longer silently unproven).
+    /// </summary>
+    public static (AstNode Expression, bool ProvenMinimal) MinimalPosWithStatus(IReadOnlyList<string> variables,
+        IReadOnlyCollection<int> onSet, IReadOnlyCollection<int>? dontCareSet = null,
+        long? pairComparisonLimit = null, CancellationToken cancellationToken = default,
+        int coverStepLimit = ResourceBudget.DefaultCoverStepLimit)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         var totalMinterms = 1 << variables.Count;
         var on = new HashSet<int>(onSet);
@@ -115,16 +132,16 @@ public static class TruthTableMinimizer
             if (!on.Contains(m) && !dc.Contains(m))
                 offSet.Add(m);
 
-        if (offSet.Count == 0) return ConstantNode.True;
-        if (on.Count == 0) return ConstantNode.False;
+        if (offSet.Count == 0) return (ConstantNode.True, true);
+        if (on.Count == 0) return (ConstantNode.False, true);
 
         var primes = GeneratePrimeImplicants(variables.Count, new HashSet<int>(offSet.Concat(dc)),
             pairComparisonLimit, cancellationToken);
-        var (cover, _) = SelectMinimumCover(primes, offSet, ResourceBudget.DefaultCoverStepLimit, cancellationToken);
+        var (cover, proven) = SelectMinimumCover(primes, offSet, coverStepLimit, cancellationToken);
 
         // Each complement product (x & !y) becomes a clause (!x | y)
         var clauses = cover.Select(implicant => BuildClause(variables, implicant)).ToList();
-        return clauses.Count == 1 ? clauses[0] : new AndNode(clauses);
+        return (clauses.Count == 1 ? clauses[0] : new AndNode(clauses), proven);
     }
 
     private static List<Implicant> GeneratePrimeImplicants(int variableCount, HashSet<int> careSet,
@@ -148,7 +165,7 @@ public static class TruthTableMinimizer
                 var cubes = group.ToList();
                 comparisons += (long)cubes.Count * (cubes.Count - 1) / 2;
                 if (comparisons > pairComparisonLimit)
-                    throw new InvalidOperationException(WorkLimitMessage);
+                    throw new ComputationBudgetExceededException(WorkLimitMessage);
 
                 for (var i = 0; i < cubes.Count; i++)
                 {

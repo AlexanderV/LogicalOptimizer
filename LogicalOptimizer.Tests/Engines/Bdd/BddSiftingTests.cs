@@ -185,7 +185,7 @@ public class BddSiftingTests
     public void BuildWithSiftedOrder_TinyBudget_Throws()
     {
         var expression = string.Join(" | ", Enumerable.Range(1, 8).Select(i => $"a{i} & b{i}"));
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.Throws<NodeBudgetExceededException>(() =>
             BinaryDecisionDiagram.BuildWithSiftedOrder(Parse(expression), nodeBudget: 8));
     }
 

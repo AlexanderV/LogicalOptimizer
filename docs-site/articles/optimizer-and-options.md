@@ -71,10 +71,14 @@ candidate is allowed to win.
 ## `OptimizationResult` fields
 
 Besides `Optimized` / `CNF` / `DNF` / `Advanced` / `Variables`, the result carries
-`MinimizationStatus` (see [Operation contracts & statuses](contracts-and-statuses.md)),
-`CnfStatus` / `DnfStatus` (`ComputationStatus`), optional `Metrics`
-(`OptimizationMetrics`: node counts, iterations, applied rules, elapsed time), optional
-`OriginalTruthTable` / `OptimizedTruthTable`, `DebugInfo`, and `IsEquivalent()`.
+`MinimizationStatus` (SOP/`Optimized`/`DNF` provenance) and `CnfMinimizationStatus`
+(equivalent-CNF/POS provenance — reported separately, `Heuristic` for `CnfMode.Tseitin`
+where two-level minimality does not apply), both explained in
+[Operation contracts & statuses](contracts-and-statuses.md); `CnfStatus` / `DnfStatus`
+(`ComputationStatus`), optional `Metrics` (`OptimizationMetrics`: node counts, iterations,
+applied rules, elapsed time, convergence trace, allocated bytes), optional
+`OriginalTruthTable` / `OptimizedTruthTable`, `DebugInfo`, and the `IsEquivalent()` /
+`CheckEquivalence()` self-checks.
 
 ## Quality analysis
 

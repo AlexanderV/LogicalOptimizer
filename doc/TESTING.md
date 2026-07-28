@@ -30,7 +30,7 @@ Status legend: ☑ current and verified in the last audit · ◪ present with kn
 | 3 | **Mutation (Stryker.NET)** | ★★★★☆ | ☑ | per-module runs + killer tests (Part 5); Transformations.cs 100% | Low | P1 |
 | 4 | **Algebraic** | ★★★★★ | ☑ | all axioms as laws, `Techniques/AlgebraicLawTests.cs` | Low | P1 |
 | 5 | **Snapshot / Approval (Verify)** | ★★★★☆ | ☑ | 7 approved snapshots, `Techniques/SnapshotTests.cs` | Low | P1 |
-| 6 | **Architecture (ArchUnitNET)** | ★★★☆☆ | ☑ | 9 rules incl. pinned v2 public-API list (53 types) + `IRewriteRule`-in-`Rewrite`-namespace, `Techniques/ArchitectureTests.cs` | Low | P2 |
+| 6 | **Architecture (ArchUnitNET)** | ★★★☆☆ | ☑ | 9 rules incl. pinned public-API list (58 types, now incl. the typed budget/size exceptions `ComputationBudgetExceededException`/`NodeBudgetExceededException`/`NormalFormTooLargeException`) + `IRewriteRule`-in-`Rewrite`-namespace, `Techniques/ArchitectureTests.cs` | Low | P2 |
 | 7 | **Differential** | ★★★★★ | ☑ | internal-engine suites (incl. a >12-var SAT-miter-vs-BDD test) + SymPy oracle (CI) + Z3 oracle (Microsoft.Z3, runs locally) | Med | P0 |
 | 8 | **Fuzzing** | ★★★★☆ | ☑ | deterministic fuzzers (factory-invariant walker now checks dedup/complement/sortedness), `Techniques/FuzzingTests.cs` | Med | P2 |
 | 9 | **Characterization** | ★★★☆☆ | ☑ | 32-expression golden master, `Techniques/CharacterizationTests.cs` | Low | P3 |
@@ -71,6 +71,7 @@ LogicalOptimizer.Tests/
 ├── Optimizers/            rewrite rules (RewriteEngine/IRewriteRule), pattern detection
 │     CanonicalOrderingTests (construction-time sort) · DistributiveExpanderTests ·
 │     ConsensusRuleTests · RuleCompletenessTests · OptimizerSoundnessTests ·
+│     SoundnessGuardUnknownTests (SAT-Unknown → rollback contract) ·
 │     SubcircuitRewriteTests · ExtendedOptimizationRulesTests (dormant rule library) ·
 │     EqvRulesTests · AdvancedPatternDetectorTests · EqvPatternRecognizerTests ·
 │     TransformationsTests
@@ -219,6 +220,62 @@ Standard mutation level, string mutations ignored, thresholds 80/60 with `break:
 
 ## Part 4: Audit log
 
+**2026-07-28 — contract-honesty change-set audit (tests for the review-driven fixes
+re-graded against the four criteria; all ten techniques re-run against the new behavior).**
+After the run of contract-honesty fixes (SAT-`Unknown` → rollback, QM budget → `BudgetExceeded`,
+unbounded ≤10 guarantee cover, scalable `IsEquivalent`, cooperative global timeout,
+`IsOptimal` ⇔ `MinimalProven`, memory/convergence telemetry, typed budget/size exceptions,
+`MinimalPosWithStatus` + `CnfMinimizationStatus`), every new/changed test was graded
+representative / logically-correct / strong / non-duplicating, and each technique was checked
+for a coverage gap on the new functionality:
+
+- **Differential (gap closed):** the whole point of the scalable `IsEquivalent` fix — that it
+  no longer throws past the 20-variable truth-table limit — had **no** test. Added three to
+  `OptimizationResultTests`: a 25-variable equivalent pair proven via the SAT miter (not a
+  truth table), its non-equivalent sibling refuted, and `CheckEquivalence()`'s three-valued
+  verdict (proof / counterexample). The SAT engine is the independent oracle.
+- **Mutation (new killers):** `SoundnessGuardUnknownTests` kills the guard's `== true` → `!= false`
+  mutant (zero-budget `Unknown` must roll back); `OptimizationQualityAnalyzerTests`'
+  `AnalyzeOptimization_HighScoreButUnproven_IsNotOptimal` kills `IsOptimal = MinimalProven`
+  → `score >= 85`; the typed-exception tests kill "catch base type" mutants; the
+  `CnfMinimizationStatus` pair kills "reuse SOP status for CNF".
+- **Architecture:** public-surface list repinned 55 → 58 types (the three typed
+  budget/size exceptions); the five BDD/d-DNNF/distributive throw-site tests now assert the
+  **specific** `NodeBudgetExceededException` / `NormalFormTooLargeException`, not the base
+  `InvalidOperationException` (strengthened, and they double as the exact-type contract).
+- **Characterization:** golden master regenerated for one honest status change — a dense
+  12-variable function now reports `BudgetExceeded` where it previously masqueraded as
+  `Heuristic`; every pinned string re-verified equivalent.
+- **Property-based / Metamorphic / Algebraic / Fuzzing / Snapshot / Combinatorial:** no new
+  relation required. Convergence/allocation telemetry is deliberately kept **out** of
+  `OptimizationMetrics.ToString()` so the `DebugInfo`/CLI Verify snapshots stay deterministic;
+  it is covered by direct assertions instead (see below).
+
+Fixes applied to the change-set's own tests (held to the same bar as production):
+- **Duplicate removed:** `OptimizationMetricsTests.OptimizeExpression_WithoutMetrics_LeavesTelemetryDefault`
+  deleted — `PairwiseOptionsTests` already pins `IncludeMetrics || Metrics == null` across the
+  full 2⁷ option grid (strictly stronger), and `ConsoleInterfaceTests` covers the single case
+  (audit rule 1).
+- **Tautological assert strengthened:** `SoundnessGuardUnknownTests` dropped a trivially-true
+  `TruthTable.AreEquivalent(input, rolledBack)` (the rollback *is* the input) in favour of the
+  precise `Assert.Same(input, optimized)` — reference-equality proves the rewrite was discarded,
+  not merely that an equivalent survived (audit rule 5).
+- **Direct telemetry tests added:** convergence trace `OptimizationSteps.Count == Iterations + 1`
+  with `iter N:` format + node counts, and `AllocatedBytes > 0`, in `OptimizationMetricsTests`.
+
+- **Mutation (technique 3) actually executed on the changed logic**, not just asserted: a
+  scoped Stryker run on `RewriteEngine.cs` (75.3%) and `OptimizationQualityAnalyzer.cs` (31.8%)
+  confirmed the two mutants that matter are **killed** — the soundness guard's `== true`
+  (RewriteEngine.cs:114) and `IsOptimal == MinimalProven` (line 44). The low analyzer score is
+  the documented heuristic-constant equivalent class (see Part 5). The run surfaced a real gap
+  in the *new* report-rendering code (the `Proven minimal` / convergence / memory lines were
+  never asserted as printed); closed by `GenerateQualityReport_WithMetrics_RendersProvenMinimalAndTelemetry`.
+
+Net: 1032 → **1035 cases** (−1 duplicate, +3 scalable-equivalence gap tests, +1 report-render
+mutation killer). The added tests are all independent-oracle (SAT miter) or exact-property
+(`Assert.Same`, exact status enums, exact report lines); CI-like suite 1035/1035, exhaustive
+sweeps 7/7.
+
 **2026-07-27 — v2.0 post-migration re-audit (all ten techniques re-run against changed
 functionality).** After the binary→n-ary AST migration, the single-`RewriteEngine` rewrite,
 `FormulaFactory` construction-time canonicalization and the API narrowing, six parallel
@@ -328,6 +385,8 @@ instead of rethrow), pattern-recognition cap unified with the CLI path (5 → 10
 | EspressoLiteMinimizer.cs | 72.5% | 3 real gaps → killer tests in `EspressoLiteTests` (cofactor conflict `\|\|→&&`, constant-1 SOP term, last-variable rebuild bound); the rest are budget-boundary and heuristic-ordering equivalents |
 | SatSolver.cs | 52.5% | 121 survivors triaged: real gaps → `SatSolverMutationKillerTests` (ctor/AddClause validation, growth-gated subsumption soundness vs brute force, unsat-core sufficiency contract, zero-budget Unknown); the dominant survivor class is verdict-neutral search heuristics (VSIDS activity/heap ordering, restart schedule, learnt-DB reduction triggers, phase saving) — these change only the search path and are unkillable by correctness assertions by design |
 | TruthTableMinimizer.cs | 82.6% | 32 survivors triaged: real gaps → killer tests in `TruthTableMinimizerTests` (MinimalPos don't-care handling; the PROOF-HONESTY sweep asserting that a proven claim under ANY step budget equals the reference optimum — covering the LimitHit/best-update/lower-bound mutant class); the rest are tie-break guards, dominance-gate boundaries and greedy-fallback ordering — cover-equivalent by construction |
+| RewriteEngine.cs | 75.3% | 2026-07-28 scoped run. The **soundness-guard mutant that matters is killed**: `.AreEquivalent == true` (RewriteEngine.cs:114) → `!= true` dies to `SoundnessGuardUnknownTests` (a budget-`Unknown` must roll back). Survivors are the bounded **expand-reduce** gate (`MaxExpandReduceInputNodes`/`MaxExpandedNodes` boundary `<`/`>`/`<=`, the reduce-loop iteration bound, and the `strictly-cheaper?reduced:node` guard) — heuristic size cut-offs where either branch stays sound, plus one `SoundnessRollback` `countAsApplied:false→true` metrics-only mutant (a rollback is not an applied rule; not worth a brittle exact-`AppliedRules` pin) |
+| OptimizationQualityAnalyzer.cs | 31.8% | 2026-07-28 scoped run. The **honesty mutant that matters is killed**: `IsOptimal = MinimizationStatus == MinimalProven` (line 44) → `!=` dies to `AnalyzeOptimization_HighScoreButUnproven_IsNotOptimal` + `…ShouldIndicateOptimal`. The low score is by design and matches the SatSolver class: `CalculateOptimalityScore` is an explicitly **heuristic** rating (thresholds `0.5/0.7/0.9`, bonuses `+30/+20/+10/+5`) with no ground-truth to pin — every such boundary/constant mutant is equivalent, and `IsOptimal` no longer depends on the score. Real rendering gaps in the new report section were then killed by `GenerateQualityReport_WithMetrics_RendersProvenMinimalAndTelemetry` (asserts the report prints the `Proven minimal (two-level)`, `Convergence trace` and `Allocated memory` lines); the residual `>=0` boundary mutants on those guards are true equivalents (the counters are always ≥1 in a metrics run) |
 
 ```powershell
 cd LogicalOptimizer.Tests

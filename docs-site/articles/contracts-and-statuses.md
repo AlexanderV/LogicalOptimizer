@@ -10,6 +10,11 @@ equivalent to its input.
 It refers to the two-level cover cost model: **total literals first, then term count**.
 The returned optimized (multi-level) expression never has more literals than that cover.
 
+Its scope is the **SOP** side — the `Optimized` expression and the `DNF` artifact. The
+equivalent-CNF (POS) artifact has its own, independent
+[`CnfMinimizationStatus`](#cnfminimizationstatus) because its cover search can hit a budget
+separately.
+
 | Value | Meaning |
 |---|---|
 | `MinimalProven` | The minimum-cover search completed: the result is **provably minimal**. The normal case for ≤ 10 variables. |
@@ -70,6 +75,22 @@ for many variables). `ComputationStatus` reports what happened for such a field:
 
 This lets a consumer distinguish "we tried and it did not fit" from "we never asked" —
 again, no silent blanks.
+
+## `CnfMinimizationStatus`
+
+`OptimizationResult.CnfMinimizationStatus` reports the minimality provenance of the
+**equivalent-CNF (POS)** artifact specifically — kept separate from the SOP-scoped
+[`MinimizationStatus`](#minimizationstatus) because the POS minimum-cover search can hit its
+budget independently of the SOP one. It reuses the `MinimizationStatus` enum:
+
+| Value | Meaning |
+|---|---|
+| `MinimalProven` | The POS minimum-cover search completed: the equivalent CNF is **provably minimal** (the normal case in the ≤ 10 guarantee zone). |
+| `BudgetExceeded` | The exact POS search ran but hit the cover-step budget (possible at 11–12 variables): sound, but not proven minimal. |
+| `Heuristic` | No exact equivalent CNF was produced — the heuristic zone, `CnfMode.Tseitin` (an *equisatisfiable* CNF, where two-level POS minimality does not apply), CNF not requested, or a `TooLarge` result. |
+
+So a caller can trust "provably minimal POS" only when `CnfMinimizationStatus` is
+`MinimalProven`; for `CnfMode.Tseitin` the value is always `Heuristic` by design.
 
 ## Budgets never produce wrong answers
 

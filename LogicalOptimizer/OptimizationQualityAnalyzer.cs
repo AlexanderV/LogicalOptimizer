@@ -33,9 +33,15 @@ public class OptimizationQualityAnalyzer
         // Analysis of applied optimizations
         if (result.Metrics != null) metrics.AppliedOptimizations = result.Metrics.RuleApplicationCount.Keys.ToList();
 
-        // Optimality assessment
+        // Heuristic quality score (0-100): a weighted rating of the transformation, NOT a
+        // proof of optimality.
         metrics.OptimalityScore = CalculateOptimalityScore(originalStats, optimizedStats, metrics.AppliedOptimizations);
-        metrics.IsOptimal = metrics.OptimalityScore >= 85;
+
+        // IsOptimal is a real, provable property, not a score threshold: it is true exactly
+        // when the exact minimizer proved the two-level minimum (MinimizationStatus.
+        // MinimalProven), under the documented (total literals, then term count) cost model.
+        // A high heuristic score alone never makes a result "optimal".
+        metrics.IsOptimal = result.MinimizationStatus == MinimizationStatus.MinimalProven;
 
         // Possible improvements
         metrics.PossibleImprovements = AnalyzePossibleImprovements(optimizedAst, metrics);
@@ -182,9 +188,21 @@ public class OptimizationQualityAnalyzer
         sb.AppendLine();
 
         sb.AppendLine("--- QUALITY ASSESSMENT ---");
-        sb.AppendLine($"Optimality score: {metrics.OptimalityScore}/100");
-        sb.AppendLine($"Is optimal: {(metrics.IsOptimal ? "Yes" : "No")}");
+        sb.AppendLine($"Heuristic quality score: {metrics.OptimalityScore}/100");
+        sb.AppendLine($"Proven minimal (two-level): {(metrics.IsOptimal ? "Yes" : "No")}");
         sb.AppendLine();
+
+        // Convergence and memory telemetry, when the underlying run captured metrics
+        if (result.Metrics is { } runMetrics)
+        {
+            sb.AppendLine("--- CONVERGENCE & MEMORY ---");
+            sb.AppendLine($"Fixpoint iterations: {runMetrics.Iterations}");
+            if (runMetrics.OptimizationSteps.Count > 0)
+                sb.AppendLine($"Convergence trace: {string.Join(" -> ", runMetrics.OptimizationSteps)}");
+            if (runMetrics.AllocatedBytes > 0)
+                sb.AppendLine($"Allocated memory: {runMetrics.AllocatedBytes:N0} bytes");
+            sb.AppendLine();
+        }
 
         if (metrics.AppliedOptimizations.Any())
         {
@@ -225,8 +243,20 @@ public class OptimizationQualityAnalyzer
         public int OperatorCount { get; set; }
         public int MaxDepth { get; set; }
         public double Complexity { get; set; }
+
+        /// <summary>
+        ///     True only when the result is a proven two-level minimum
+        ///     (<see cref="MinimizationStatus.MinimalProven" />) under the (total literals,
+        ///     then term count) cost model — a formal property, not a heuristic verdict.
+        /// </summary>
         public bool IsOptimal { get; set; }
-        public int OptimalityScore { get; set; } // 0-100
+
+        /// <summary>
+        ///     Heuristic 0-100 rating of the transformation (compression, depth reduction,
+        ///     advanced rules). A quality signal only; it does NOT prove optimality — see
+        ///     <see cref="IsOptimal" /> for the provable property.
+        /// </summary>
+        public int OptimalityScore { get; set; }
         public List<string> AppliedOptimizations { get; set; } = new();
         public List<string> PossibleImprovements { get; set; } = new();
     }

@@ -44,11 +44,14 @@ internal static class PerformanceValidator
 
     /// <summary>
     ///     Branch-and-bound step limit for the minimum-cover search in the guarantee zone
-    ///     (≤ EXACT_GUARANTEE_VARIABLES). With covering-table reductions and lower-bound
-    ///     pruning, real cyclic cores resolve in thousands of steps; this cap only exists
-    ///     so a pathological core degrades to an honest BudgetExceeded instead of hanging.
+    ///     (≤ EXACT_GUARANTEE_VARIABLES). Set to the maximum so the search is effectively
+    ///     unbounded there: the state space of ≤10 variables is finite, so branch-and-bound
+    ///     with covering-table reductions and lower-bound pruning always terminates and the
+    ///     result is provably minimal — matching the documented guarantee. (Real cyclic cores
+    ///     resolve in thousands of steps; the ceiling only guards against integer overflow of
+    ///     the step counter, never against a legitimate proof completing.)
     /// </summary>
-    public const int GUARANTEE_COVER_STEP_LIMIT = 2_000_000;
+    public const int GUARANTEE_COVER_STEP_LIMIT = int.MaxValue;
 
     /// <summary>
     ///     Work budget (cube pair comparisons) for Quine–McCluskey prime generation inside

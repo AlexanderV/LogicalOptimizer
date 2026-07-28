@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 namespace LogicalOptimizer.Tests;
@@ -134,6 +135,60 @@ public class OptimizationResultTests
 
         // Assert
         Assert.True(isEquivalent); // Should fall back to TruthTable.AreEquivalent method
+    }
+
+    private static string Conjunction(IEnumerable<int> indices) =>
+        string.Join(" & ", indices.Select(i => $"x{i:D2}"));
+
+    [Fact]
+    public void IsEquivalent_BeyondTwentyVariables_UsesSatCheckerInsteadOfThrowing()
+    {
+        // Past the 20-variable truth-table limit IsEquivalent must route through the scalable
+        // SAT checker (miter/UNSAT proof), not throw ArgumentException. 25 variables, the same
+        // conjunction with its operands reversed → provably equivalent.
+        var result = new OptimizationResult
+        {
+            Original = Conjunction(Enumerable.Range(1, 25)),
+            Optimized = Conjunction(Enumerable.Range(1, 25).Reverse())
+        };
+
+        Assert.True(result.IsEquivalent());
+    }
+
+    [Fact]
+    public void IsEquivalent_BeyondTwentyVariables_NonEquivalent_ReturnsFalse()
+    {
+        // Dropping x25 changes the function; the SAT miter finds the differing assignment.
+        var result = new OptimizationResult
+        {
+            Original = Conjunction(Enumerable.Range(1, 25)),
+            Optimized = Conjunction(Enumerable.Range(1, 24))
+        };
+
+        Assert.False(result.IsEquivalent());
+    }
+
+    [Fact]
+    public void CheckEquivalence_IsThreeValued_ExposesProofAndCounterexample()
+    {
+        // CheckEquivalence preserves the full verdict that IsEquivalent's bool collapses.
+        var equivalent = new OptimizationResult
+        {
+            Original = Conjunction(Enumerable.Range(1, 25)),
+            Optimized = Conjunction(Enumerable.Range(1, 25).Reverse())
+        };
+        Assert.Equal(true, equivalent.CheckEquivalence().AreEquivalent);
+
+        var refuted = new OptimizationResult
+        {
+            Original = Conjunction(Enumerable.Range(1, 25)),
+            Optimized = Conjunction(Enumerable.Range(1, 24))
+        };
+        var verdict = refuted.CheckEquivalence();
+        Assert.Equal(false, verdict.AreEquivalent);
+        // A refutation carries a concrete assignment where the two sides differ.
+        Assert.NotNull(verdict.Counterexample);
+        Assert.True(verdict.Counterexample!.Count > 0);
     }
 
     [Fact]

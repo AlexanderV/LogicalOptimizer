@@ -325,7 +325,7 @@ internal sealed class DnnfCompiler
     private int AddNode(DnnfNode node)
     {
         if (_nodes.Count >= _nodeBudget)
-            throw new InvalidOperationException($"{NodeBudgetMessage} ({_nodeBudget})");
+            throw new NodeBudgetExceededException($"{NodeBudgetMessage} ({_nodeBudget})");
         _nodes.Add(node);
         return _nodes.Count - 1;
     }

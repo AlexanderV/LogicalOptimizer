@@ -24,6 +24,19 @@ public class BooleanExpressionOptimizer
         // Performance constraint validation
         PerformanceValidator.ValidateExpression(expression);
 
+        // Global processing deadline: a single linked token hands every phase below the same
+        // wall-clock budget, so the documented maximum processing time bounds the whole call
+        // (rewrite, truth-table build, QM, cover search, SAT, normal forms, AIG…), not just
+        // the rewrite fixpoint loop. The caller's own token still cancels independently.
+        using var timeoutCts = new CancellationTokenSource(
+            TimeSpan.FromSeconds(PerformanceValidator.MAX_PROCESSING_TIME_SECONDS));
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+            options.CancellationToken, timeoutCts.Token);
+        var token = linkedCts.Token;
+
+        // Memory-usage measurement: bytes allocated on this thread across the whole call.
+        var startAllocatedBytes = GC.GetAllocatedBytesForCurrentThread();
+
         try
         {
             // One factory per optimization run: every canonical node of this call is
@@ -38,7 +51,7 @@ public class BooleanExpressionOptimizer
 
             var metrics = options.IncludeMetrics ? new OptimizationMetrics() : null;
             var optimizer = new RewriteEngine(factory);
-            var optimized = optimizer.Optimize(ast, metrics, options.CancellationToken, options.Budget);
+            var optimized = optimizer.Optimize(ast, metrics, token, options.Budget);
 
             var variables = ast.GetVariables().OrderBy(v => v).ToList();
 
@@ -50,6 +63,9 @@ public class BooleanExpressionOptimizer
 
             var exactCompleted = false;
             var minimizationStatus = MinimizationStatus.Heuristic;
+            // POS (equivalent CNF) minimality is tracked separately: its cover search can hit
+            // the budget independently of the SOP one, so a shared status would be dishonest.
+            var cnfMinimizationStatus = MinimizationStatus.Heuristic;
             if (variables.Count <= PerformanceValidator.MAX_EXACT_MINIMIZATION_VARIABLES)
                 try
                 {
@@ -64,12 +80,17 @@ public class BooleanExpressionOptimizer
                         ? null
                         : options.Budget.QmPairComparisonLimit;
 
-                    var onSet = ComputeOnSet(ast, variables);
+                    // Same cover-search budget for SOP and POS: unbounded in the guarantee
+                    // zone (≤10), the caller's budget above it. This keeps the equivalent-CNF
+                    // (minimal POS) as provably minimal as the SOP wherever the docs promise it.
+                    var coverStepLimit = variables.Count <= PerformanceValidator.EXACT_GUARANTEE_VARIABLES
+                        ? PerformanceValidator.GUARANTEE_COVER_STEP_LIMIT
+                        : options.Budget.CoverStepLimit;
+
+                    var onSet = ComputeOnSet(ast, variables, token);
                     var (rawMinSop, provenMinimal) = TruthTableMinimizer.MinimalSopWithStatus(variables, onSet,
-                        pairComparisonLimit: qmBudget, cancellationToken: options.CancellationToken,
-                        coverStepLimit: variables.Count <= PerformanceValidator.EXACT_GUARANTEE_VARIABLES
-                            ? PerformanceValidator.GUARANTEE_COVER_STEP_LIMIT
-                            : options.Budget.CoverStepLimit);
+                        pairComparisonLimit: qmBudget, cancellationToken: token,
+                        coverStepLimit: coverStepLimit);
                     minimizationStatus = provenMinimal
                         ? MinimizationStatus.MinimalProven
                         : MinimizationStatus.BudgetExceeded;
@@ -77,7 +98,7 @@ public class BooleanExpressionOptimizer
                     var minSop = factory.Import(rawMinSop);
                     var factoredMinSop =
                         AstMetrics.CountNodes(minSop) <= PerformanceValidator.MAX_FACTORED_MIN_SOP_NODES
-                            ? optimizer.Optimize(minSop, null, options.CancellationToken, options.Budget)
+                            ? optimizer.Optimize(minSop, null, token, options.Budget)
                             : minSop;
 
                     var selected = SelectCheapest(optimized, factoredMinSop, minSop);
@@ -92,16 +113,26 @@ public class BooleanExpressionOptimizer
 
                     if (options.ComputeDnf) dnfText = minSop.ToString();
                     if (computeEquivalentCnf)
-                        cnfText = factory.Import(TruthTableMinimizer.MinimalPos(variables, onSet,
-                            pairComparisonLimit: qmBudget, cancellationToken: options.CancellationToken)).ToString();
+                    {
+                        var (rawMinPos, posProven) = TruthTableMinimizer.MinimalPosWithStatus(variables, onSet,
+                            pairComparisonLimit: qmBudget, cancellationToken: token,
+                            coverStepLimit: coverStepLimit);
+                        cnfText = factory.Import(rawMinPos).ToString();
+                        cnfMinimizationStatus = posProven
+                            ? MinimizationStatus.MinimalProven
+                            : MinimizationStatus.BudgetExceeded;
+                    }
+
                     exactCompleted = true;
                 }
-                catch (InvalidOperationException)
+                catch (ComputationBudgetExceededException)
                 {
-                    // Dense function beyond the QM work budget: fall back to the
-                    // heuristic normal forms below (result stays sound, minimality
-                    // guarantee is waived for this expression)
-                    minimizationStatus = MinimizationStatus.Heuristic;
+                    // Dense function beyond the QM work budget: report the exhaustion honestly
+                    // (never disguised as an ordinary heuristic pass) and fall back to the
+                    // heuristic normal forms below. The result stays sound; only the minimality
+                    // proof is waived for this expression. A plain InvalidOperationException is
+                    // NOT caught here — a real invariant violation must surface, not be masked.
+                    minimizationStatus = MinimizationStatus.BudgetExceeded;
                 }
 
             if (!exactCompleted)
@@ -130,16 +161,16 @@ public class BooleanExpressionOptimizer
                     var satSop = SatTwoLevelMinimizer.TryMinimize(optimized,
                         PerformanceValidator.SAT_MINIMIZATION_CUBE_LIMIT,
                         PerformanceValidator.SAT_MINIMIZATION_QUERY_CONFLICTS,
-                        options.CancellationToken);
+                        token);
 
                     if (satSop != null &&
                         EquivalenceChecker.CheckWithSat(optimized, satSop,
-                            options.Budget.SatConflictLimit, options.CancellationToken).AreEquivalent == true)
+                            options.Budget.SatConflictLimit, token).AreEquivalent == true)
                     {
                         satSop = factory.Import(satSop);
                         var factoredSatSop =
                             AstMetrics.CountNodes(satSop) <= PerformanceValidator.MAX_FACTORED_MIN_SOP_NODES
-                                ? optimizer.Optimize(satSop, null, options.CancellationToken, options.Budget)
+                                ? optimizer.Optimize(satSop, null, token, options.Budget)
                                 : satSop;
 
                         var selected = SelectCheapest(optimized, factoredSatSop, satSop);
@@ -158,6 +189,11 @@ public class BooleanExpressionOptimizer
                     }
                 }
 
+                // Cooperative deadline check between phases: NormalFormConverter runs a
+                // synchronous distribution that does not poll the token itself, so bound it
+                // at the phase boundary (its own distribution-step cap limits the interior).
+                token.ThrowIfCancellationRequested();
+
                 var converter = new NormalFormConverter();
                 // Normal forms can blow up exponentially; TooLarge (displayed as "-")
                 // marks a form that was abandoned
@@ -166,7 +202,7 @@ public class BooleanExpressionOptimizer
                     {
                         cnfText = Transformations.SubsumeCnf(converter.ConvertToCNF(optimized)).ToString();
                     }
-                    catch (InvalidOperationException)
+                    catch (NormalFormTooLargeException)
                     {
                         (cnfText, cnfStatus) = ("-", ComputationStatus.TooLarge);
                     }
@@ -179,16 +215,17 @@ public class BooleanExpressionOptimizer
                         // without any 2^n structure (sound by construction)
                         var dnf = Transformations.SubsumeDnf(converter.ConvertToDNF(optimized));
                         dnf = Transformations.MinimizeDnfHeuristic(dnf,
-                            cancellationToken: options.CancellationToken);
+                            cancellationToken: token);
                         dnfText = dnf.ToString();
                     }
-                    catch (InvalidOperationException)
+                    catch (NormalFormTooLargeException)
                     {
                         (dnfText, dnfStatus) = ("-", ComputationStatus.TooLarge);
                     }
             }
 
             // Tseitin CNF is linear in expression size, so it applies uniformly at any scale
+            token.ThrowIfCancellationRequested();
             if (options.ComputeCnf && options.CnfMode == CnfMode.Tseitin)
                 cnfText = TseitinConverter.Convert(optimized).ToString();
 
@@ -197,7 +234,7 @@ public class BooleanExpressionOptimizer
             // ever improve the result and never regress it. Off by default -> no effect at all.
             if (options.EnableAigRewriting)
             {
-                var aigCandidate = TryAigRewrite(optimized, factory, options);
+                var aigCandidate = TryAigRewrite(optimized, factory, options, token);
                 if (aigCandidate != null)
                 {
                     var selected = SelectCheapest(optimized, aigCandidate);
@@ -215,6 +252,7 @@ public class BooleanExpressionOptimizer
                 }
             }
 
+            token.ThrowIfCancellationRequested();
             var advancedForms = "";
             if (options.ComputeAdvancedForms &&
                 variables.Count <= PerformanceValidator.MAX_PATTERN_RECOGNITION_VARIABLES)
@@ -223,6 +261,7 @@ public class BooleanExpressionOptimizer
             var includeTruthTables =
                 options.IncludeTruthTables && variables.Count <= PerformanceValidator.MAX_TRUTH_TABLE_VARIABLES;
 
+            token.ThrowIfCancellationRequested();
             var result = new OptimizationResult
             {
                 Original = expression,
@@ -233,6 +272,7 @@ public class BooleanExpressionOptimizer
                 DnfStatus = dnfStatus,
                 Advanced = advancedForms,
                 MinimizationStatus = minimizationStatus,
+                CnfMinimizationStatus = cnfMinimizationStatus,
                 Variables = variables,
                 Metrics = metrics,
                 OriginalTruthTable = includeTruthTables ? TruthTable.Generate(ast) : null,
@@ -246,7 +286,23 @@ public class BooleanExpressionOptimizer
                     $"Optimized AST:\n{AstVisualizer.VisualizeTree(optimized)}\n" +
                     metrics;
 
+            // Allocation delta captured as late as possible: it now covers result-artifact
+            // construction (ToString of every form, truth tables, debug dump) as well as the
+            // core pipeline — matching the "across the run" wording.
+            if (metrics != null)
+                metrics.AllocatedBytes = GC.GetAllocatedBytesForCurrentThread() - startAllocatedBytes;
+
             return result;
+        }
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested &&
+                                                 !options.CancellationToken.IsCancellationRequested)
+        {
+            // The global processing deadline fired (not the caller's own cancellation):
+            // surface it as the documented TimeoutException regardless of which phase was
+            // running when the time ran out.
+            throw new TimeoutException(
+                $"Maximum processing time exceeded ({PerformanceValidator.MAX_PROCESSING_TIME_SECONDS} sec). " +
+                "Processing aborted.");
         }
         catch (ArgumentException ex)
         {
@@ -283,12 +339,13 @@ public class BooleanExpressionOptimizer
     ///     result fails the belt-and-suspenders equivalence check). Never throws on the SAT/AIG
     ///     path failing — a null just means "no extra candidate".
     /// </summary>
-    private static AstNode? TryAigRewrite(AstNode expression, FormulaFactory factory, OptimizationOptions options)
+    private static AstNode? TryAigRewrite(AstNode expression, FormulaFactory factory, OptimizationOptions options,
+        CancellationToken cancellationToken)
     {
         var aig = AndInverterGraph.FromAst(expression);
         if (aig.AndNodeCount > AigRewriteMaxAndNodes) return null;
 
-        var rewritten = aig.RewriteToFixpoint(AigRewriteMaxRounds, options.CancellationToken);
+        var rewritten = aig.RewriteToFixpoint(AigRewriteMaxRounds, cancellationToken);
         if (rewritten.AndNodeCount >= aig.AndNodeCount) return null; // no structural gain
 
         var candidate = factory.Import(rewritten.ToAst(rewritten.Root));
@@ -296,14 +353,15 @@ public class BooleanExpressionOptimizer
         // Belt-and-suspenders: the rewrite is function-preserving by construction, but the
         // adopted candidate must independently pass the existing equivalence checker.
         var equivalent = EquivalenceChecker
-            .Check(expression, candidate, options.Budget.SatConflictLimit, options.CancellationToken)
+            .Check(expression, candidate, options.Budget.SatConflictLimit, cancellationToken)
             .AreEquivalent;
 
         return equivalent == true ? candidate : null;
     }
 
     /// <summary>Minterm indices where the expression is true; bit j = value of variables[j].</summary>
-    private static HashSet<int> ComputeOnSet(AstNode ast, List<string> variables)
+    private static HashSet<int> ComputeOnSet(AstNode ast, List<string> variables,
+        CancellationToken cancellationToken = default)
     {
         var onSet = new HashSet<int>();
         var assignment = new Dictionary<string, bool>();
@@ -311,6 +369,10 @@ public class BooleanExpressionOptimizer
 
         for (var minterm = 0; minterm < numRows; minterm++)
         {
+            // Up to 2^12 rows: observe the shared deadline so a full ON-set build counts
+            // against the global processing time like every other phase.
+            if ((minterm & 0xFF) == 0) cancellationToken.ThrowIfCancellationRequested();
+
             for (var j = 0; j < variables.Count; j++)
                 assignment[variables[j]] = (minterm & (1 << j)) != 0;
 

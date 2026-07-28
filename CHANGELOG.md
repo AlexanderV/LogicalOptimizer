@@ -5,6 +5,71 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed (contract honesty — the documented guarantees now match the implementation)
+
+- **A SAT `Unknown` soundness-guard verdict is no longer treated as success.** Beyond the
+  12-variable truth-table range a rewrite is accepted only when the SAT miter *proves*
+  equivalence; a budget-exhausted `Unknown` now rolls back to the input (recorded as
+  `SoundnessRollback`) instead of shipping an unverified result. "Every optimization is
+  verified equivalent" is now literally true.
+- **Quine–McCluskey work-budget exhaustion is reported as `MinimizationStatus.BudgetExceeded`,
+  not silently masked as `Heuristic`.** The exact path now throws a dedicated
+  `ComputationBudgetExceededException` (deriving from `InvalidOperationException` for
+  compatibility) and the facade catches only that type — a genuine `InvalidOperationException`
+  from a real defect is no longer swallowed.
+- **Expected engine fallbacks are keyed on dedicated exception types instead of the broad
+  `InvalidOperationException`.** BDD/d-DNNF node-budget exhaustion now throws
+  `NodeBudgetExceededException` and normal-form distribution blow-ups throw
+  `NormalFormTooLargeException`; every fallback catch (BDD best-order/sifting, the BDD
+  equivalence checker, the facade's CNF/DNF `TooLarge` handling, the DIMACS exporter's Tseitin
+  fallback, and the CSV minimizer's budget fallback) now catches only the specific type, so an
+  unrelated invariant violation surfaces instead of being silently absorbed.
+- **The ≤10-variable guarantee zone runs a genuinely unbounded exact cover search**
+  (`GUARANTEE_COVER_STEP_LIMIT` raised to `int.MaxValue`), so `MinimalProven` holds for every
+  function in that zone as documented, rather than degrading to `BudgetExceeded` at a
+  2,000,000-step cap.
+- **`OptimizationResult.IsEquivalent()` works across the whole facade range.** It now routes
+  through the scalable `EquivalenceChecker` (truth table ≤12 vars, SAT-miter beyond) instead of
+  throwing past the 20-variable truth-table limit; it returns true only when equivalence is
+  positively proven.
+- **The documented 10-second maximum processing time is now a global, cooperative deadline.**
+  A single linked `CancellationToken` bounds the whole call (rewrite, truth-table build, QM,
+  cover search, SAT, normal forms, AIG…) and surfaces as `TimeoutException`. The token reaches
+  every optimizer sub-pass (including the SAT-cover factoring candidate) and is checked at the
+  boundaries of the synchronous phases that do not poll it internally (normal-form conversion,
+  Tseitin, pattern recognition, truth-table generation). README documents the cooperative
+  semantics rather than promising hard-real-time preemption.
+- **The equivalent-CNF (minimal POS) uses the same cover-search budget as the SOP** — unbounded
+  in the ≤10-variable guarantee zone — so the "provably minimal POS" claim holds wherever the
+  SOP minimum is proven, instead of silently running the POS search under the smaller default
+  budget.
+- **The POS proof status is no longer discarded by the facade.** The equivalent-CNF minimality
+  is reported through the new `OptimizationResult.CnfMinimizationStatus` instead of being folded
+  into (or hidden behind) the SOP-scoped `MinimizationStatus`, so a POS cover search that hits
+  its budget at 11–12 variables is visible to the caller rather than implicitly claimed minimal.
+- **`OptimizationQualityAnalyzer.IsOptimal` is now a proven property**, true only for
+  `MinimizationStatus.MinimalProven` (two-level cost model), not a score ≥ 85. The heuristic
+  0–100 rating remains available as `OptimalityScore` and is labelled as such in the report.
+
+### Added
+
+- `TruthTableMinimizer.MinimalPosWithStatus` — POS minimization that also reports whether the
+  cover search proved minimality (mirrors `MinimalSopWithStatus`); the POS path is no longer
+  silently unproven.
+- `OptimizationMetrics.AllocatedBytes` (thread allocation measurement, captured as late as
+  possible so it covers result-artifact construction too) and a populated `OptimizationSteps`
+  convergence trace (node count per fixpoint iteration); both surfaced in `GenerateQualityReport`
+  and covered by direct tests. Backs the README "convergence analysis" and "memory usage" claims
+  with real data.
+- `OptimizationResult.CheckEquivalence()` — three-valued self-check returning
+  `EquivalenceCheckResult`, so callers can tell a refutation (`false`) apart from a
+  budget-exhausted `Unknown` (`null`); `IsEquivalent()` remains as the boolean convenience.
+- `ComputationBudgetExceededException`, `NodeBudgetExceededException` and
+  `NormalFormTooLargeException` public types (all derive from `InvalidOperationException`), so
+  budget/size fallbacks are distinguishable from genuine invariant violations.
+
 ## [3.0.0] - 2026-07-28
 
 ### Changed
