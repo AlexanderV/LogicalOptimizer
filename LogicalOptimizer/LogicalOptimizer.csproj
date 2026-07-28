@@ -8,7 +8,7 @@
     <LangVersion>12</LangVersion>
 
     <PackageId>LogicalOptimizer</PackageId>
-    <Version>2.1.0</Version>
+    <Version>2.2.0</Version>
     <Authors>Oleksandr Panasenko</Authors>
     <Description>Dependency-free boolean expression optimizer: provably minimal results with explicit proof status (exact Quine-McCluskey backend), built-in CDCL SAT solver with equivalence checking and counterexamples, Tseitin CNF, ROBDD with model counting, truth tables with don't-cares, multi-output CSV minimization, and DIMACS/BLIF/Verilog exporters.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

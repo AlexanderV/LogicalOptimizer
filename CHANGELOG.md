@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-07-28
+
+### Added
+
+- **Algebraic Normal Form (Zhegalkin polynomial) conversion.** New public
+  `Transformations.ToAlgebraicNormalForm(AstNode, CancellationToken)` computes the
+  canonical XOR-of-AND-monomials (Reed–Muller) form via a fast Möbius transform over
+  the truth table (supported up to `TruthTable.MaxVariables`). Exposed on the CLI as
+  the `--anf` flag.
+- **Two-level `--dnf` comparison mode** in the benchmark comparison harness. The
+  head-to-head against SymPy/PyEDA can now emit an apples-to-apples two-level SOP
+  table (`dotnet run --project LogicalOptimizer.Benchmarks -- compare --dnf`),
+  counting literals of the two-level `result.DNF` rather than the default
+  multi-level factored output. The default (no-flag) behavior is unchanged. CI runs
+  both tables; `doc/BENCHMARKS.md` and the docs site document the two-level result.
+
+### CI
+
+- **Post-publish NuGet verification.** The release workflow now runs
+  `tools/verify_nuget.ps1` after `dotnet nuget push`, polling the nuget.org flat
+  container (with backoff for indexing lag) until all six packages appear at the
+  released version, and fails the release if any never show up. The script can also
+  be run locally: `pwsh tools/verify_nuget.ps1 -Version <ver>`.
+
 ## [2.1.0] - 2026-07-27
 
 ### Added
