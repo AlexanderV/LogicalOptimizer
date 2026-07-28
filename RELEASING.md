@@ -74,8 +74,7 @@ logical-optimizer "a & b | a & c"
 
 - **Завжди push `main` → потім push тег** (щоб гілка й docs-сайт були актуальні; docs-workflow
   тригериться на push у `main`).
-- Поточна dev-версія в csproj — **2.3.0** (d-DNNF knowledge compilation — новий пакет
-  `LogicalOptimizer.Dnnf`).
+- Поточна dev-версія в csproj — **2.4.0** (in-place adjacent-swap BDD sifting).
 - **Історична примітка щодо тегів:** BDD complement edges (C1) влилися комітом `247afcd`. Якщо
   потрібен окремий реліз-міграція **без** complement edges, тегни `v2.0.0` на коміті `9090092`
   (останній перед C1), а `v2.1.0` — на `HEAD`. Якщо це не потрібно — просто випусти все одним
