@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **The internal AIG cut-rewrite library is now provably AND-minimal for every ≤4-input
+  function.** The previous constructive Shannon/ITE template synthesis (correct but not
+  minimal) is replaced by a baked table of minimum two-input-AND recipes, one per NPN class
+  over 1..4 inputs (2, 4, 14 and 222 classes). The table is precomputed offline by a SAT-based
+  exact-synthesis generator with complete breadth-first lower bounds (kept in the repo as
+  `LogicalOptimizer.Tests/AigMinLibraryGenerator`, regenerable via the Exhaustive
+  `AigMinLibraryTests`), so each stored recipe is certified to use the fewest possible AND
+  nodes (the hardest 4-input NPN classes need 10; 4-input parity needs 9). Runtime lookup
+  stays O(1) with no heavy static initialisation. This yields smaller cut-rewrite replacements
+  — better rewrite quality when AIG rewriting is enabled — with no public API change;
+  everything remains internal.
+
 ## [2.5.0] - 2026-07-28
 
 ### Added

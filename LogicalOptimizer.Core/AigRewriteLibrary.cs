@@ -91,33 +91,38 @@ internal readonly struct AigTemplate
 
 /// <summary>
 ///     Compact ≤4-input AIG rewrite library. Given a local truth table it returns an
-///     <see cref="AigTemplate" /> that implements EXACTLY that function over the cut leaves.
+///     <see cref="AigTemplate" /> that implements EXACTLY that function over the cut leaves
+///     using the <b>provably minimum</b> number of two-input AND nodes.
 ///
 ///     <para>
-///         Approach and optimality note: the library is <b>NPN-class based</b> — a truth
-///         table is canonicalized (<see cref="NpnCanonicalizer" />), a template for the
-///         canonical representative is built once (there are at most 222 four-input classes)
-///         and cached, then the forward NPN transform re-labels the canonical inputs onto the
-///         concrete leaves (permuting/negating inputs and optionally negating the output).
-///         Canonical templates are synthesized by a <b>memoized Shannon (ITE) decomposition</b>
-///         with constant folding and structural hashing (the smart-ITE recognizes AND/OR/MUX
-///         boundaries so plain gates stay minimal). This is a deterministic <i>constructive</i>
-///         synthesis: it is guaranteed correct but <b>not guaranteed AND-minimal</b>. Memoized
-///         cofactor sharing keeps the structures compact in practice; since D1c gates every
-///         rewrite on gain &gt; 0 and equivalence, a correct-but-not-minimal library is safe.
+///         Approach: the library is <b>NPN-class based</b> — a truth table is canonicalized
+///         (<see cref="NpnCanonicalizer" />), the canonical representative's recipe is looked
+///         up in a baked table (<see cref="AigMinLibraryData" />), then the forward NPN
+///         transform re-labels the canonical inputs onto the concrete leaves (permuting/negating
+///         inputs and optionally negating the output). The baked table holds one minimum-AND
+///         recipe per NPN class over 1..4 inputs (2, 4, 14 and 222 classes respectively). It is
+///         precomputed offline by a SAT-based exact-synthesis generator with complete BFS
+///         lower bounds (see the LogicalOptimizer.Tests <c>AigMinLibraryGenerator</c> and the
+///         Exhaustive <c>AigMinLibraryTests</c>), so every recipe is certified to use the fewest
+///         possible AND nodes. Runtime lookup is O(1): the raw <see cref="AigMinLibraryData" />
+///         arrays are indexed into per-class dictionaries on first use (222 tiny entries — no
+///         heavy static initialisation), which matters because AIG rewriting is meant to run by
+///         default. This replaces the earlier constructive Shannon/ITE synthesis, which was
+///         correct but not AND-minimal.
 ///     </para>
 /// </summary>
 internal static class AigRewriteLibrary
 {
-    // Cache of canonical templates keyed by (numInputs, canonicalTruthTable). Bounded by the
-    // number of NPN classes (≤ 222 for four inputs). Lazily populated, never precomputed at
-    // static init, so nothing heavy runs unless a rewrite actually needs it.
-    private static readonly Dictionary<(int, uint), AigTemplate> CanonicalCache = new();
-    private static readonly object CacheLock = new();
+    // Per-input-count lookup from a canonical truth table to its minimum-AND template, built
+    // lazily from the baked AigMinLibraryData arrays on first use (index 0/5 unused). Nothing
+    // heavy runs at static init; the first rewrite that needs a given arity materialises that
+    // arity's ≤222-entry dictionary in microseconds.
+    private static readonly Dictionary<uint, AigTemplate>?[] Tables = new Dictionary<uint, AigTemplate>?[5];
+    private static readonly object TablesLock = new();
 
     /// <summary>
     ///     Build a template implementing <paramref name="truthTable" /> over
-    ///     <paramref name="numInputs" /> leaves (numInputs ≤ 4).
+    ///     <paramref name="numInputs" /> leaves (numInputs ≤ 4) with the minimum AND-node count.
     /// </summary>
     public static AigTemplate Synthesize(uint truthTable, int numInputs)
     {
@@ -128,13 +133,32 @@ internal static class AigRewriteLibrary
 
     private static AigTemplate GetCanonicalTemplate(uint canonicalTruthTable, int numInputs)
     {
-        var key = (numInputs, canonicalTruthTable);
-        lock (CacheLock)
+        var table = GetTable(numInputs);
+        if (table.TryGetValue(canonicalTruthTable, out var template)) return template;
+        throw new InvalidOperationException(
+            $"No baked minimum-AIG recipe for canonical 0x{canonicalTruthTable:X} over {numInputs} inputs");
+    }
+
+    private static Dictionary<uint, AigTemplate> GetTable(int numInputs)
+    {
+        lock (TablesLock)
         {
-            if (CanonicalCache.TryGetValue(key, out var cached)) return cached;
-            var template = BuildViaShannon(canonicalTruthTable, numInputs);
-            CanonicalCache[key] = template;
-            return template;
+            if (Tables[numInputs] is { } existing) return existing;
+            var data = AigMinLibraryData.For(numInputs);
+            var table = new Dictionary<uint, AigTemplate>(data.Length);
+            foreach (var recipe in data)
+            {
+                // recipe = { canonicalTt, outputLiteral, gateCount, aLit0, bLit0, aLit1, bLit1, ... }
+                var canonical = (uint)recipe[0];
+                var output = recipe[1];
+                var gateCount = recipe[2];
+                var gates = new (int A, int B)[gateCount];
+                for (var g = 0; g < gateCount; g++) gates[g] = (recipe[3 + 2 * g], recipe[4 + 2 * g]);
+                table[canonical] = new AigTemplate(numInputs, gates, output);
+            }
+
+            Tables[numInputs] = table;
+            return table;
         }
     }
 
@@ -168,91 +192,5 @@ internal static class AigRewriteLibrary
 
         var output = MapLiteral(canonical.Output) ^ forward.OutNeg;
         return new AigTemplate(m, gates, output);
-    }
-
-    /// <summary>
-    ///     Synthesize a template for an arbitrary truth table via memoized Shannon expansion.
-    ///     Reuses <see cref="AndInverterGraph" /> so the well-tested constant folding and
-    ///     structural hashing drive compactness; the template is then read back from the
-    ///     graph's node array (constant, then the m inputs, then AND gates).
-    /// </summary>
-    private static AigTemplate BuildViaShannon(uint truthTable, int m)
-    {
-        var graph = new AndInverterGraph();
-        var leaves = new int[m];
-        for (var i = 0; i < m; i++) leaves[i] = graph.CreateInput("x" + i);
-
-        var memo = new Dictionary<uint, int>();
-        var output = Shannon(graph, truthTable, m, leaves, memo);
-
-        var nodes = graph.SnapshotNodes();
-        var gates = new List<(int A, int B)>();
-        for (var node = 1 + m; node < nodes.Length; node++)
-            gates.Add((nodes[node].Left, nodes[node].Right));
-
-        return new AigTemplate(m, gates.ToArray(), output);
-    }
-
-    private static int Shannon(AndInverterGraph graph, uint tt, int m, int[] leaves,
-        Dictionary<uint, int> memo)
-    {
-        var mask = TruthTableOps.Mask(m);
-        tt &= mask;
-        if (tt == 0) return AndInverterGraph.FalseLiteral;
-        if (tt == mask) return AndInverterGraph.TrueLiteral;
-        if (memo.TryGetValue(tt, out var cached)) return cached;
-
-        // Split on the lowest support variable.
-        var split = LowestSupport(tt, m);
-        var (cofactor0, cofactor1) = Cofactors(tt, split, m);
-        var low = Shannon(graph, cofactor0, m, leaves, memo);
-        var high = Shannon(graph, cofactor1, m, leaves, memo);
-
-        var result = SmartIte(graph, leaves[split], high, low);
-        memo[tt] = result;
-        return result;
-    }
-
-    /// <summary>ITE that collapses AND/OR/identity boundaries so simple gates stay minimal.</summary>
-    private static int SmartIte(AndInverterGraph graph, int condition, int thenLit, int elseLit)
-    {
-        if (thenLit == AndInverterGraph.TrueLiteral && elseLit == AndInverterGraph.FalseLiteral) return condition;
-        if (thenLit == AndInverterGraph.FalseLiteral && elseLit == AndInverterGraph.TrueLiteral)
-            return AndInverterGraph.Not(condition);
-        if (thenLit == AndInverterGraph.TrueLiteral) return graph.Or(condition, elseLit);
-        if (elseLit == AndInverterGraph.FalseLiteral) return graph.And(condition, thenLit);
-        if (thenLit == AndInverterGraph.FalseLiteral) return graph.And(AndInverterGraph.Not(condition), elseLit);
-        if (elseLit == AndInverterGraph.TrueLiteral) return graph.Or(AndInverterGraph.Not(condition), thenLit);
-        return graph.Ite(condition, thenLit, elseLit);
-    }
-
-    private static int LowestSupport(uint tt, int m)
-    {
-        for (var i = 0; i < m; i++)
-        {
-            var (c0, c1) = Cofactors(tt, i, m);
-            if (c0 != c1) return i;
-        }
-
-        return 0; // unreachable for a non-constant tt
-    }
-
-    /// <summary>
-    ///     Negative and positive cofactors with respect to variable <paramref name="var" />,
-    ///     each returned as a full m-input truth table independent of that variable.
-    /// </summary>
-    private static (uint Cofactor0, uint Cofactor1) Cofactors(uint tt, int var, int m)
-    {
-        var size = 1 << m;
-        uint c0 = 0, c1 = 0;
-        for (var p = 0; p < size; p++)
-        {
-            var withoutBit = p & ~(1 << var);
-            if (((tt >> withoutBit) & 1) != 0) c0 |= 1u << p;
-            var withBit = p | (1 << var);
-            if (((tt >> withBit) & 1) != 0) c1 |= 1u << p;
-        }
-
-        return (c0, c1);
     }
 }

@@ -117,7 +117,7 @@ public class AigRewriteTests
     // rewriter removes. before/after AND-node counts are asserted to strictly shrink.
     [InlineData("(d&b&!(!a&b))", 3, 2)]
     [InlineData("!(!(d&a&c)|!(b&b&c))", 4, 3)]
-    [InlineData("((!(c&d)|!(a&d))&!(c&!a))", 5, 4)]
+    [InlineData("((!(c&d)|!(a&d))&!(c&!a))", 5, 2)]
     [InlineData("(a|(((c&b&a)|!d|(d&c))&((b|a)&(a|c|b)&c))|c)", 12, 1)]
     public void Rewrite_StrictlyReducesAndCount_OnCraftedCases(string expression, int before, int after)
     {
