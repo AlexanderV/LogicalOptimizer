@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Documentation
+
+- **Verified examples and descriptions for the full public API.** Every capability area of
+  the public surface (`PublicApi.approved.txt`) now has both a description and a runnable
+  example: new docs-site articles for formula construction, the optimizer & options (incl.
+  AIG rewriting being on by default in v3.0), normal forms & transformations, two-level
+  minimization, SAT/cardinality/PB/MaxSAT, BDDs, equivalence & backbones, and exporters,
+  registered in the articles TOC and linked from the site index and README capability
+  guide. `cli-usage.md` now lists every CLI flag (including `--anf`). Every documented code
+  snippet is mirrored by an executed, asserted test in
+  `LogicalOptimizer.Tests/Documentation/DocExamplesTests.cs`, so the shown outputs are real
+  and cannot silently drift. No library behavior or public API changed.
+
 ## [3.0.0] - 2026-07-28
 
 ### Changed

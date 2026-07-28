@@ -113,7 +113,15 @@ Console.WriteLine(ReferenceEquals(parsed, built));  // True (interning)
 
 ## Next steps
 
+- [Formula construction & the AST](formula-construction.md) — `FormulaFactory`, the n-ary AST, `AstFormatter`.
+- [Optimizer & options](optimizer-and-options.md) — `OptimizationOptions`, AIG rewriting (on by default in v3.0), quality analysis.
 - [Operation contracts & statuses](contracts-and-statuses.md) — what "provably minimal" means.
 - [Resource budgets & the zone model](budgets-and-zones.md) — how variable count routes the work.
-- [Packages & architecture](packages-and-architecture.md) — the five-package split.
+- [Normal forms & transformations](normal-forms.md) — CNF / DNF / ANF / Tseitin.
+- [Two-level minimization](minimization.md) — exact SOP/POS, don't-cares, CSV, multi-output.
+- [SAT solving](sat-solving.md) · [Binary decision diagrams](bdd.md) · [Knowledge compilation](knowledge-compilation.md) · [Equivalence & backbones](equivalence-and-backbones.md) · [Export formats](exporters.md)
+- [Packages & architecture](packages-and-architecture.md) — the seven-package split.
 - [CLI usage](cli-usage.md) — every flag with verified output.
+
+Every code example across these articles is mirrored by an executed, asserted test in
+`LogicalOptimizer.Tests/Documentation/DocExamplesTests.cs`, so the outputs shown are real.

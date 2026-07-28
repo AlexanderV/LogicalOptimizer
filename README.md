@@ -1,6 +1,6 @@
 # LogicalOptimizer - Boolean Expression Optimizer
 
-📚 **Documentation site: [https://AlexanderV.github.io/LogicalOptimizer/](https://AlexanderV.github.io/LogicalOptimizer/)** — API reference (generated from the library XML doc comments) plus conceptual articles (getting started, operation contracts & statuses, budgets & the zone model, packages & architecture, CLI usage, migration, testing). Built by the [`Docs` workflow](.github/workflows/docs.yml) from `docs-site/` and deployed to GitHub Pages on every push to `main`.
+📚 **Documentation site: [https://AlexanderV.github.io/LogicalOptimizer/](https://AlexanderV.github.io/LogicalOptimizer/)** — API reference (generated from the library XML doc comments) plus conceptual articles with a runnable example for every capability area: getting started, formula construction, optimizer & options, operation contracts & statuses, budgets & the zone model, normal forms & transformations, minimization, SAT solving, BDDs, knowledge compilation, equivalence & backbones, exporters, packages & architecture, CLI usage, migration, testing. **Every code example in the docs (and in this README) is mirrored by an executed, asserted test** in `LogicalOptimizer.Tests/Documentation/DocExamplesTests.cs`, so the shown outputs are real and cannot silently drift. Built by the [`Docs` workflow](.github/workflows/docs.yml) from `docs-site/` and deployed to GitHub Pages on every push to `main`.
 
 > **🤖 AI-Assisted Development Notice**
 > 
@@ -138,6 +138,12 @@ dotnet run --project LogicalOptimizer.Cli -- --cnf "a & b | c"
 # Get only DNF (Disjunctive Normal Form)
 dotnet run --project LogicalOptimizer.Cli -- --dnf "(a | b) & c"
 # Result: a & c | b & c
+
+# Get only ANF (Algebraic Normal Form / Zhegalkin polynomial)
+dotnet run --project LogicalOptimizer.Cli -- --anf "a & !b | !a & b"
+# Result: a XOR b
+dotnet run --project LogicalOptimizer.Cli -- --anf "a | b"
+# Result: (a XOR b) XOR (a & b)
 
 # Get only Advanced logical forms
 dotnet run --project LogicalOptimizer.Cli -- --advanced "a & !b | !a & b"
@@ -372,6 +378,26 @@ Built-in optimization quality analyzer provides detailed metrics:
 - **Storage**: 50MB free disk space
 
 ## Documentation
+
+### Capability guide (each with a runnable, verified example)
+
+Every capability of the public API is described with a working example in a docs-site
+article; the examples are executed and asserted in
+`LogicalOptimizer.Tests/Documentation/DocExamplesTests.cs`.
+
+| Capability area | Key public types | Article |
+|---|---|---|
+| Parsing & canonical n-ary AST | `FormulaFactory`, `AstFormatter`, `AstMetrics`, AST nodes | [Formula construction](docs-site/articles/formula-construction.md) |
+| Optimization & options (AIG on by default in v3.0) | `BooleanExpressionOptimizer`, `OptimizationOptions`, `OptimizationResult`, `MinimizationStatus` | [Optimizer & options](docs-site/articles/optimizer-and-options.md) |
+| Normal forms & transformations | CNF/DNF, `Transformations` (ANF, subsume, `MinimizeDnfHeuristic`), `ToEquisatisfiableCnf`/`TseitinCnf`, `TruthTable` | [Normal forms](docs-site/articles/normal-forms.md) |
+| Two-level minimization | `TruthTableMinimizer`, `CsvTruthTableParser`, `PartialTruthTable`, `MultiOutputTable` | [Minimization](docs-site/articles/minimization.md) |
+| SAT / cardinality / PB / MaxSAT | `SatSolver`, `CnfBuilder`, `CardinalityEncoder`, `PseudoBooleanEncoder`, `MaxSatSolver` | [SAT solving](docs-site/articles/sat-solving.md) |
+| Binary decision diagrams | `BinaryDecisionDiagram` | [BDDs](docs-site/articles/bdd.md) |
+| d-DNNF knowledge compilation | `KnowledgeCompilation`, `DnnfCircuit` | [Knowledge compilation](docs-site/articles/knowledge-compilation.md) |
+| Equivalence & backbones | `FormulaAnalysis`, `EquivalenceChecker`, `Bdd`/`HybridEquivalenceChecker` | [Equivalence & backbones](docs-site/articles/equivalence-and-backbones.md) |
+| Exporters & code generation | `BooleanExpressionExporter`, `CSharpExpressionExporter` | [Exporters](docs-site/articles/exporters.md) |
+| Contracts, statuses & budgets | `MinimizationStatus`, `ComputationStatus`, `ResourceBudget` | [Contracts & statuses](docs-site/articles/contracts-and-statuses.md), [Budgets & zones](docs-site/articles/budgets-and-zones.md) |
+| CLI (all flags incl. `--anf`) | `logical-optimizer` | [CLI usage](docs-site/articles/cli-usage.md) |
 
 - 🔀 **[Migration Guide v1 → v2](MIGRATION-v2.md)** - Breaking changes in 2.0.0 and how to adapt
 - 📋 **[Changelog](CHANGELOG.md)** - Release history (Keep a Changelog format)

@@ -33,15 +33,21 @@ only when a pattern (XOR / implication / equivalence) is recognized.
 |---|---|
 | `--cnf` | Output only the Conjunctive Normal Form |
 | `--dnf` | Output only the Disjunctive Normal Form |
+| `--anf` | Output only the Algebraic Normal Form (Zhegalkin / Reed–Muller polynomial) |
 | `--advanced` | Include advanced logical forms (XOR / `→` / `↔`) |
 | `--truth-table` | Output only the truth table |
 | `--cnf-mode=tseitin` | Equisatisfiable linear-size CNF (Tseitin) instead of the distributive CNF |
+| `--cnf-mode=equivalent` | Distributive (logically equivalent) CNF — the default |
 | `--outputs=Name1,Name2 <csv>` | Multi-output CSV minimization with shared cubes |
 | `--csv "<csv>"` | Parse a CSV truth table (also auto-detected for `.csv` files) |
 | `--verbose` | Detailed output: metrics, iterations, elapsed time, `Minimality:` status |
 | `--demo` | Features demonstration |
 | `--benchmark` | Performance testing |
-| `--help` | Usage and supported operators |
+| `--stress` | Extreme stress testing for large expressions |
+| `--csv-example` | Print the expected CSV truth-table format |
+| `--help`, `-h` | Usage and supported operators |
+
+The complete flag set is locked by `DocExamplesTests.Cli_RecognizesEveryDocumentedFlag`.
 
 ### `--cnf`
 
@@ -55,6 +61,18 @@ logical-optimizer --cnf "a & b | c"
 ```bash
 logical-optimizer --dnf "(a | b) & c"
 # a & c | b & c
+```
+
+### `--anf`
+
+Emits the canonical XOR-of-AND-monomials (Zhegalkin / Reed–Muller) form:
+
+```bash
+logical-optimizer --anf "a & !b | !a & b"
+# a XOR b
+
+logical-optimizer --anf "a | b"
+# (a XOR b) XOR (a & b)
 ```
 
 ### `--advanced`

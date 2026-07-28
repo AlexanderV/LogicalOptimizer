@@ -1,13 +1,29 @@
 - name: Introduction / Getting Started
   href: introduction.md
+- name: Formula Construction & the AST
+  href: formula-construction.md
+- name: Optimizer & Options
+  href: optimizer-and-options.md
 - name: Operation Contracts & Statuses
   href: contracts-and-statuses.md
 - name: Resource Budgets & the Zone Model
   href: budgets-and-zones.md
-- name: Packages & Architecture
-  href: packages-and-architecture.md
+- name: Normal Forms & Transformations
+  href: normal-forms.md
+- name: Two-Level Minimization
+  href: minimization.md
+- name: SAT Solving, Cardinality, PB & MaxSAT
+  href: sat-solving.md
+- name: Binary Decision Diagrams
+  href: bdd.md
 - name: Knowledge Compilation & Model Counting
   href: knowledge-compilation.md
+- name: Equivalence & Backbones
+  href: equivalence-and-backbones.md
+- name: Export Formats
+  href: exporters.md
+- name: Packages & Architecture
+  href: packages-and-architecture.md
 - name: CLI Usage
   href: cli-usage.md
 - name: Migration to v2.0
