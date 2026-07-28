@@ -8,7 +8,7 @@
     <LangVersion>12</LangVersion>
 
     <PackageId>LogicalOptimizer.Minimization</PackageId>
-    <Version>2.2.0</Version>
+    <Version>2.3.0</Version>
     <Authors>Oleksandr Panasenko</Authors>
     <Description>Minimization layer of the LogicalOptimizer toolkit: exact Quine-McCluskey with provable-minimality status, SAT-based mid-range prime covers, Espresso-style cube-list heuristics, multi-output PLA-style cube sharing and CSV truth-table parsing.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

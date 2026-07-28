@@ -46,12 +46,12 @@ git push origin v2.1.0
 ```
 
 `release.yml`: setup .NET 10 → `dotnet build -warnaserror` → `dotnet test` (CI-фільтр) →
-`dotnet pack` 6 пакетів → `dotnet nuget push --skip-duplicate` → **верифікація присутності в
+`dotnet pack` 7 пакетів → `dotnet nuget push --skip-duplicate` → **верифікація присутності в
 реєстрі**. Якщо тести впадуть — публікації не буде.
 
 **Автоматична перевірка присутності:** після push крок «Verify packages on nuget.org» запускає
 [`tools/verify_nuget.ps1`](tools/verify_nuget.ps1), який опитує flat-container-індекс
-(`https://api.nuget.org/v3-flatcontainer/<id>/index.json`) для всіх 6 пакетів на випущену версію,
+(`https://api.nuget.org/v3-flatcontainer/<id>/index.json`) для всіх 7 пакетів на випущену версію,
 з retry+backoff (індексація має лаг, до ~10 спроб по 30 с). Якщо якийсь пакет так і не з'явиться —
 workflow падає. Скрипт можна запустити й локально проти вже опублікованої версії:
 
@@ -74,8 +74,8 @@ logical-optimizer "a & b | a & c"
 
 - **Завжди push `main` → потім push тег** (щоб гілка й docs-сайт були актуальні; docs-workflow
   тригериться на push у `main`).
-- Поточна dev-версія в csproj — **2.2.0** (ANF-конверсія, two-level `--dnf` порівняння,
-  post-publish NuGet-верифікація).
+- Поточна dev-версія в csproj — **2.3.0** (d-DNNF knowledge compilation — новий пакет
+  `LogicalOptimizer.Dnnf`).
 - **Історична примітка щодо тегів:** BDD complement edges (C1) влилися комітом `247afcd`. Якщо
   потрібен окремий реліз-міграція **без** complement edges, тегни `v2.0.0` на коміті `9090092`
   (останній перед C1), а `v2.1.0` — на `HEAD`. Якщо це не потрібно — просто випусти все одним

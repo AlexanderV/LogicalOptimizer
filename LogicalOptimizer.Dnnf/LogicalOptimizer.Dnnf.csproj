@@ -8,7 +8,7 @@
     <LangVersion>12</LangVersion>
 
     <PackageId>LogicalOptimizer.Dnnf</PackageId>
-    <Version>2.2.0</Version>
+    <Version>2.3.0</Version>
     <Authors>Oleksandr Panasenko</Authors>
     <Description>Knowledge-compilation layer of the LogicalOptimizer toolkit: a top-down decision-DNNF (deterministic, decomposable NNF) compiler with component caching, giving exact #SAT model counting (BigInteger), weighted model counting and model enumeration.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
