@@ -170,6 +170,7 @@ public class ArchitectureTests
             (typeof(FormulaAnalysis), "EnumerateModels"),
             (typeof(MaxSatSolver), "Solve"),
             (typeof(Transformations), "MinimizeDnfHeuristic"),
+            (typeof(Transformations), "ToAlgebraicNormalForm"),
             (typeof(BinaryDecisionDiagram), "BuildWithBestOrder"),
             (typeof(BinaryDecisionDiagram), "BuildWithSiftedOrder")
         };

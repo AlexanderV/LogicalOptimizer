@@ -36,6 +36,10 @@ internal class OutputFormatter
         {
             Console.WriteLine(result.DNF);
         }
+        else if (options.AnfOnly)
+        {
+            DisplayAnf(result.Original);
+        }
         else if (options.Advanced)
         {
             DisplayAdvancedForms(result);
@@ -58,6 +62,22 @@ internal class OutputFormatter
             // Invalid expression: report and fail via exit code — no stack trace
             // after an already-printed error message
             Console.Error.WriteLine($"Error generating truth table: {ex.Message}");
+            Environment.ExitCode = 1;
+        }
+    }
+
+    private void DisplayAnf(string expression)
+    {
+        try
+        {
+            var ast = new Parser(new Lexer(expression).Tokenize()).Parse();
+            var anf = Transformations.ToAlgebraicNormalForm(ast);
+            Console.WriteLine(AstFormatter.Format(anf));
+        }
+        catch (ArgumentException ex)
+        {
+            // Invalid expression or too many variables: report and fail via exit code
+            Console.Error.WriteLine($"Error computing ANF: {ex.Message}");
             Environment.ExitCode = 1;
         }
     }

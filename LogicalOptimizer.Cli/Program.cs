@@ -90,10 +90,10 @@ internal class Program
             var optimizer = new BooleanExpressionOptimizer();
             var optimizationOptions = new OptimizationOptions
             {
-                ComputeCnf = !options.DnfOnly && !options.Advanced,
-                ComputeDnf = !options.CnfOnly && !options.Advanced,
+                ComputeCnf = !options.DnfOnly && !options.Advanced && !options.AnfOnly,
+                ComputeDnf = !options.CnfOnly && !options.Advanced && !options.AnfOnly,
                 CnfMode = options.CnfMode,
-                ComputeAdvancedForms = !options.CnfOnly && !options.DnfOnly,
+                ComputeAdvancedForms = !options.CnfOnly && !options.DnfOnly && !options.AnfOnly,
                 IncludeMetrics = options.Verbose,
                 IncludeTruthTables = options.Verbose,
                 IncludeDebugInfo = options.Verbose

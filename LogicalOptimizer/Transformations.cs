@@ -57,4 +57,18 @@ public static class Transformations
         // Never hand back something costlier than the input
         return AstMetrics.CountLiterals(rebuilt) <= AstMetrics.CountLiterals(dnf) ? rebuilt : dnf;
     }
+
+    /// <summary>
+    ///     Convert a formula to its Algebraic Normal Form (ANF / Zhegalkin / Reed–Muller
+    ///     polynomial): the unique XOR of AND-monomials over the variables. Coefficients
+    ///     come from the fast Möbius transform over the truth table, so this is 2^n work
+    ///     capped at <see cref="TruthTable.MaxVariables" /> variables (an
+    ///     <see cref="ArgumentException" /> is thrown beyond the cap) and honors the
+    ///     supplied <paramref name="cancellationToken" />. The empty monomial renders as
+    ///     the constant <c>1</c>; the everywhere-false function as the constant <c>0</c>.
+    /// </summary>
+    public static AstNode ToAlgebraicNormalForm(AstNode formula, CancellationToken cancellationToken = default)
+    {
+        return AlgebraicNormalFormConverter.Convert(formula, cancellationToken);
+    }
 }

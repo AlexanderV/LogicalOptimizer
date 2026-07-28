@@ -15,6 +15,7 @@ internal class CommandLineProcessor
         public bool Verbose { get; set; }
         public bool CnfOnly { get; set; }
         public bool DnfOnly { get; set; }
+        public bool AnfOnly { get; set; }
         public bool Advanced { get; set; }
         public bool TruthTableOnly { get; set; }
         public bool CsvInput { get; set; }
@@ -69,6 +70,9 @@ internal class CommandLineProcessor
                     break;
                 case "--dnf":
                     options.DnfOnly = true;
+                    break;
+                case "--anf":
+                    options.AnfOnly = true;
                     break;
                 case "--advanced":
                     options.Advanced = true;
@@ -180,6 +184,7 @@ internal class CommandLineProcessor
         Console.WriteLine("  LogicalOptimizer.exe --verbose \"<expression>\" # Detailed output");
         Console.WriteLine("  LogicalOptimizer.exe --cnf \"<expression>\"     # Output only CNF");
         Console.WriteLine("  LogicalOptimizer.exe --dnf \"<expression>\"     # Output only DNF");
+        Console.WriteLine("  LogicalOptimizer.exe --anf \"<expression>\"     # Output only ANF (Zhegalkin polynomial)");
         Console.WriteLine("  LogicalOptimizer.exe --advanced \"<expression>\" # Include advanced logical forms");
         Console.WriteLine("  LogicalOptimizer.exe --truth-table \"<expression>\" # Output only truth table");
         Console.WriteLine(

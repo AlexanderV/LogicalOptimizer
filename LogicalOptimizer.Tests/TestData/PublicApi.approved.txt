@@ -141,6 +141,7 @@ namespace LogicalOptimizer
         public static LogicalOptimizer.AstNode MinimizeDnfHeuristic(LogicalOptimizer.AstNode dnf, int stepLimit = 500000, System.Threading.CancellationToken cancellationToken = default) { }
         public static LogicalOptimizer.AstNode SubsumeCnf(LogicalOptimizer.AstNode formula) { }
         public static LogicalOptimizer.AstNode SubsumeDnf(LogicalOptimizer.AstNode formula) { }
+        public static LogicalOptimizer.AstNode ToAlgebraicNormalForm(LogicalOptimizer.AstNode formula, System.Threading.CancellationToken cancellationToken = default) { }
     }
 }
 
