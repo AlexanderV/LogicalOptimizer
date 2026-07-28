@@ -18,6 +18,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the upcoming DAG-aware cut rewriter. This is internal bookkeeping only: there is no
   public API change and the existing AIG semantics (`And`/`Or`/`Ite`/`FromAst`/`ToAst`/
   `Evaluate`/`Cleanup`/`AndNodeCount`) are unchanged.
+- **Internal AIG cut enumeration, NPN canonicalization and rewrite library.** New internal
+  machinery for cut-based rewriting: bottom-up k-feasible cut enumeration (`AigCutEnumerator`,
+  default k = 4) with dominated-cut pruning and a per-node cut cap, plus exact local
+  truth-table extraction for each cut (verified against `Evaluate`). NPN canonicalization
+  (`NpnCanonicalizer`) reduces a ≤4-input truth table to its canonical representative under
+  the 2^m·m!·2 negation/permutation/output-negation group, returning both the forward and
+  the inverse transform (round-trip exact); the 2^16 four-input functions form the classic
+  222 NPN classes. A compact rewrite library (`AigRewriteLibrary`) synthesizes an exact
+  `AigTemplate` (a small AND/complement recipe over the cut leaves) for any ≤4-input function
+  via memoized Shannon decomposition of the canonical form, cached per NPN class and
+  re-labeled onto concrete leaves by the NPN transform. All of this is internal to
+  `LogicalOptimizer.Core` — no public API change — and feeds the forthcoming apply/rewrite
+  loop.
 
 ## [2.4.0] - 2026-07-28
 

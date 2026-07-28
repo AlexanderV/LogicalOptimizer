@@ -316,6 +316,24 @@ internal sealed class AndInverterGraph
         return cone.ToArray();
     }
 
+    // ---------------------------------------------------------------------------------
+    // Cut enumeration — thin front doors onto AigCutEnumerator (see that file). Kept here
+    // so callers can enumerate cuts straight off a graph; the enumerator snapshots the node
+    // array, so mutating the graph afterwards means re-enumerating.
+    // ---------------------------------------------------------------------------------
+
+    /// <summary>k-feasible cuts of every node, computed bottom-up.</summary>
+    public Dictionary<int, List<Cut>> EnumerateAllCuts(int k = 4)
+    {
+        return new AigCutEnumerator(this).EnumerateAll(k);
+    }
+
+    /// <summary>k-feasible cuts of a single node.</summary>
+    public IReadOnlyList<Cut> EnumerateCuts(int literal, int k = 4)
+    {
+        return new AigCutEnumerator(this).Enumerate(literal >> 1, k);
+    }
+
     private int DereferenceNode(int node, List<int>? cone)
     {
         var (left, right) = _nodes[node];
