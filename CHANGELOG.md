@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **In-place BDD variable sifting.** `BinaryDecisionDiagram.BuildWithSiftedOrder` now
+  reorders variables with true adjacent-level swaps (Rudell-style dynamic reordering, à la
+  CUDD) instead of rebuilding the whole diagram from the AST for every trial position. Each
+  swap rewrites only the two affected levels and reuses node handles, so sifting is far
+  cheaper while producing the same — canonical — result. Variable position is now decoupled
+  from variable identity internally, and dead nodes left by a swap are garbage-collected so
+  `NodeCount` stays an honest reachable-node metric. The public signature (including the
+  `maxRebuilds` bound, now a cap on trial swaps) and results are unchanged; the node budget
+  and cancellation token are still honored.
+
 ## [2.3.0] - 2026-07-28
 
 ### Added

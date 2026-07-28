@@ -3,12 +3,12 @@ using System.Numerics;
 namespace LogicalOptimizer;
 
 /// <summary>
-///     Reduced Ordered Binary Decision Diagram over a fixed (sorted) variable order,
-///     with a shared unique table (hash-consing) and memoized ite. Because ROBDDs are
-///     canonical, two expressions are equivalent exactly when they build to the same
-///     node — ideal for repeated equivalence queries against one baseline. A node budget
-///     turns pathological orderings into a clean exception instead of memory blowup
-///     (callers can fall back to the SAT-based <c>EquivalenceChecker</c>).
+///     Reduced Ordered Binary Decision Diagram over a variable order, with a shared unique
+///     table (hash-consing) and memoized ite. Because ROBDDs are canonical, two expressions
+///     are equivalent exactly when they build to the same node — ideal for repeated
+///     equivalence queries against one baseline. A node budget turns pathological orderings
+///     into a clean exception instead of memory blowup (callers can fall back to the
+///     SAT-based <c>EquivalenceChecker</c>).
 ///     <para>
 ///         The diagram uses CUDD-style <b>complement edges</b>: an "edge" is an int that
 ///         packs a node index and a complement bit (the low bit); a function and its
@@ -19,6 +19,13 @@ namespace LogicalOptimizer;
 ///         built with a complemented then-edge, both children are complemented and a
 ///         complemented edge to the normalized node is returned. That single rule keeps the
 ///         representation canonical, so equivalence is still edge equality.
+///     </para>
+///     <para>
+///         Variable position is decoupled from variable identity: the stored
+///         <c>Variable</c> field of a node is a stable variable id, and <see cref="_varLevel" />
+///         maps each id to its current level (position, top to bottom). That indirection lets
+///         <see cref="BuildWithSiftedOrder" /> reorder variables in place with adjacent-level
+///         swaps instead of rebuilding the whole diagram.
 ///     </para>
 /// </summary>
 public sealed class BinaryDecisionDiagram
@@ -41,6 +48,15 @@ public sealed class BinaryDecisionDiagram
     private readonly Dictionary<(int F, int G, int H), int> _iteCache = new();
     private readonly Dictionary<string, int> _variableIndex = new();
     private readonly List<string> _variables = new();
+
+    // Variable-order bookkeeping. _varLevel[id] is the current level (position) of the
+    // variable whose id is `id`; _levelVar is its inverse. _nodesOfVar[id] lists every
+    // node index that branches on that variable — the level-indexed enumeration an
+    // adjacent-level swap needs (a node's level is _varLevel of its stored Variable id).
+    private readonly int[] _varLevel;
+    private readonly int[] _levelVar;
+    private readonly List<int>[] _nodesOfVar;
+
     private readonly int _nodeBudget;
     private readonly CancellationToken _cancellationToken;
 
@@ -68,9 +84,30 @@ public sealed class BinaryDecisionDiagram
         foreach (var name in order)
             if (_variableIndex.TryAdd(name, _variables.Count))
                 _variables.Add(name);
+
+        var count = _variables.Count;
+        _varLevel = new int[count];
+        _levelVar = new int[count];
+        _nodesOfVar = new List<int>[count];
+        for (var i = 0; i < count; i++)
+        {
+            _varLevel[i] = i; // identity order until sifting reorders it
+            _levelVar[i] = i;
+            _nodesOfVar[i] = new List<int>();
+        }
     }
 
-    public IReadOnlyList<string> Variables => _variables;
+    /// <summary>Variable names in current top-to-bottom (level) order.</summary>
+    public IReadOnlyList<string> Variables
+    {
+        get
+        {
+            var result = new string[_variables.Count];
+            for (var level = 0; level < result.Length; level++)
+                result[level] = _variables[_levelVar[level]];
+            return result;
+        }
+    }
 
     /// <summary>Live node count including the single terminal.</summary>
     public int NodeCount => _nodes.Count;
@@ -285,7 +322,7 @@ public sealed class BinaryDecisionDiagram
         if (level == _variables.Count)
         {
             var snapshot = new Dictionary<string, bool>();
-            for (var i = 0; i < _variables.Count; i++) snapshot[_variables[i]] = assignment[i];
+            for (var i = 0; i < _variables.Count; i++) snapshot[_variables[_levelVar[i]]] = assignment[i];
             yield return snapshot;
             yield break;
         }
@@ -389,9 +426,9 @@ public sealed class BinaryDecisionDiagram
 
     private int RequireVariable(string variable)
     {
-        if (!_variableIndex.TryGetValue(variable, out var level))
+        if (!_variableIndex.TryGetValue(variable, out var id))
             throw new ArgumentException($"Variable '{variable}' is not registered in this manager");
-        return level;
+        return _varLevel[id];
     }
 
     private int RestrictLevel(int edge, int level, bool value, Dictionary<int, int> memo)
@@ -404,7 +441,7 @@ public sealed class BinaryDecisionDiagram
         var lowEdge = IsComplemented(edge) ? Complement(low) : low;
         var highEdge = IsComplemented(edge) ? Complement(high) : high;
 
-        var result = variable == level
+        var result = _varLevel[variable] == level
             ? value ? highEdge : lowEdge
             : MakeNode(variable, RestrictLevel(lowEdge, level, value, memo),
                 RestrictLevel(highEdge, level, value, memo));
@@ -422,7 +459,7 @@ public sealed class BinaryDecisionDiagram
         var highEdge = IsComplemented(edge) ? Complement(high) : high;
 
         int result;
-        if (variable == level)
+        if (_varLevel[variable] == level)
             result = universal ? Ite(lowEdge, highEdge, FalseNode) : Ite(lowEdge, TrueNode, highEdge);
         else
             result = MakeNode(variable,
@@ -476,60 +513,273 @@ public sealed class BinaryDecisionDiagram
     }
 
     /// <summary>
-    ///     Sifting (Rudell-style, rebuild-based): starting from the best heuristic order,
-    ///     each variable in turn is tried at every position and left where the diagram is
-    ///     smallest; passes repeat until a full pass finds no improvement. Each candidate
-    ///     build is capped at the current best size, so bad positions abort early. More
-    ///     expensive than <see cref="BuildWithBestOrder" /> but finds orders the static
-    ///     heuristics cannot; the rebuild count is bounded by
-    ///     <paramref name="maxRebuilds" />.
+    ///     Sifting (Rudell-style, in place): starting from the best heuristic order, each
+    ///     variable in turn is bubbled up to the top and down to the bottom using only
+    ///     adjacent-level swaps and left where the diagram is smallest; passes repeat until
+    ///     one finds no improvement. Unlike a rebuild, a single swap rewrites only the two
+    ///     affected levels, so this is far cheaper than reconstructing the diagram per trial
+    ///     position while finding orders the static heuristics cannot. The number of trial
+    ///     swaps is bounded by <paramref name="maxRebuilds" />; the result is never larger
+    ///     than <see cref="BuildWithBestOrder" />.
     /// </summary>
     public static BinaryDecisionDiagram BuildWithSiftedOrder(AstNode ast, int nodeBudget = DefaultNodeBudget,
         int maxRebuilds = 400, CancellationToken cancellationToken = default)
     {
-        var best = BuildWithBestOrder(ast, nodeBudget, cancellationToken);
-        var order = best.Variables.ToList();
-        var rebuilds = 0;
+        var manager = BuildWithBestOrder(ast, nodeBudget, cancellationToken);
+        manager.Sift(maxRebuilds, cancellationToken);
+        return manager;
+    }
+
+    /// <summary>
+    ///     Reorder variables in place by Rudell sifting: each variable is moved through every
+    ///     level with adjacent swaps and returned to its smallest-diagram position. Trial
+    ///     swaps are capped by <paramref name="maxSwaps" />; each variable is sifted
+    ///     atomically so the diagram is never left larger than where it started.
+    /// </summary>
+    private void Sift(int maxSwaps, CancellationToken cancellationToken)
+    {
+        var n = _variables.Count;
+        if (n < 2) return;
+
+        Collect();
+        var swaps = 0;
 
         for (var pass = 0; pass < 4; pass++)
         {
-            var improved = false;
-            foreach (var variable in order.ToList())
+            var sizeBeforePass = ReachableCount();
+
+            for (var vid = 0; vid < n; vid++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var basePosition = order.IndexOf(variable);
-                for (var position = 0; position <= order.Count - 1; position++)
+                if (swaps >= maxSwaps)
                 {
-                    if (position == basePosition) continue;
-                    if (++rebuilds > maxRebuilds) return best;
+                    Collect();
+                    return;
+                }
 
-                    var candidate = order.ToList();
-                    candidate.RemoveAt(basePosition);
-                    candidate.Insert(position, variable);
-                    try
+                var level = _varLevel[vid];
+                var bestLevel = level;
+                var bestSize = NodeCount;
+
+                // Bubble the variable up to the top, tracking the smallest diagram seen.
+                // Collecting after every swap keeps dead nodes from inflating the size (and
+                // the budget) and makes NodeCount the honest reachable-node metric.
+                while (level > 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    SwapAdjacentLevels(level - 1);
+                    Collect();
+                    swaps++;
+                    level--;
+                    if (NodeCount < bestSize)
                     {
-                        var manager = new BinaryDecisionDiagram(candidate, sortVariables: false,
-                            Math.Min(nodeBudget, best.NodeCount), cancellationToken);
-                        manager.Root = manager.FromAst(ast);
-                        if (manager.NodeCount < best.NodeCount)
-                        {
-                            best = manager;
-                            order = candidate;
-                            basePosition = position;
-                            improved = true;
-                        }
+                        bestSize = NodeCount;
+                        bestLevel = level;
                     }
-                    catch (InvalidOperationException)
+                }
+
+                // Then all the way down to the bottom, still tracking the best position.
+                while (level < n - 1)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    SwapAdjacentLevels(level);
+                    Collect();
+                    swaps++;
+                    level++;
+                    if (NodeCount < bestSize)
                     {
-                        // Worse than the current best before finishing — skip
+                        bestSize = NodeCount;
+                        bestLevel = level;
                     }
+                }
+
+                // Return the variable to its best-found position (swaps are reversible, so
+                // this reproduces exactly the smallest configuration seen).
+                while (level > bestLevel)
+                {
+                    SwapAdjacentLevels(level - 1);
+                    Collect();
+                    level--;
                 }
             }
 
-            if (!improved) break;
+            if (ReachableCount() >= sizeBeforePass) break; // a full pass found nothing
         }
 
-        return best;
+        Collect();
+    }
+
+    /// <summary>
+    ///     Exchange the variables at <paramref name="level" /> and <paramref name="level" />+1.
+    ///     Every node at <paramref name="level" /> that depends on the lower variable is
+    ///     rewritten by the Shannon swap identity
+    ///     <c>ite(x, ite(y,f11,f10), ite(y,f01,f00)) = ite(y, ite(x,f11,f01), ite(x,f10,f00))</c>;
+    ///     nodes that do not depend on it simply move down a level. Only the two affected
+    ///     levels are rehashed and the ite cache is cleared. The rewrite reuses each level-x
+    ///     node's slot so parents keep pointing at the same (function-preserving) handle, and
+    ///     the new THEN edge stays regular — the canonical complement-edge invariant holds
+    ///     through the swap.
+    /// </summary>
+    internal void SwapAdjacentLevels(int level)
+    {
+        var x = _levelVar[level];
+        var y = _levelVar[level + 1];
+
+        // Partition the level-x nodes: those that reference y at the next level must be
+        // rewritten; the rest just descend a level when the perm is swapped below.
+        var xNodes = _nodesOfVar[x];
+        var toRewrite = new List<int>();
+        var stay = new List<int>();
+        foreach (var nf in xNodes)
+        {
+            var (_, low, high) = _nodes[nf];
+            if (BranchesOn(low, y) || BranchesOn(high, y)) toRewrite.Add(nf);
+            else stay.Add(nf);
+        }
+
+        // Drop the stale unique-table keys of the nodes about to be repurposed, so a newly
+        // built x-node never hash-conses onto a slot that is becoming a y-node.
+        foreach (var nf in toRewrite)
+            _uniqueTable.Remove(_nodes[nf]);
+
+        // Rebuild the x-level list from the survivors; MakeNode appends the new x-nodes.
+        _nodesOfVar[x] = new List<int>(stay);
+
+        foreach (var nf in toRewrite)
+        {
+            var (_, lowEdge, highEdge) = _nodes[nf];
+
+            // Cofactor f wrt y on each x-branch. highEdge (the THEN edge) is regular, so
+            // f11 is a stored THEN edge and therefore regular too.
+            Cofactors(highEdge, y, out var f11, out var f10);
+            Cofactors(lowEdge, y, out var f01, out var f00);
+
+            // New x-nodes: f|y=1 = ite(x,f11,f01), f|y=0 = ite(x,f10,f00). Because f11 is
+            // regular, gHigh is regular — the new node's THEN edge keeps the invariant.
+            var gHigh = MakeNode(x, f01, f11);
+            var gLow = MakeNode(x, f00, f10);
+
+            // Reuse nf's slot as the top y-node: f = ite(y, gHigh, gLow). Same handle, same
+            // function — every parent edge remains valid.
+            var key = (y, gLow, gHigh);
+            _nodes[nf] = key;
+            _uniqueTable[key] = nf;
+            _nodesOfVar[y].Add(nf);
+        }
+
+        // Swap the two variables' positions; nodes not rewritten now sit a level lower/higher.
+        _varLevel[x] = level + 1;
+        _varLevel[y] = level;
+        _levelVar[level] = y;
+        _levelVar[level + 1] = x;
+
+        // ite results are keyed by node handles whose level meaning changed; drop the cache.
+        _iteCache.Clear();
+    }
+
+    /// <summary>True when <paramref name="edge" /> points at a node branching on variable id <paramref name="variable" />.</summary>
+    private bool BranchesOn(int edge, int variable)
+    {
+        var node = NodeOf(edge);
+        return node != One && _nodes[node].Variable == variable;
+    }
+
+    /// <summary>
+    ///     Split <paramref name="edge" /> into its cofactors with respect to variable
+    ///     <paramref name="variable" /> (which sits at the level just below the edge's own):
+    ///     <paramref name="cofactor1" /> for the variable true, <paramref name="cofactor0" />
+    ///     for false, folding in the edge's complement bit.
+    /// </summary>
+    private void Cofactors(int edge, int variable, out int cofactor1, out int cofactor0)
+    {
+        var node = NodeOf(edge);
+        if (node != One && _nodes[node].Variable == variable)
+        {
+            var (_, low, high) = _nodes[node];
+            cofactor1 = high;
+            cofactor0 = low;
+            if (IsComplemented(edge))
+            {
+                cofactor1 = Complement(cofactor1);
+                cofactor0 = Complement(cofactor0);
+            }
+        }
+        else
+        {
+            cofactor1 = cofactor0 = edge; // independent of the variable
+        }
+    }
+
+    /// <summary>Count nodes reachable from the root, including the terminal (the honest size metric).</summary>
+    private int ReachableCount()
+    {
+        var seen = new HashSet<int>();
+        var stack = new Stack<int>();
+        stack.Push(NodeOf(Root));
+        while (stack.Count > 0)
+        {
+            var node = stack.Pop();
+            if (node == One || !seen.Add(node)) continue;
+            var (_, low, high) = _nodes[node];
+            stack.Push(NodeOf(low));
+            stack.Push(NodeOf(high));
+        }
+
+        return seen.Count + 1; // + the terminal
+    }
+
+    /// <summary>
+    ///     Garbage-collect: compact the flat node list to exactly the nodes reachable from
+    ///     the root, renumbering handles and rebuilding the unique table and level index.
+    ///     Swaps leave dead nodes behind; collecting keeps <see cref="NodeCount" /> honest
+    ///     and the level lists free of stale entries.
+    /// </summary>
+    private void Collect()
+    {
+        var visited = new HashSet<int>();
+        var order = new List<int>();
+        var stack = new Stack<int>();
+        stack.Push(NodeOf(Root));
+        while (stack.Count > 0)
+        {
+            var node = stack.Pop();
+            if (node == One || !visited.Add(node)) continue;
+            order.Add(node);
+            var (_, low, high) = _nodes[node];
+            stack.Push(NodeOf(low));
+            stack.Push(NodeOf(high));
+        }
+
+        if (order.Count + 1 == _nodes.Count) return; // nothing dead
+
+        var map = new int[_nodes.Count];
+        map[One] = One;
+        var next = 1;
+        foreach (var node in order) map[node] = next++;
+
+        var compacted = new List<(int, int, int)>(order.Count + 1) { (int.MaxValue, 0, 0) };
+        _uniqueTable.Clear();
+        foreach (var list in _nodesOfVar) list.Clear();
+
+        foreach (var node in order)
+        {
+            var (variable, low, high) = _nodes[node];
+            var key = (variable, Remap(low, map), Remap(high, map));
+            var index = compacted.Count;
+            compacted.Add(key);
+            _uniqueTable[key] = index;
+            _nodesOfVar[variable].Add(index);
+        }
+
+        _nodes.Clear();
+        _nodes.AddRange(compacted);
+        Root = Remap(Root, map);
+        _iteCache.Clear();
+    }
+
+    private static int Remap(int edge, int[] map)
+    {
+        return (map[edge >> 1] << 1) | (edge & 1);
     }
 
     private static void CollectAppearanceOrder(AstNode node, List<string> order, HashSet<string> seen)
@@ -565,7 +815,7 @@ public sealed class BinaryDecisionDiagram
 
         // A complemented edge represents the negated function; over the 2^k assignments to
         // the variables at levels VariableLevel(node)..n-1 the two counts are complementary.
-        var level = _nodes[node].Variable;
+        var level = _varLevel[_nodes[node].Variable];
         return BigInteger.Pow(2, _variables.Count - level) - regular;
     }
 
@@ -574,8 +824,9 @@ public sealed class BinaryDecisionDiagram
         if (memo.TryGetValue(node, out var cached)) return cached;
 
         var (variable, low, high) = _nodes[node];
-        var count = SatCount(low, memo) * BigInteger.Pow(2, VariableLevel(low) - variable - 1) +
-                    SatCount(high, memo) * BigInteger.Pow(2, VariableLevel(high) - variable - 1);
+        var level = _varLevel[variable];
+        var count = SatCount(low, memo) * BigInteger.Pow(2, VariableLevel(low) - level - 1) +
+                    SatCount(high, memo) * BigInteger.Pow(2, VariableLevel(high) - level - 1);
         memo[node] = count;
         return count;
     }
@@ -584,7 +835,7 @@ public sealed class BinaryDecisionDiagram
     private int VariableLevel(int edge)
     {
         var node = NodeOf(edge);
-        return node == One ? _variables.Count : _nodes[node].Variable;
+        return node == One ? _variables.Count : _varLevel[_nodes[node].Variable];
     }
 
     /// <summary>
@@ -614,6 +865,7 @@ public sealed class BinaryDecisionDiagram
             index = _nodes.Count;
             _nodes.Add(key);
             _uniqueTable[key] = index;
+            _nodesOfVar[variable].Add(index);
         }
 
         var edge = MakeEdge(index, complemented: false);
@@ -656,7 +908,7 @@ public sealed class BinaryDecisionDiagram
         var low = Ite(Cofactor(f, level, false), Cofactor(g, level, false), Cofactor(h, level, false));
         var high = Ite(Cofactor(f, level, true), Cofactor(g, level, true), Cofactor(h, level, true));
 
-        var result = MakeNode(level, low, high);
+        var result = MakeNode(_levelVar[level], low, high);
         _iteCache[key] = result;
         return complementResult ? Complement(result) : result;
     }
@@ -666,7 +918,7 @@ public sealed class BinaryDecisionDiagram
         var node = NodeOf(edge);
         if (node == One) return edge; // terminal: both cofactors are the edge itself
         var (variable, low, high) = _nodes[node];
-        if (variable != level) return edge; // does not branch on this variable
+        if (_varLevel[variable] != level) return edge; // does not branch on this level
 
         var child = positive ? high : low;
         // The cofactor of a complemented edge is the complement of the child's cofactor.
