@@ -1,8 +1,10 @@
-# Валідоване порівняння LogicalOptimizer з аналогами (v2.0)
+# Валідоване порівняння LogicalOptimizer з аналогами (v2.1)
 
-Дата перевірки: 27 липня 2026 року.
+Дата повторної перевірки: 28 липня 2026 року.
 
-Цей документ описує стан бібліотеки після релізу **v2.0.0** і замінює попередні
+Цей документ описує стан бібліотеки після тегу **v2.1.0** (`c36e9b5`) і замінює редакцію
+`VALIDATED_LIBRARY_COMPARISON_2026-07-27.md`. Він зберігає методику попереднього дослідження,
+але повторно перевіряє твердження після змін 27–28.07.2026. Попередні
 порівняльні оцінки [UPDATED_LIBRARY_COMPARISON.md](UPDATED_LIBRARY_COMPARISON.md) та
 [GLOBAL_LIBRARY_COMPARISON.md](GLOBAL_LIBRARY_COMPARISON.md) (обидві датовані 24.07.2026 і
 описують архітектуру v1). Кожне конкретне твердження нижче або звірене з кодом (наведено
@@ -10,20 +12,25 @@
 
 ---
 
-## 1. Перевірений стан v2.0
+## 1. Перевірений стан v2.1
 
 ### Реліз і платформа
 
 - v2.0.0 випущено 2026-07-27 (коміт `8a098a6`) — перший свідомий breaking-реліз за політикою
   SemVer ([CHANGELOG.md](CHANGELOG.md), [MIGRATION-v2.md](MIGRATION-v2.md)).
+- v2.1.0 позначено тегом `v2.1.0` (коміт `c36e9b5`). Головна функціональна зміна —
+  канонічні BDD complement edges; також виправлено mid-flight cancellation у точній
+  мінімізації. Release workflow переведено на NuGet Trusted Publishing (OIDC).
 - Target frameworks бібліотек: `net8.0;net10.0` (multi-target). CLI — `net10.0`, публікується
   як `dotnet tool` (`logical-optimizer`).
 - **Нуль production/runtime залежностей.** Єдина посилка — `Microsoft.SourceLink.GitHub` з
   `PrivateAssets=All` (build-time only).
 - **Нуль відомих вразливостей** (`dotnet list package --vulnerable --include-transitive` — чисто
   на всіх 8 проєктах).
-- Тести: **880 кейсів зелені** (0 failed, 0 skipped, CI-фільтр). Line coverage фасаду 90.15%
-  (branch 82.09%, method 93.53%). Джерело: [doc/TESTING.md](doc/TESTING.md), CHANGELOG.
+- Повторний локальний прогін 28.07.2026: **888/888 gate-кейсів зелені** (0 failed, 0 skipped;
+  `Category!=Performance&Category!=Exhaustive`) і **21/21 SAT-corpus performance-кейсів**
+  зелені. Release build: 0 warnings, 0 errors. Coverage-числа 90.15% / 82.09% / 93.53%
+  не перемірялися у цьому прогоні, тому лишаються історичними даними v2.0, а не новим виміром.
 
 ### Архітектура v2
 
@@ -45,7 +52,7 @@
   пакетів (Facade → Min/Sat/Bdd → Core; Min → Sat → Core; Bdd → Core) пінується архітектурним
   тестом.
 
-### Верифікований інвентар можливостей (звірено з кодом 27.07.2026)
+### Верифікований інвентар можливостей (звірено з кодом 28.07.2026)
 
 **SAT-ядро (`LogicalOptimizer.Sat`)** — усі claims підтверджено в `SatSolver.cs`:
 
@@ -74,8 +81,12 @@
 - Model counting `CountSatisfyingAssignments` через `BigInteger` (171-174);
   `EnumerateSatisfyingAssignments`/`FindSatisfyingAssignment` (206-265).
 - Node budget (default 1e6, `MakeNode` 498-499).
-- **Complement edges — ВІДСУТНІ** (вузол — простий триплет без sign-біта; `Negate` — повний
-  `ite`, не O(1) flip). Це задокументований майбутній пункт (Трек D.1), не поточна можливість.
+- **Канонічні complement edges — РЕАЛІЗОВАНІ** (`BinaryDecisionDiagram.cs:34-101,595-620`):
+  complement bit кодується у молодшому біті edge, з одним terminal node; stored-node invariant
+  вимагає regular THEN edge. `Negate` (`:199-202`) — O(1) flip біта, а функція та її заперечення
+  не потребують дублювання вузлів. Evaluation, counting/enumeration, restrict, quantification і
+  compose враховують complement bit. Окремі тести фіксують канонічність, model-count identity
+  `count(f)+count(!f)=2^n` і zero-extra-node sharing.
 
 **Мінімізація (`LogicalOptimizer.Minimization`)** — підтверджено:
 
@@ -117,7 +128,7 @@
 
 ## 2. Глобальне позиціонування
 
-> **LogicalOptimizer v2.0 — найповніший керований (managed) .NET-тулкіт булевої оптимізації:**
+> **LogicalOptimizer v2.1 — найповніший керований (managed) .NET-тулкіт булевої оптимізації:**
 > parser + канонічний n-ary AST + пояснюване спрощення + доведена мала мінімізація +
 > евристична велика мінімізація + два-три класи CNF-кодувань + власний CDCL-SAT (heap-VSIDS,
 > LBD, Luby, subsumption, incremental, UNSAT-core, DRAT) + ROBDD із квантифікацією/sifting +
@@ -141,7 +152,7 @@ SymPy як CAS, LogicNG як зрілий JVM-фреймворк. Наша пе�
 Легенда: `++` сильна спеціалізована підтримка · `+` штатна підтримка · `±` часткова / з
 обмеженнями · `−` відсутня.
 
-| Можливість | LogicalOptimizer v2 | LogicNG 3 | Z3 | CaDiCaL/Kissat + PySAT | Espresso | ABC | CUDD/dd | SymPy | PyEDA |
+| Можливість | LogicalOptimizer v2.1 | LogicNG 3 | Z3 | CaDiCaL/Kissat + PySAT | Espresso | ABC | CUDD/dd | SymPy | PyEDA |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | Нативний managed .NET | ++ | − | ± | − | − | − | − | − | − |
 | Нуль production-залежностей | ++ | + | − | ± | − | − | − | + | − |
@@ -162,7 +173,7 @@ SymPy як CAS, LogicNG як зрілий JVM-фреймворк. Наша пе�
 | ROBDD | + | ++ | ± | − | − | ± | ++ | − | ++ |
 | BDD reordering (sifting) | + | + | − | − | − | ± | ++ | − | ± |
 | BDD quantification/compose/restrict | + | + | ± | − | − | ± | ++ | − | ± |
-| BDD complement edges | − | + | − | − | − | ± | ++ | − | ± |
+| BDD complement edges | + | + | − | − | − | ± | ++ | − | ± |
 | Model counting | + | ++ | ± | ± | − | − | + | ± | + |
 | Backbone / model enumeration | + | ++ | + | + | − | − | ± | ± | ± |
 | AIG / structural hashing | ± | − | − | − | − | ++ | − | − | ± |
@@ -222,9 +233,12 @@ learnt-DB, Luby-restarts, subsumption + self-subsuming, incremental, UNSAT-core,
 оптимізації (bounded variable elimination, vivification, chronological backtracking, кеш-дружні
 структури, target phases). Наш benchmark — `PhaseTransition60Variables` 471.6 μs
 ([doc/BENCHMARKS.md](doc/BENCHMARKS.md)) — свідчить про коректність і адекватність на наших
-масштабах, але ми **не** заміряні на SATLIB-конкурсних інстансах (Трек C — vendored корпус ще не
-підключено). PySAT дає уніфікований доступ до десятка топ-солверів + готові кодування. **Gap:
-пікова перф на великих індустріальних інстансах + відсутній публічний SATLIB-бенчмарк.**
+масштабах. Тепер є vendored **SATLIB-style** корпус із 20 згенерованих інстансів
+(10 SAT, 10 UNSAT) та nightly regression job; повторний прогін вирішив усі 21 test cases.
+Це доказ регресійної стабільності на малому детермінованому корпусі, **не** SAT Competition
+benchmark і не пряме вимірювання проти CaDiCaL/Kissat. PySAT дає уніфікований доступ до десятка
+топ-солверів + готові кодування. **Gap: пікова перф на великих індустріальних інстансах +
+відсутність контрольованого head-to-head SAT benchmark.**
 
 ### Berkeley Espresso (індустріальна two-level мінімізація)
 
@@ -252,15 +266,16 @@ AIG використовується лише для метрик, DAG-aware rew
 
 ### CUDD / dd (decision diagrams)
 
-**Де LogicalOptimizer тепер:** наш ROBDD — вже не «базовий», як у критиці 24.07. v2 має
+**Де LogicalOptimizer тепер:** наш ROBDD — вже не «базовий», як у критиці 24.07. v2.1 має
 quantification (`Exists`/`ForAll`), `Compose`, `Restrict`, sifting-reordering (`BuildWithSiftedOrder`),
-best-order евристику, `BigInteger` model counting, node budget. За **набором BDD-операцій** ми
+best-order евристику, `BigInteger` model counting, node budget і канонічні complement edges.
+`Negate` тепер O(1), а обидві полярності ділять один вузол. За **набором BDD-операцій** ми
 наблизилися до інтегрованих BDD-бібліотек.
 
-**Залишкове відставання:** CUDD/dd — це ADD/ZDD, **complement edges** (у нас ВІДСУТНІ — Трек D.1,
-виграш ~2× пам'яті), власний memory-pool/GC, dynamic reordering під час операцій, декади
-оптимізації. Наш sifting — rebuild-based (перебудовує діаграму), а не in-place swap-based. **Gap:
-complement edges + масштаб/перф ядра + ADD/ZDD.**
+**Залишкове відставання:** CUDD/dd — це ADD/ZDD, власний memory-pool/GC, dynamic reordering під
+час операцій і декади оптимізації. Наш sifting — rebuild-based (перебудовує діаграму), а не
+in-place swap-based. Реалізація complement edges закриває representation gap, але сама по собі
+не доводить performance parity. **Gap: масштаб/перф ядра + ADD/ZDD.**
 
 ### SymPy (symbolic math)
 
@@ -286,19 +301,36 @@ formal equivalence, власний SAT, Espresso-lite для великих та
 (останній значний release датований 2018), тож розрив закривається радше нашим розвитком, ніж їхнім.
 **Gap: справжній Espresso-backend і промисловий PLA-масштаб.**
 
+### Відтворюване порівняння із SymPy / PyEDA
+
+Новий shared corpus містить 17 функцій (`tools/comparison_corpus.txt`). Локальний повторний запуск
+`dotnet run -c Release --project LogicalOptimizer.Benchmarks -- compare` відтворив усі опубліковані
+розміри результатів: LogicalOptimizer не був більшим за наведені SymPy/PyEDA результати та був
+меншим на `maj3`, `xor3`, `maj4`, `pos6`. Виміряні локальні часи відрізняються від документації
+очікувано (наприклад, `chain22` 177.345 ms проти 79.119 ms): wall-clock дані між запусками та
+машинами не слід трактувати як стабільний рейтинг.
+
+Критичне обмеження: default LogicalOptimizer output може бути **multi-level factored**, тоді як
+скрипт викликає two-level SOP мінімізатори SymPy/PyEDA. Тому таблиця чесно порівнює default
+product output, але **не доводить**, що наш two-level SOP мінімізатор кращий; для такого висновку
+потрібна окрема apples-to-apples таблиця через `--dnf`/`TruthTableMinimizer`. Так само твердження
+«SymPy будує `2^n` truth table» описує конкретну методику скрипта з `force=True`, а не будь-яке
+використання `simplify_logic`: офіційно SymPy без `force=True` обмежує експоненційну мінімізацію
+понад 8 змінних.
+
 ---
 
-## 5. Що змінив v2.0 проти порівняння від 24.07.2026
+## 5. Що змінили v2.0–v2.1 проти порівняння від 24.07.2026
 
 Версії 24.07 фіксували вісім конкретних архітектурних відставань (розділ «Де бібліотека все ще
 слабша» в UPDATED_LIBRARY_COMPARISON.md). Стан кожного після v2:
 
-| Відставання станом на 24.07 (v1) | Стан у v2.0 (код-верифіковано) |
+| Відставання станом на 24.07 (v1) | Стан у v2.1 (код-верифіковано) |
 |---|---|
 | «AST бінарний і частково mutable; `ForceParentheses` — mutable» | **Закрито.** N-ary `NaryNode`/`AndNode`/`OrNode`; AST повністю immutable; `ForceParentheses` видалено; рендеринг через `AstFormatter`. |
 | «Немає formula factory та повного hash-consing AST» | **Закрито.** `FormulaFactory` з construction-time канонізацією + структурний інтернінг (reference equality), `FormulaFactory.cs:122-214`. |
 | «SAT не incremental; немає assumptions, proof tracing, unsat core» | **Закрито.** `Solve(assumptions)`, `UnsatCore`, DRAT (`ToDrat`) — усе в `SatSolver.cs`. Додатково: heap-VSIDS, LBD, Luby, subsumption+self-subsuming. |
-| «BDD backend базовий; немає reordering, quantification/composition» | **Закрито.** `Exists`/`ForAll`, `Compose`, `Restrict`, `BuildWithBestOrder`, `BuildWithSiftedOrder`. (Complement edges — досі ні, Трек D.1.) |
+| «BDD backend базовий; немає reordering, quantification/composition» | **Закрито.** `Exists`/`ForAll`, `Compose`, `Restrict`, `BuildWithBestOrder`, `BuildWithSiftedOrder`; у v2.1 додано канонічні complement edges та O(1) `Negate`. |
 | «Multi-output не мінімізується спільно» | **Закрито.** `MultiOutputMinimizer.TrySharedCovers` — спільні куби між виходами. |
 | «Немає cardinality, PB, MaxSAT» | **Закрито.** `CardinalityEncoder`, `PseudoBooleanEncoder`, `MaxSatSolver`. |
 | «Немає Espresso backend» | **Частково закрито (`+`).** `EspressoLiteMinimizer` (EXPAND/IRREDUNDANT/REDUCE); повний Espresso — свідомий non-goal. |
@@ -312,13 +344,19 @@ formal equivalence, власний SAT, Espresso-lite для великих та
 ≤12 бюджетований QM / 13–24 SAT prime cover / >24 espresso-lite), статуси, budget-и, обов'язкова
 equivalence-верифікація кожного результату.
 
-**Що лишилося відкритим після v2** (з V2_PLAN «Залишок» і Трек D):
+**Що змінилося після попередньої перевірки 27.07:**
 
-- Тег `v2.0.0` + публікація 6 NuGet-пакетів (дія користувача; workflow готовий).
-- DocFX-сайт (Трек B).
-- SATLIB-корпус (Трек C) — публічного SAT-бенчмарку ще немає.
-- BDD complement edges (Трек D.1).
-- AIG DAG-aware rewriting у стилі ABC (Трек D.2).
+- Додано тег `v2.1.0`; release workflow використовує NuGet Trusted Publishing (OIDC).
+  Факт появи всіх пакетів у NuGet Gallery цією перевіркою не підтверджено.
+- DocFX-сайт і GitHub Pages workflow реалізовані; README посилається на
+  `https://AlexanderV.github.io/LogicalOptimizer/`.
+- Додано 20-instance SATLIB-style regression corpus і nightly/manual workflow.
+- Додано відтворюване result-size/time порівняння проти SymPy 1.14.0 і PyEDA 0.29.0.
+- BDD complement edges реалізовані; mid-flight cancellation cover search виправлено.
+
+**Що лишилося відкритим:** промисловий Espresso/ABC-class synthesis; масштаб і performance BDD
+ядра проти CUDD/dd; великий стандартний SAT corpus і контрольований head-to-head проти
+CaDiCaL/Kissat; apples-to-apples two-level comparison; підтвердження реальної NuGet adoption.
 
 ---
 
@@ -326,7 +364,7 @@ equivalence-верифікація кожного результату.
 
 Шкала 1–5 — позиція в категорії, не абсолютна якість.
 
-| Категорія | LogicalOptimizer v2 | Лідер категорії | Коментар |
+| Категорія | LogicalOptimizer v2.1 | Лідер категорії | Коментар |
 |---|---:|---|---|
 | Легке вбудовування в .NET | 5 | LogicalOptimizer | нуль native/production залежностей, multi-target net8/net10 |
 | Читабельне symbolic simplification | 5 | LogicNG / SymPy / LO | тепер канонічний n-ary AST + factory усувають головну ваду v1 |
@@ -334,25 +372,25 @@ equivalence-верифікація кожного результату.
 | Велика two-level мінімізація | 3 | Espresso / PyEDA | є espresso-lite (`+`), але не промисловий Espresso |
 | Multi-level synthesis | 2 | ABC | лише AIG-метрики + subcircuit rewrite; DAG-rewriting попереду |
 | SAT capability | 4 | Z3 / CaDiCaL | сучасний CDCL (heap-VSIDS/LBD/Luby/incremental/core/DRAT), без пікової перф |
-| BDD capability | 4 | CUDD / dd | quantification+sifting+counting; бракує complement edges + перф ядра |
+| BDD capability | 4 | CUDD / dd | quantification+sifting+counting+complement edges; бракує масштабу, ADD/ZDD і перф ядра |
 | CNF conversion | 5 | LogicNG / LO | Equivalent + Tseitin + Plaisted–Greenbaum |
 | Cardinality/PB/MaxSAT | 4 | LogicNG / Z3 | усе in-house, але без промислового тюнінгу |
 | CLI та формати | 5 | LogicalOptimizer | 6 форматів + C# + dotnet tool |
-| Зрілість / ecosystem | 2 | Z3 / SymPy / LogicNG | молодий проєкт; adoption ще не підтверджена, NuGet-публікація попереду |
+| Зрілість / ecosystem | 2 | Z3 / SymPy / LogicNG | є tag v2.1, docs/workflows і відтворювані корпуси; adoption та NuGet Gallery не підтверджені |
 
 ---
 
 ## 7. Підсумок і рекомендоване позиціонування
 
-v2.0 якісно змінив позицію: LogicalOptimizer перейшов від «сильного прототипу з бінарним AST» до
+v2.0 якісно змінив позицію, а v2.1 закрив complement-edge gap: LogicalOptimizer перейшов від «сильного прототипу з бінарним AST» до
 **архітектурно зрілого managed-тулкіта**, що закриває сім з восьми відставань версії 24.07, а восьме
-(Espresso) закриває свідомо частково. Жодного рядка матриці, де конкурент `++`, а ми `−`, окрім
-двох принципових поступок (промисловий Espresso/ABC-synthesis і complement-edge BDD-перф) та
-неминучого SMT-розриву з Z3.
+(Espresso) закриває свідомо частково. Complement edges більше не є відставанням. Залишаються
+принципова поступка промисловому Espresso/ABC-synthesis, performance/scale gap BDD і SAT ядер та
+неминучий SMT-розрив із Z3.
 
 Найкраще формулювання:
 
-> **LogicalOptimizer v2.0 — найповніший dependency-free .NET-тулкіт для пояснюваного спрощення,
+> **LogicalOptimizer v2.1 — найповніший dependency-free .NET-тулкіт для пояснюваного спрощення,
 > доведеної малої мінімізації, масштабованого CNF, власного CDCL-SAT (incremental/core/DRAT),
 > ROBDD із квантифікацією та cardinality/PB/MaxSAT — з обов'язковою верифікацією кожного результату.**
 
@@ -374,17 +412,23 @@ managed-дистрибутиві без native-залежностей + пояс
   `AstFormatter.cs`; `LogicalOptimizer/EquivalenceChecker.cs`, `FormulaAnalysis.cs`,
   `BooleanExpressionExporter.cs`, `Transformations.cs`, `OptimizationOptions.cs`.
 - [CHANGELOG.md](CHANGELOG.md), [MIGRATION-v2.md](MIGRATION-v2.md), [V2_PLAN.md](V2_PLAN.md),
-  [LEADERSHIP_ROADMAP.md](LEADERSHIP_ROADMAP.md), [README.md](README.md),
-  [doc/TESTING.md](doc/TESTING.md), [doc/BENCHMARKS.md](doc/BENCHMARKS.md).
+  [POST_V2_ROADMAP.md](POST_V2_ROADMAP.md), [LEADERSHIP_ROADMAP.md](LEADERSHIP_ROADMAP.md),
+  [README.md](README.md), [doc/TESTING.md](doc/TESTING.md), [doc/BENCHMARKS.md](doc/BENCHMARKS.md),
+  `LogicalOptimizer.Benchmarks/SatCorpus/`, `LogicalOptimizer.Tests/Engines/Sat/SatCorpusRegressionTests.cs`,
+  `LogicalOptimizer.Benchmarks/ComparisonHarness.cs`, `tools/compare_sympy_pyeda.py`,
+  `tools/comparison_corpus.txt`, `docs-site/`.
 
 ### Зовнішні (за публічною документацією конкурентів, не заміряно локально)
 
-- [LogicNG](https://logicng.org/) — formula factory, SAT, CNF transformations, cardinality.
+- [LogicNG](https://logicng.org/) і [SAT documentation](https://logicng.org/documentation/solvers/sat-solving/)
+  — formula factory, SAT portfolio, incremental solving, proof generation, CNF transformations.
 - [Microsoft Z3](https://github.com/Z3Prover/z3) — SMT solver і .NET binding.
 - [CaDiCaL](https://github.com/arminbiere/cadical), [Kissat](https://github.com/arminbiere/kissat),
   [PySAT](https://github.com/pysathq/pysat).
 - [Berkeley Espresso](https://people.eecs.berkeley.edu/~alanmi/research/espresso/espresso_5.html),
   [Berkeley ABC](https://github.com/berkeley-abc/abc).
 - [CUDD](https://github.com/SSoelvsten/cudd), [dd](https://github.com/tulip-control/dd).
-- [SymPy Logic](https://docs.sympy.org/latest/modules/logic.html),
-  [PyEDA](https://pyeda.readthedocs.io/en/latest/).
+- [SymPy Logic](https://docs.sympy.org/latest/modules/logic.html) — `simplify_logic`, SOP/POS,
+  `dontcare`, eight-variable default guard;
+  [PyEDA](https://pyeda.readthedocs.io/en/latest/) і
+  [PyEDA release notes](https://pyeda.readthedocs.io/en/latest/relnotes.html) — Espresso C extension.

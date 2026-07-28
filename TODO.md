@@ -1,7 +1,7 @@
 # TODO: наступний цикл розвитку LogicalOptimizer
 
 > **v2.0 реалізовано (27.07.2026):** план — [V2_PLAN.md](V2_PLAN.md); міграція — [MIGRATION-v2.md](MIGRATION-v2.md).
-> **Після v2.0:** оновлене порівняння з аналогами — [VALIDATED_LIBRARY_COMPARISON_2026-07-27.md](VALIDATED_LIBRARY_COMPARISON_2026-07-27.md);
+> **Після v2.0:** оновлене порівняння з аналогами — [VALIDATED_LIBRARY_COMPARISON_2026-07-28.md](VALIDATED_LIBRARY_COMPARISON_2026-07-28.md);
 > план подальших дій на його базі — [POST_V2_ROADMAP.md](POST_V2_ROADMAP.md)
 > (Фаза A: реліз+DocFX · Фаза B: SATLIB+бенчмарки · Фаза C: BDD complement edges · Фаза D: реактивні).
 

@@ -1,6 +1,6 @@
 # План подальших дій (після v2.0)
 
-> **База:** [VALIDATED_LIBRARY_COMPARISON_2026-07-27.md](VALIDATED_LIBRARY_COMPARISON_2026-07-27.md)
+> **База:** [VALIDATED_LIBRARY_COMPARISON_2026-07-28.md](VALIDATED_LIBRARY_COMPARISON_2026-07-28.md)
 > (оновлене порівняння з аналогами, v2-архітектура) + залишкові треки
 > [V2_PLAN.md](V2_PLAN.md) (Трек B/C/D) і [LEADERSHIP_ROADMAP.md](LEADERSHIP_ROADMAP.md).
 >
@@ -109,4 +109,4 @@
 **Умовно:** D1 (AIG rewriting) — лише за появи EDA-сценарію; D2/D3 — реактивно.
 
 Матриця важелів (competitor × позиція × розрив × дія) — у
-[VALIDATED_LIBRARY_COMPARISON_2026-07-27.md](VALIDATED_LIBRARY_COMPARISON_2026-07-27.md).
+[VALIDATED_LIBRARY_COMPARISON_2026-07-28.md](VALIDATED_LIBRARY_COMPARISON_2026-07-28.md).
