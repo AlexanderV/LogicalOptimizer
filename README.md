@@ -36,8 +36,9 @@ LogicalOptimizer is a lightweight, dependency-free .NET library and CLI for pars
 - ✅ **Cardinality / Pseudo-Boolean / MaxSAT**: sequential-counter AtMost/AtLeast/ExactlyK, weighted PB constraints, weighted partial MaxSAT — all in-house
 - ✅ **Tseitin & Plaisted–Greenbaum CNF**: linear-size equisatisfiable CNF for any expression (`--cnf-mode=tseitin`, `ToEquisatisfiableCnf`); the polarity-based Plaisted–Greenbaum style (`CnfEncodingStyle.PlaistedGreenbaum`) cuts clause count up to ~2x
 - ✅ **ROBDD Engine**: canonical binary decision diagrams with hash-consing, model counting, lazy assignment enumeration, existential/universal quantification, restriction, functional composition, variable-order optimization (`BuildWithBestOrder` heuristics + `BuildWithSiftedOrder` sifting), node budget
+- ✅ **d-DNNF Knowledge Compilation**: `LogicalOptimizer.Dnnf` compiles a formula to a deterministic, decomposable NNF circuit (top-down decision-DNNF with component caching), giving exact `#SAT` model counting (`CountModels`, `BigInteger`), weighted model counting (`WeightedModelCount`) and lazy model enumeration (`EnumerateModels`) — all linear in the compiled circuit; counts verified exactly against the ROBDD oracle
 - ✅ **Formula Factory**: LogicNG-style construction (`FormulaFactory`) — the single entry point for building and parsing formulas (`Parse`, `And`/`Or`/`Not`/`Variable`, `Import`); n-ary And/Or with flattening, canonical operand ordering, duplicate removal, constant/complement folding and structural interning (equal formulas are the same instance — reference equality)
-- ✅ **Modular Packages**: `LogicalOptimizer.Core` / `.Sat` / `.Bdd` / `.Minimization` are independently usable NuGet packages; the `LogicalOptimizer` facade ties them together and the layering is enforced by an architecture test
+- ✅ **Modular Packages**: `LogicalOptimizer.Core` / `.Sat` / `.Bdd` / `.Dnnf` / `.Minimization` are independently usable NuGet packages; the `LogicalOptimizer` facade ties them together and the layering is enforced by an architecture test
 - ✅ **Multi-Output Minimization**: CSV tables with several output columns (`--outputs=Sum,Carry`), shared don't-cares and PLA-style cube sharing across outputs
 - ✅ **Budgets & Cancellation**: `ResourceBudget` + `CancellationToken` on every expensive engine
 - ✅ **Normal Forms**: Conversion to CNF (Conjunctive) and DNF (Disjunctive)
@@ -72,15 +73,17 @@ SOP is required, the `--dnf` path matches them cube for cube.)
 
 ### Installation
 
-As NuGet packages (the facade pulls in all four engine packages; packages are
+As NuGet packages (the facade pulls in the four core engine packages; the standalone
+`LogicalOptimizer.Dnnf` knowledge-compilation package is added separately; packages are
 published by the release workflow on version tags):
 
 ```bash
-dotnet add package LogicalOptimizer          # facade: everything below
+dotnet add package LogicalOptimizer          # facade: everything below (except Dnnf)
 # or pick individual layers:
 dotnet add package LogicalOptimizer.Core     # n-ary AST, FormulaFactory (parse + canonicalize), AstFormatter, truth tables
 dotnet add package LogicalOptimizer.Sat      # CDCL solver, CNF encodings, MaxSAT
 dotnet add package LogicalOptimizer.Bdd      # ROBDD
+dotnet add package LogicalOptimizer.Dnnf     # d-DNNF knowledge compilation, exact/weighted model counting
 dotnet add package LogicalOptimizer.Minimization  # QM, Espresso-lite, multi-output
 
 # CLI as a global dotnet tool
@@ -389,8 +392,9 @@ Built-in optimization quality analyzer provides detailed metrics:
 
 ### Package layering
 
-Six NuGet packages with acyclic, downward-only dependencies (enforced by an
-architecture test):
+Seven NuGet packages with acyclic, downward-only dependencies (enforced by an
+architecture test). The `LogicalOptimizer.Dnnf` knowledge-compilation package sits beside
+`.Bdd` on Core+Sat and is consumed directly (not pulled in by the facade):
 
 ```mermaid
 graph TD
@@ -399,6 +403,7 @@ graph TD
     Min["LogicalOptimizer.Minimization<br/>Quine–McCluskey · SAT prime cover ·<br/>Espresso-lite · multi-output · CSV tables"]
     Sat["LogicalOptimizer.Sat<br/>CDCL solver · Tseitin/Plaisted–Greenbaum ·<br/>cardinality/PB · MaxSAT"]
     Bdd["LogicalOptimizer.Bdd<br/>ROBDD · quantification ·<br/>sifting · model counting"]
+    Dnnf["LogicalOptimizer.Dnnf<br/>d-DNNF compiler · exact #SAT ·<br/>weighted counting · enumeration"]
     Core["LogicalOptimizer.Core<br/>n-ary AST · FormulaFactory<br/><i>(parse + canonicalize)</i> · AstFormatter ·<br/>TruthTable · metrics · budgets"]
 
     CLI --> Facade
@@ -410,6 +415,8 @@ graph TD
     Min --> Core
     Sat --> Core
     Bdd --> Core
+    Dnnf --> Sat
+    Dnnf --> Core
 ```
 
 ### Optimization flow (facade)

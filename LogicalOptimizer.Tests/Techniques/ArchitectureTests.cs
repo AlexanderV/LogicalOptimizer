@@ -14,12 +14,13 @@ namespace LogicalOptimizer.Tests;
 /// </summary>
 public class ArchitectureTests
 {
-    /// <summary>The five library assemblies (facade + Core/Sat/Bdd/Minimization).</summary>
+    /// <summary>The six library assemblies (facade + Core/Sat/Bdd/Dnnf/Minimization).</summary>
     private static readonly System.Reflection.Assembly[] LibraryAssemblies =
     {
         typeof(AstNode).Assembly,
         typeof(SatSolver).Assembly,
         typeof(BinaryDecisionDiagram).Assembly,
+        typeof(DnnfCircuit).Assembly,
         typeof(TruthTableMinimizer).Assembly,
         typeof(BooleanExpressionOptimizer).Assembly
     };
@@ -94,6 +95,7 @@ public class ArchitectureTests
             ["LogicalOptimizer.Core"] = Array.Empty<string>(),
             ["LogicalOptimizer.Sat"] = new[] { "LogicalOptimizer.Core" },
             ["LogicalOptimizer.Bdd"] = new[] { "LogicalOptimizer.Core" },
+            ["LogicalOptimizer.Dnnf"] = new[] { "LogicalOptimizer.Core", "LogicalOptimizer.Sat" },
             ["LogicalOptimizer.Minimization"] = new[] { "LogicalOptimizer.Core", "LogicalOptimizer.Sat" },
             ["LogicalOptimizer"] = new[]
             {
@@ -132,6 +134,8 @@ public class ArchitectureTests
             "CnfBuilder", "CardinalityEncoder", "PseudoBooleanEncoder", "CnfEncodingStyle", "TseitinCnf",
             // Bdd (1)
             "BinaryDecisionDiagram",
+            // Dnnf (2)
+            "DnnfCircuit", "KnowledgeCompilation",
             // Minimization (5)
             "TruthTableMinimizer", "CsvTruthTableParser", "PartialTruthTable",
             "MultiOutputTable", "MultiOutputFunction",
@@ -172,7 +176,8 @@ public class ArchitectureTests
             (typeof(Transformations), "MinimizeDnfHeuristic"),
             (typeof(Transformations), "ToAlgebraicNormalForm"),
             (typeof(BinaryDecisionDiagram), "BuildWithBestOrder"),
-            (typeof(BinaryDecisionDiagram), "BuildWithSiftedOrder")
+            (typeof(BinaryDecisionDiagram), "BuildWithSiftedOrder"),
+            (typeof(KnowledgeCompilation), "CompileToDnnf")
         };
 
         foreach (var (type, methodName) in expensive)

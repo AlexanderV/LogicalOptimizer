@@ -1,7 +1,7 @@
 # Реліз LogicalOptimizer
 
-Публікація 6 NuGet-пакетів (`LogicalOptimizer.Core` / `.Sat` / `.Bdd` / `.Minimization` /
-`LogicalOptimizer` / `LogicalOptimizer.Cli`) автоматизована: push тега `v*` запускає
+Публікація 7 NuGet-пакетів (`LogicalOptimizer.Core` / `.Sat` / `.Bdd` / `.Dnnf` /
+`.Minimization` / `LogicalOptimizer` / `LogicalOptimizer.Cli`) автоматизована: push тега `v*` запускає
 [`.github/workflows/release.yml`](.github/workflows/release.yml), який білдить, тестує, пакує й
 пушить на nuget.org.
 
@@ -27,7 +27,7 @@
      `NUGET_API_KEY` більше не потрібно.**
 3. **GitHub Pages** (для DocFX-сайту) — Settings → **Pages** → Build and deployment →
    **Source = GitHub Actions**.
-4. **Доступність package ID** — перевір `https://www.nuget.org/packages/<ID>` для кожного з 6.
+4. **Доступність package ID** — перевір `https://www.nuget.org/packages/<ID>` для кожного з 7.
    Особливо голий `LogicalOptimizer`: якщо зайнятий кимось іншим — перейменуй `PackageId` у всіх
    csproj. Вільний ID (404) реєструється на твій акаунт при першому push.
 
@@ -80,7 +80,7 @@ logical-optimizer "a & b | a & c"
   потрібен окремий реліз-міграція **без** complement edges, тегни `v2.0.0` на коміті `9090092`
   (останній перед C1), а `v2.1.0` — на `HEAD`. Якщо це не потрібно — просто випусти все одним
   тегом `v2.1.0` (перший опублікований реліз міститиме і міграцію, і complement edges).
-- Перед новим мінорним/мажорним тегом: онови `<Version>` у 6 csproj і додай запис у
+- Перед новим мінорним/мажорним тегом: онови `<Version>` у 7 csproj і додай запис у
   [CHANGELOG.md](CHANGELOG.md).
 
 ## Після релізу

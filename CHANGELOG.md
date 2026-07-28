@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **d-DNNF knowledge compilation (new `LogicalOptimizer.Dnnf` package).** A top-down
+  decision-DNNF compiler with unit propagation, connected-component decomposition and
+  component caching turns a formula into a compact, hash-consed d-DNNF circuit.
+  `KnowledgeCompilation.CompileToDnnf(AstNode, nodeBudget, CancellationToken)` produces a
+  `DnnfCircuit` that answers exact `#SAT` model counting (`CountModels`, `BigInteger`),
+  weighted model counting (`WeightedModelCount`) and lazy model enumeration
+  (`EnumerateModels`) in time linear in the circuit size. Compilation goes through the
+  equisatisfiable Tseitin CNF, which is equi-count over the input variables, so the model
+  count matches the original formula with no projection needed; counts are verified exactly
+  against the ROBDD oracle. The package depends only on Core and Sat (zero new runtime
+  dependencies) and is published as the seventh NuGet package.
+
 ## [2.2.0] - 2026-07-28
 
 ### Added

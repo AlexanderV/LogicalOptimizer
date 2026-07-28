@@ -6,6 +6,8 @@
   href: budgets-and-zones.md
 - name: Packages & Architecture
   href: packages-and-architecture.md
+- name: Knowledge Compilation & Model Counting
+  href: knowledge-compilation.md
 - name: CLI Usage
   href: cli-usage.md
 - name: Migration to v2.0

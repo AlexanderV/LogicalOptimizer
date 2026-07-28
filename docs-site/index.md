@@ -15,7 +15,7 @@ LogicalOptimizer is the most complete managed .NET Boolean-optimization toolkit:
 ## Get started
 
 ```bash
-# Library (facade pulls in all four engine packages)
+# Library (facade pulls in the four core engine packages; add .Dnnf separately)
 dotnet add package LogicalOptimizer
 
 # CLI as a global dotnet tool -> command: logical-optimizer
@@ -38,7 +38,7 @@ logical-optimizer "a & b | a & c"
 | [CLI usage](articles/cli-usage.md) | Flags and verified example outputs |
 | [Migration to v2.0](articles/migration-v2.md) | Breaking changes and how to adapt |
 | [Testing overview](articles/testing-overview.md) | The ten-technique testing strategy |
-| [API Reference](api/index.md) | Generated from the XML doc comments of the five library packages |
+| [API Reference](api/index.md) | Generated from the XML doc comments of the six library packages |
 
 ## Where it fits
 

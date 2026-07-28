@@ -151,7 +151,12 @@ Independent engines cross-check each other: Quine–McCluskey vs brute force, tr
 table vs ROBDD vs SAT miter (on equivalent AND single-minterm-perturbed pairs), BDD
 model counting vs brute force vs SAT enumeration, SAT backbone vs brute-force
 backbone, SAT cover minimizer vs QM (a SAT cover beating a *proven* minimum would
-disprove the proof). The external corpus pits our proven-minimal DNF against SymPy's
+disprove the proof). The d-DNNF knowledge compiler
+(`Engines/Dnnf/KnowledgeCompilationTests.cs`) is gated the same way: its exact `#SAT`
+count must equal the ROBDD's `CountSatisfyingAssignments` on a large random + structured
+corpus (both exact oracles), match brute-force truth-table counting on small formulas, and
+its model enumeration must agree with `FormulaAnalysis.EnumerateModels`. The external
+corpus pits our proven-minimal DNF against SymPy's
 Quine–McCluskey (`simplify_logic`): equivalence required, and SymPy must never find a
 smaller cover. Runs where `python`+`sympy` exist (CI installs it; skips silently otherwise).
 

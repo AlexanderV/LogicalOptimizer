@@ -36,6 +36,7 @@
     <ProjectReference Include="..\LogicalOptimizer.Core\LogicalOptimizer.Core.csproj" />
     <ProjectReference Include="..\LogicalOptimizer.Sat\LogicalOptimizer.Sat.csproj" />
     <ProjectReference Include="..\LogicalOptimizer.Bdd\LogicalOptimizer.Bdd.csproj" />
+    <ProjectReference Include="..\LogicalOptimizer.Dnnf\LogicalOptimizer.Dnnf.csproj" />
     <ProjectReference Include="..\LogicalOptimizer.Minimization\LogicalOptimizer.Minimization.csproj" />
     <ProjectReference Include="..\LogicalOptimizer.Cli\LogicalOptimizer.Cli.csproj" />
   </ItemGroup>

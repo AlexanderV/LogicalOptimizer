@@ -20,13 +20,14 @@ public class ApiSurfaceTests
 
     private static string GeneratePublicApi()
     {
-        // The toolkit ships as five assemblies (facade + Core/Sat/Bdd/Minimization);
+        // The toolkit ships as six assemblies (facade + Core/Sat/Bdd/Dnnf/Minimization);
         // the SemVer contract covers the union of their public surfaces
         var assemblies = new[]
         {
             typeof(AstNode).Assembly, // LogicalOptimizer.Core
             typeof(SatSolver).Assembly, // LogicalOptimizer.Sat
             typeof(BinaryDecisionDiagram).Assembly, // LogicalOptimizer.Bdd
+            typeof(DnnfCircuit).Assembly, // LogicalOptimizer.Dnnf
             typeof(TruthTableMinimizer).Assembly, // LogicalOptimizer.Minimization
             typeof(BooleanExpressionOptimizer).Assembly // facade
         };

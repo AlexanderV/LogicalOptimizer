@@ -352,6 +352,27 @@ namespace LogicalOptimizer
     }
 }
 
+// ===== LogicalOptimizer.Dnnf =====
+namespace LogicalOptimizer
+{
+    public sealed class DnnfCircuit
+    {
+        public bool IsSatisfiable { get; }
+        public int NodeCount { get; }
+        public System.Collections.Generic.IReadOnlyList<string> Variables { get; }
+        public System.Numerics.BigInteger CountModels() { }
+        public System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyDictionary<string, bool>> EnumerateModels(System.Threading.CancellationToken cancellationToken = default) { }
+        public double WeightedModelCount([System.Runtime.CompilerServices.TupleElementNames(new string[] {
+                "positive",
+                "negative"})] System.Collections.Generic.IReadOnlyDictionary<string, System.ValueTuple<double, double>> weights) { }
+    }
+    public static class KnowledgeCompilation
+    {
+        public const int DefaultNodeBudget = 1000000;
+        public static LogicalOptimizer.DnnfCircuit CompileToDnnf(LogicalOptimizer.AstNode formula, int nodeBudget = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+}
+
 // ===== LogicalOptimizer.Minimization =====
 namespace LogicalOptimizer
 {

@@ -2,7 +2,7 @@
 
 ## The package split
 
-LogicalOptimizer ships as **six** NuGet packages — five independently usable libraries
+LogicalOptimizer ships as **seven** NuGet packages — six independently usable libraries
 plus the CLI tool. Dependencies are **acyclic and downward-only**, and the layering is
 enforced by an architecture test.
 
@@ -11,9 +11,13 @@ enforced by an architecture test.
 | **LogicalOptimizer.Core** | n-ary AST, `FormulaFactory` (parse + canonicalize), `AstFormatter`, `TruthTable`, metrics, `ResourceBudget`, `PerformanceValidator`. Depends on nothing. |
 | **LogicalOptimizer.Sat** | CDCL solver, Tseitin / Plaisted–Greenbaum CNF, cardinality / pseudo-Boolean, MaxSAT. Depends on Core. |
 | **LogicalOptimizer.Bdd** | ROBDD with hash-consing, model counting, quantification, sifting. Depends on Core. |
+| **LogicalOptimizer.Dnnf** | Top-down d-DNNF knowledge compiler: exact `#SAT` model counting, weighted model counting, model enumeration. Depends on Sat + Core. See [Knowledge Compilation & Model Counting](knowledge-compilation.md). |
 | **LogicalOptimizer.Minimization** | Quine–McCluskey, SAT prime cover, Espresso-lite, multi-output CSV. Depends on Sat + Core. |
-| **LogicalOptimizer** (facade) | `BooleanExpressionOptimizer`, the rewrite pipeline, `EquivalenceChecker`, `FormulaAnalysis`, exporters. Depends on all four. |
+| **LogicalOptimizer** (facade) | `BooleanExpressionOptimizer`, the rewrite pipeline, `EquivalenceChecker`, `FormulaAnalysis`, exporters. Depends on Core/Sat/Bdd/Minimization. |
 | **LogicalOptimizer.Cli** | The `logical-optimizer` global tool. Depends on the facade. |
+
+`LogicalOptimizer.Dnnf` is standalone: it is consumed directly rather than pulled in by
+the facade.
 
 ```mermaid
 graph TD
@@ -22,6 +26,7 @@ graph TD
     Min["LogicalOptimizer.Minimization"]
     Sat["LogicalOptimizer.Sat"]
     Bdd["LogicalOptimizer.Bdd"]
+    Dnnf["LogicalOptimizer.Dnnf"]
     Core["LogicalOptimizer.Core"]
 
     CLI --> Facade
@@ -33,6 +38,8 @@ graph TD
     Min --> Core
     Sat --> Core
     Bdd --> Core
+    Dnnf --> Sat
+    Dnnf --> Core
 ```
 
 Take just the layer you need: `LogicalOptimizer.Sat` for a dependency-free CDCL solver,

@@ -7,13 +7,13 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <LangVersion>12</LangVersion>
 
-    <PackageId>LogicalOptimizer.Sat</PackageId>
+    <PackageId>LogicalOptimizer.Dnnf</PackageId>
     <Version>2.2.0</Version>
     <Authors>Oleksandr Panasenko</Authors>
-    <Description>SAT layer of the LogicalOptimizer toolkit: dependency-free CDCL solver (incremental, assumptions, unsat cores, DRAT proofs), Tseitin and Plaisted-Greenbaum CNF encodings, cardinality/pseudo-Boolean constraints and weighted MaxSAT.</Description>
+    <Description>Knowledge-compilation layer of the LogicalOptimizer toolkit: a top-down decision-DNNF (deterministic, decomposable NNF) compiler with component caching, giving exact #SAT model counting (BigInteger), weighted model counting and model enumeration.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>sat-solver;cdcl;tseitin;drat;maxsat;cardinality;pseudo-boolean</PackageTags>
+    <PackageTags>dnnf;d-dnnf;knowledge-compilation;model-counting;sharp-sat;weighted-model-counting</PackageTags>
     <PackageProjectUrl>https://AlexanderV.github.io/LogicalOptimizer/</PackageProjectUrl>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591;CS1570</NoWarn>
@@ -22,17 +22,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="LogicalOptimizer" />
-    <InternalsVisibleTo Include="LogicalOptimizer.Minimization" />
-    <InternalsVisibleTo Include="LogicalOptimizer.Dnnf" />
     <InternalsVisibleTo Include="LogicalOptimizer.Tests" />
-    <InternalsVisibleTo Include="LogicalOptimizer.Cli" />
     <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
     <ProjectReference Include="..\LogicalOptimizer.Core\LogicalOptimizer.Core.csproj" />
+    <ProjectReference Include="..\LogicalOptimizer.Sat\LogicalOptimizer.Sat.csproj" />
   </ItemGroup>
 
 </Project>
