@@ -190,8 +190,8 @@ the rewrite pipeline stays internal; every rewrite rule (`IRewriteRule`) lives i
 `LogicalOptimizer.Rewrite` namespace; AST nodes are sealed/abstract and **fully immutable**
 (no exceptions — the v1 `ForceParentheses` display-hint setter was removed in v2, rendering
 now flows through the precedence-based `AstFormatter`); expensive public entry points take a
-`CancellationToken`; the public API surface is pinned to an explicit reviewed list of 53 types
-across the five assemblies (Core 20 · Sat 10 · Bdd 1 · Minimization 5 · facade 17) — any new
+`CancellationToken`; the public API surface is pinned to an explicit reviewed list of 58 types
+across the six assemblies (Core 23 · Sat 10 · Bdd 1 · Dnnf 2 · Minimization 5 · facade 17) — any new
 public type fails the build until consciously added, and any removal (the v2 narrowing:
 `Lexer`/`Parser`/`Token`/`AndInverterGraph` and the SAT/BDD low-level internals) is a
 deliberate major-version decision.

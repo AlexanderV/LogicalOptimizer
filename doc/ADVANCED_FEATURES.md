@@ -156,7 +156,7 @@ string mathNotation = BooleanExpressionExporter.ToMathematicalNotation("a & (b |
 ## 📊 Achieved Results
 
 ### ✅ Full specification compliance (100%)
-- All requirements implemented and tested (290/290 tests)
+- All requirements implemented and tested (1000+ CI tests, all passing)
 - Console interface fully complies with specification
 - All constraints correctly applied
 
@@ -174,7 +174,7 @@ string mathNotation = BooleanExpressionExporter.ToMathematicalNotation("a & (b |
 - All performance constraints met
 
 ### 🔬 Code quality
-- **290 automated tests** cover all functions
+- **1000+ automated CI tests** cover the public API across ten techniques
 - **Comprehensive documentation** for all components
 - **Modular architecture** for easy extension
 - **Error handling** at all levels

@@ -2,7 +2,7 @@
 
 v2.0.0 is a deliberate **breaking** release. The AST core became n-ary and canonical, the
 ten `IOptimizer` classes were replaced by a single internal rewrite engine, and the public
-API surface was narrowed to a reviewed 53-type set. The facade **behavior** contract
+API surface was narrowed to a reviewed, member-by-member-pinned type set. The facade **behavior** contract
 (`BooleanExpressionOptimizer.OptimizeExpression`, zone routing, statuses, budgets,
 verification guarantees) is **unchanged** — only construction and the type surface changed.
 
@@ -13,8 +13,10 @@ verification guarantees) is **unchanged** — only construction and the type sur
 ## The essential change: build through `FormulaFactory`
 
 In v1 you built trees by hand (`new AndNode(a, b)`) and used `.Left` / `.Right`. In v2 the
-constructors are gone from the public surface — use `FormulaFactory`, which canonicalizes
-at construction time (flatten, sort, dedup, constant/complement folding, interning).
+canonical path is `FormulaFactory`, which canonicalizes at construction time (flatten, sort,
+dedup, constant/complement folding, interning). The low-level `AndNode`/`OrNode` constructors
+remain public for raw AST, but they skip canonicalization — go through `FormulaFactory`
+whenever you rely on canonical form.
 
 ```csharp
 // v1
@@ -33,7 +35,7 @@ Console.WriteLine(ReferenceEquals(tree, tree2)); // True (interning)
 
 | v1 | v2 |
 |---|---|
-| `new AndNode(a, b)` / `new OrNode(a, b)` by hand | `FormulaFactory` — `f.And(...)`, `f.Or(...)`, `f.Not(...)`, `f.Variable(...)`, `f.Parse(...)`, `f.Import(...)` |
+| `new AndNode(a, b)` / `new OrNode(a, b)` for a *canonical* tree | `FormulaFactory` — `f.And(...)`, `f.Or(...)`, `f.Not(...)`, `f.Variable(...)`, `f.Parse(...)`, `f.Import(...)` (the raw constructors stay public but are non-canonical) |
 | `.Left` / `.Right` on And/Or | `Operands` (`IReadOnlyList<AstNode>` on `NaryNode`); derived binary ops keep `Left`/`Right` |
 | `ForceParentheses` display hint | Removed — rendering is purely precedence-based via `AstFormatter.Format(node)`; nodes are fully immutable |
 | `new Parser(new Lexer(text).Tokenize()).Parse()` | `Parser`/`Lexer`/`Token`/`TokenType` are `internal` — use `f.Parse(text)` |

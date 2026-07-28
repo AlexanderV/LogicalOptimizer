@@ -50,13 +50,18 @@ the input before it is returned:
 - **≤ 12 variables** — by exhaustive truth table.
 - **> 12 variables** — by the built-in CDCL SAT solver (an XOR-miter proof).
 
-If verification ever refutes a result (which would be an optimizer bug), the facade
-**rolls back to the input** and records a `SoundnessRollback` metric rather than emit a
-wrong answer. You can also check it yourself:
+A rewrite is accepted only when equivalence is **positively proven**. If verification cannot
+prove it — either it refutes the result with a counterexample (which would be an optimizer
+bug) or, beyond the truth-table range, the SAT proof exhausts its budget (an `Unknown`
+verdict) — the facade **rolls back to the input** and records a `SoundnessRollback` metric
+rather than ship an unverified answer. You can also check it yourself, as a bool or
+three-valued:
 
 ```csharp
 var result = new BooleanExpressionOptimizer().OptimizeExpression("a & b | a & c");
-Console.WriteLine(result.IsEquivalent());  // True
+Console.WriteLine(result.IsEquivalent());                    // True
+// CheckEquivalence keeps the full verdict that IsEquivalent collapses into false:
+Console.WriteLine(result.CheckEquivalence().AreEquivalent);  // true / false / null (Unknown)
 ```
 
 For UNSAT verdicts (including equivalence proofs via `EquivalenceChecker.CheckWithProof`)
@@ -95,5 +100,8 @@ So a caller can trust "provably minimal POS" only when `CnfMinimizationStatus` i
 ## Budgets never produce wrong answers
 
 Exhausting any [`ResourceBudget`](budgets-and-zones.md) limit never yields an incorrect
-result. Each engine either falls back (heuristic simplification, an `Unknown` verdict) or
-throws a documented exception, and the minimality status reflects the outcome.
+result. Each engine either falls back (heuristic simplification, a rollback to the input, or
+an `Unknown` verdict from a standalone equivalence check) or throws a **dedicated** budget/size
+exception — `ComputationBudgetExceededException`, `NodeBudgetExceededException` or
+`NormalFormTooLargeException` (all derive from `InvalidOperationException`) — and the
+minimality status reflects the outcome.

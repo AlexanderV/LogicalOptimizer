@@ -286,7 +286,7 @@ The v1 `ForceParentheses` node flag has been removed entirely. Because And/Or tr
 - **Scalability**: linear performance degradation as complexity increases
 
 ### 3.2 Reliability
-- **Infinite loop protection**: maximum 50 optimization iterations
+- **Infinite loop protection**: maximum 20 optimization iterations
 - **Error handling**: informative parsing error messages
 - **Input validation**: syntax checking before processing
 
@@ -486,8 +486,14 @@ Error: Unexpected character '@' at position 5 in expression "a & @ b"
 ```csharp
 public class BooleanExpressionOptimizer
 {
-    public OptimizationResult OptimizeExpression(string expression, 
-        bool enableExtendedOptimizations = true, bool enableMetrics = false);
+    // Backward-compatible overload: computes every artifact.
+    public OptimizationResult OptimizeExpression(string expression,
+        bool includeMetrics = false, bool includeDebugInfo = false);
+
+    // Options-based overload: selects which artifacts to produce, budgets, cancellation.
+    public OptimizationResult OptimizeExpression(string expression, OptimizationOptions options);
+
+    public TseitinCnf ToEquisatisfiableCnf(string expression);
 }
 ```
 
@@ -512,13 +518,26 @@ public class OptimizationResult
     public string Optimized { get; set; }
     public string CNF { get; set; }
     public string DNF { get; set; }
+    public ComputationStatus CnfStatus { get; set; }
+    public ComputationStatus DnfStatus { get; set; }
+    public MinimizationStatus MinimizationStatus { get; set; }      // SOP/Optimized/DNF provenance
+    public MinimizationStatus CnfMinimizationStatus { get; set; }   // equivalent-CNF (POS) provenance
+    public string Advanced { get; set; }
+    public string DebugInfo { get; set; }
     public List<string> Variables { get; set; }
-    public List<string> AppliedRules { get; set; }
-    public int OptimizationSteps { get; set; }
-    public TimeSpan ExecutionTime { get; set; }
-    public bool IsOptimal { get; set; }
+    public OptimizationMetrics? Metrics { get; set; }               // node counts, iterations, applied rules,
+                                                                    // elapsed time, convergence trace, allocated bytes
+    public TruthTable? OriginalTruthTable { get; set; }
+    public TruthTable? OptimizedTruthTable { get; set; }
+
+    public bool IsEquivalent();                    // scalable: truth table <=12 vars, SAT miter beyond
+    public EquivalenceCheckResult CheckEquivalence();  // three-valued: proven / counterexample / Unknown
 }
 ```
+
+Note: `IsOptimal` is **not** a result field — it lives on
+`OptimizationQualityAnalyzer.QualityMetrics` and is a proven property (true only when
+`MinimizationStatus == MinimalProven`), separate from the heuristic `OptimalityScore`.
 
 ## 7. Limitations and Assumptions
 
@@ -526,7 +545,7 @@ public class OptimizationResult
 - Maximum input expression length: 10,000 characters
 - Maximum number of variables: 100 (theoretical, tested up to 50)
 - Maximum parentheses nesting depth: 50
-- Maximum processing time: 30 seconds
+- Maximum processing time: 10 seconds (a cooperative deadline over all phases, surfaced as `TimeoutException`)
 - Extended operators (XOR) may increase complexity
 
 ### 7.2 Assumptions  
@@ -560,7 +579,7 @@ public class OptimizationResult
 - [x] All optimization algorithms work according to specification
 - [x] CNF and DNF forms are generated correctly
 - [x] Context-dependent parentheses are displayed correctly
-- [x] All tests pass successfully (290+ tests, 100% pass rate)
+- [x] All tests pass successfully (1000+ CI tests, 100% pass rate)
 - [x] Extended operators (XOR, IMP) implemented and tested with AST-based pattern detection
 - [x] Export formats (DIMACS, BLIF, Verilog, CSV) working correctly
 
@@ -573,7 +592,7 @@ public class OptimizationResult
 - [x] Complete English internationalization achieved
 
 ### 8.3 Code Quality Criteria
-- [x] Test coverage excellent (290+ comprehensive tests)
+- [x] Test coverage excellent (1000+ comprehensive tests)
 - [x] No critical compilation errors (all tests pass)
 - [x] Compliance with .NET coding standards
 - [x] Minimal code duplication through inheritance and modular design

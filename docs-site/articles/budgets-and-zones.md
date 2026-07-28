@@ -68,7 +68,10 @@ var result = new BooleanExpressionOptimizer().OptimizeExpression("…", options)
 
 > [!IMPORTANT]
 > Exhausting a budget **never** produces a wrong result. Each engine falls back
-> (heuristic simplification, an `Unknown` verdict) or throws a documented exception, and
-> the [`MinimizationStatus`](contracts-and-statuses.md) reflects what happened.
+> (heuristic simplification, a rollback to the input, or an `Unknown` verdict from a
+> standalone equivalence check) or throws a dedicated budget/size exception
+> (`ComputationBudgetExceededException`, `NodeBudgetExceededException`,
+> `NormalFormTooLargeException`), and the [`MinimizationStatus`](contracts-and-statuses.md)
+> reflects what happened.
 
 `ResourceBudget.Default` exposes the shared default instance.

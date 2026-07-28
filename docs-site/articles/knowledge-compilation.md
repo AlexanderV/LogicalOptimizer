@@ -33,8 +33,9 @@ foreach (IReadOnlyDictionary<string, bool> model in circuit.EnumerateModels())
 ```
 
 `CompileToDnnf(AstNode formula, int nodeBudget = 1_000_000, CancellationToken ct = default)`
-caps the DAG size with `nodeBudget` (an `InvalidOperationException` is thrown when it is
-exceeded) and honors the cancellation token. Both are heuristic safety limits: knowledge
+caps the DAG size with `nodeBudget` (a `NodeBudgetExceededException` — a public
+`InvalidOperationException` subtype — is thrown when it is exceeded) and honors the
+cancellation token. Both are heuristic safety limits: knowledge
 compilation can blow up on hard CNF, so treat them as guardrails, not guarantees of
 tractability.
 

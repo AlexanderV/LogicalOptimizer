@@ -32,6 +32,10 @@ Console.WriteLine(provenMinimal);   // True
 Console.WriteLine(expression);      // a & b | a & c | b & c
 ```
 
+`MinimalPosWithStatus` is the product-of-sums analog — a minimal POS with the same
+proven/budget flag — so the equivalent-CNF path can report its minimality independently
+(surfaced on the facade as `OptimizationResult.CnfMinimizationStatus`).
+
 See [Operation contracts & statuses](contracts-and-statuses.md) for what "provably
 minimal" means and its variable-count zone.
 

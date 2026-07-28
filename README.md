@@ -37,17 +37,17 @@ LogicalOptimizer is a lightweight, dependency-free .NET library and CLI for pars
 - ✅ **Tseitin & Plaisted–Greenbaum CNF**: linear-size equisatisfiable CNF for any expression (`--cnf-mode=tseitin`, `ToEquisatisfiableCnf`); the polarity-based Plaisted–Greenbaum style (`CnfEncodingStyle.PlaistedGreenbaum`) cuts clause count up to ~2x
 - ✅ **ROBDD Engine**: canonical binary decision diagrams with hash-consing, model counting, lazy assignment enumeration, existential/universal quantification, restriction, functional composition, variable-order optimization (`BuildWithBestOrder` heuristics + `BuildWithSiftedOrder` sifting), node budget
 - ✅ **d-DNNF Knowledge Compilation**: `LogicalOptimizer.Dnnf` compiles a formula to a deterministic, decomposable NNF circuit (top-down decision-DNNF with component caching), giving exact `#SAT` model counting (`CountModels`, `BigInteger`), weighted model counting (`WeightedModelCount`) and lazy model enumeration (`EnumerateModels`) — all linear in the compiled circuit; counts verified exactly against the ROBDD oracle
-- ✅ **Formula Factory**: LogicNG-style construction (`FormulaFactory`) — the single entry point for building and parsing formulas (`Parse`, `And`/`Or`/`Not`/`Variable`, `Import`); n-ary And/Or with flattening, canonical operand ordering, duplicate removal, constant/complement folding and structural interning (equal formulas are the same instance — reference equality)
+- ✅ **Formula Factory**: LogicNG-style construction (`FormulaFactory`) — the single **canonical** construction path for building and parsing formulas (`Parse`, `And`/`Or`/`Not`/`Variable`, `Import`); n-ary And/Or with flattening, canonical operand ordering, duplicate removal, constant/complement folding and structural interning (equal formulas are the same instance — reference equality). The public low-level `AndNode`/`OrNode` constructors remain available for raw, non-canonical AST
 - ✅ **Modular Packages**: `LogicalOptimizer.Core` / `.Sat` / `.Bdd` / `.Dnnf` / `.Minimization` are independently usable NuGet packages; the `LogicalOptimizer` facade ties them together and the layering is enforced by an architecture test
 - ✅ **Multi-Output Minimization**: CSV tables with several output columns (`--outputs=Sum,Carry`), shared don't-cares and PLA-style cube sharing across outputs
 - ✅ **Budgets & Cancellation**: `ResourceBudget` + `CancellationToken` on every expensive engine
 - ✅ **Normal Forms**: Conversion to CNF (Conjunctive) and DNF (Disjunctive)
 - ✅ **Advanced Logic Forms**: Extended operators (XOR, IMP, EQV) generation 
 - ✅ **Precedence-Based Formatting**: single `AstFormatter` renderer — parentheses appear exactly where precedence requires (`a & (b | c)`, `!(a & b)`)
-- ✅ **Truth Table Generation**: Up to 20 variables with equivalence verification
+- ✅ **Truth Table Generation**: up to 20 variables; equivalence checking itself scales beyond that via the SAT miter (`EquivalenceChecker`, and `OptimizationResult.IsEquivalent()` / three-valued `CheckEquivalence()`)
 - ✅ **Multiple Export Formats**: DIMACS, BLIF, Verilog, CSV, Mathematical notation, LaTeX
 - ✅ **Performance Analytics**: Detailed metrics and benchmarking
-- ✅ **Comprehensive Testing**: 888 audited tests (full-suite audit removed ~180 duplicate/tautological tests and strengthened weak oracles) across ten systematic techniques — property-based (CsCheck), metamorphic, algebraic, differential (with SymPy and Z3 as external oracles), fuzzing, characterization golden master, snapshot approval (Verify), architecture rules (ArchUnitNET), pairwise option coverage, and Stryker.NET mutation testing with per-module survivor triage (see [doc/TESTING.md](doc/TESTING.md))
+- ✅ **Comprehensive Testing**: 1035 audited CI tests (repeatedly audited for representativeness, logical correctness, strength and non-duplication) across ten systematic techniques — property-based (CsCheck), metamorphic, algebraic, differential (with SymPy and Z3 as external oracles), fuzzing, characterization golden master, snapshot approval (Verify), architecture rules (ArchUnitNET), pairwise option coverage, and Stryker.NET mutation testing with per-module survivor triage (see [doc/TESTING.md](doc/TESTING.md))
 - ✅ **Error Protection**: Input validation and infinite loop prevention
 
 ## Result quality vs SymPy / PyEDA
@@ -400,7 +400,7 @@ article; the examples are executed and asserted in
 | d-DNNF knowledge compilation | `KnowledgeCompilation`, `DnnfCircuit` | [Knowledge compilation](docs-site/articles/knowledge-compilation.md) |
 | Equivalence & backbones | `FormulaAnalysis`, `EquivalenceChecker`, `Bdd`/`HybridEquivalenceChecker` | [Equivalence & backbones](docs-site/articles/equivalence-and-backbones.md) |
 | Exporters & code generation | `BooleanExpressionExporter`, `CSharpExpressionExporter` | [Exporters](docs-site/articles/exporters.md) |
-| Contracts, statuses & budgets | `MinimizationStatus`, `ComputationStatus`, `ResourceBudget` | [Contracts & statuses](docs-site/articles/contracts-and-statuses.md), [Budgets & zones](docs-site/articles/budgets-and-zones.md) |
+| Contracts, statuses & budgets | `MinimizationStatus`, `CnfMinimizationStatus`, `ComputationStatus`, `ResourceBudget` | [Contracts & statuses](docs-site/articles/contracts-and-statuses.md), [Budgets & zones](docs-site/articles/budgets-and-zones.md) |
 | CLI (all flags incl. `--anf`) | `logical-optimizer` | [CLI usage](docs-site/articles/cli-usage.md) |
 
 - 🔀 **[Migration Guide v1 → v2](MIGRATION-v2.md)** - Breaking changes in 2.0.0 and how to adapt
@@ -567,4 +567,4 @@ Project: [https://github.com/AlexanderV/LogicalOptimizer](https://github.com/Ale
 
 The project follows [Semantic Versioning](https://semver.org/): patch/minor releases are additive-only; any breaking change to the public API requires a major version bump. The API surface is enforced by two tests: `ApiSurfaceTests.PublicApi_MatchesApprovedBaseline` pins the full member-level API in `LogicalOptimizer.Tests/TestData/PublicApi.approved.txt` (regenerate an intended change with `LOGICALOPTIMIZER_REGENERATE_API=1` and review the diff), and `ArchitectureTests.PublicSurface_IsTheDocumentedSet` pins the public type list. A failing baseline is a release decision, not a test to silence.
 
-**v2.0.0** is the first exercised major break under this policy: the n-ary canonical AST core, removal of `ForceParentheses` and the `IOptimizer` layer, and the narrowed 53-type public surface all landed together as one reviewed baseline change. See [MIGRATION-v2.md](MIGRATION-v2.md) for the v1 → v2 upgrade guide and [CHANGELOG.md](CHANGELOG.md) for the full release notes.
+**v2.0.0** is the first exercised major break under this policy: the n-ary canonical AST core, removal of `ForceParentheses` and the `IOptimizer` layer, and the narrowed public surface all landed together as one reviewed baseline change. See [MIGRATION-v2.md](MIGRATION-v2.md) for the v1 → v2 upgrade guide and [CHANGELOG.md](CHANGELOG.md) for the full release notes.
