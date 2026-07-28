@@ -73,13 +73,18 @@ SOP is required, the `--dnf` path matches them cube for cube.)
 
 ### Installation
 
-As NuGet packages (the facade pulls in the four core engine packages; the standalone
-`LogicalOptimizer.Dnnf` knowledge-compilation package is added separately; packages are
-published by the release workflow on version tags):
+As NuGet packages, published by the release workflow on version tags. There are three
+ways to install, depending on how much you want:
 
 ```bash
-dotnet add package LogicalOptimizer          # facade: everything below (except Dnnf)
-# or pick individual layers:
+# 1. Everything, one install: the LogicalOptimizer.Full meta-package. It ships no code,
+#    it just pulls in every managed package (facade + Dnnf, so all engines below).
+dotnet add package LogicalOptimizer.Full
+
+# 2. The facade: the four core engine packages (Core/Sat/Bdd/Minimization) without d-DNNF.
+dotnet add package LogicalOptimizer          # add LogicalOptimizer.Dnnf too if you need d-DNNF
+
+# 3. Individual layers, for a minimal dependency set:
 dotnet add package LogicalOptimizer.Core     # n-ary AST, FormulaFactory (parse + canonicalize), AstFormatter, truth tables
 dotnet add package LogicalOptimizer.Sat      # CDCL solver, CNF encodings, MaxSAT
 dotnet add package LogicalOptimizer.Bdd      # ROBDD

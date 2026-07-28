@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!-- Convenience meta-package: it carries NO code, only aggregates the managed
+         packages so `dotnet add package LogicalOptimizer.Full` brings in the whole
+         toolkit. No assembly ships in the package. -->
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <!-- NU5128: "package has dependencies but no lib/ or ref/ assembly" - that is
+         exactly what a meta-package is, so suppress it (TreatWarningsAsErrors would
+         otherwise turn the expected pack warning into a build failure). -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+
+    <PackageId>LogicalOptimizer.Full</PackageId>
+    <Version>3.0.0</Version>
+    <Authors>Oleksandr Panasenko</Authors>
+    <Description>Convenience meta-package for the LogicalOptimizer toolkit. It contains no code: it depends on the LogicalOptimizer facade and LogicalOptimizer.Dnnf so a single `dotnet add package LogicalOptimizer.Full` pulls in every managed package (optimizer, SAT, BDD, minimization and d-DNNF knowledge compilation). Modular users can keep referencing the individual layer packages instead.</Description>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>meta;bundle;boolean;sat;bdd;dnnf</PackageTags>
+    <PackageProjectUrl>https://AlexanderV.github.io/LogicalOptimizer/</PackageProjectUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- Packable ProjectReferences become NuGet <dependency> entries in the produced
+       package: the facade transitively covers Core/Sat/Bdd/Minimization, and Dnnf is
+       the only managed package the facade does not already pull in. -->
+  <ItemGroup>
+    <ProjectReference Include="..\LogicalOptimizer\LogicalOptimizer.csproj" />
+    <ProjectReference Include="..\LogicalOptimizer.Dnnf\LogicalOptimizer.Dnnf.csproj" />
+  </ItemGroup>
+
+</Project>
