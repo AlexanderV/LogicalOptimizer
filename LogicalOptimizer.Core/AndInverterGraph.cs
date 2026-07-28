@@ -16,6 +16,16 @@ internal sealed class AndInverterGraph
 
     // Node 0 is the constant node; input nodes have Left = Right = -1
     private readonly List<(int Left, int Right)> _nodes = new() { (-1, -1) };
+
+    // Reference (fanout) count per node, kept index-parallel to _nodes. The count of a
+    // node is the number of fanin edges that point at it — one per AND node that uses it
+    // as a child, plus one for the Root primary output. Complement bits on edges do not
+    // matter: reference counts are per-node, so a regular and a complemented edge to the
+    // same node each count once. Constants and inputs carry counts too (an input's count
+    // is how many AND nodes / the Root use it). Because And() folds away constant and
+    // complementary operands, no created AND node ever has the constant node as a fanin,
+    // so _refCount[0] only moves when the Root itself is a constant.
+    private readonly List<int> _refCount = new() { 0 };
     private readonly Dictionary<(int, int), int> _uniqueTable = new();
     private readonly Dictionary<string, int> _inputLiteral = new();
     private readonly List<string> _inputs = new();
@@ -35,6 +45,7 @@ internal sealed class AndInverterGraph
         if (_inputLiteral.TryGetValue(name, out var existing)) return existing;
         var literal = _nodes.Count << 1;
         _nodes.Add((-1, -1));
+        _refCount.Add(0);
         _inputs.Add(name);
         _inputLiteral[name] = literal;
         return literal;
@@ -59,7 +70,11 @@ internal sealed class AndInverterGraph
 
         var literal = _nodes.Count << 1;
         _nodes.Add((key.Item1, key.Item2));
+        _refCount.Add(0);
         _uniqueTable[key] = literal;
+        // The new node contributes one fanin edge to each of its two (distinct) children.
+        _refCount[key.Item1 >> 1]++;
+        _refCount[key.Item2 >> 1]++;
         return literal;
     }
 
@@ -84,6 +99,7 @@ internal sealed class AndInverterGraph
         var graph = new AndInverterGraph();
         foreach (var name in ast.GetVariables().OrderBy(v => v)) graph.CreateInput(name);
         graph.Root = graph.Translate(ast, new Dictionary<AstNode, int>());
+        graph._refCount[graph.Root >> 1]++; // Root counts as a primary-output reference.
         return graph;
     }
 
@@ -196,6 +212,7 @@ internal sealed class AndInverterGraph
         foreach (var name in _inputs) rebuilt.CreateInput(name);
         var map = new Dictionary<int, int>();
         rebuilt.Root = Rebuild(Root, rebuilt, map);
+        rebuilt._refCount[rebuilt.Root >> 1]++; // Root counts as a primary-output reference.
         return rebuilt;
     }
 
@@ -215,5 +232,119 @@ internal sealed class AndInverterGraph
         }
 
         return mapped ^ complemented;
+    }
+
+    // ---------------------------------------------------------------------------------
+    // Reference counting and MFFC — internal bookkeeping for DAG-aware cut rewriting.
+    // See the _refCount field comment for the counting convention.
+    // ---------------------------------------------------------------------------------
+
+    /// <summary>
+    ///     Reference (fanout) count of the node addressed by <paramref name="literal" />.
+    ///     The complement bit is ignored — counts are per node, not per literal.
+    /// </summary>
+    public int RefCount(int literal)
+    {
+        return _refCount[literal >> 1];
+    }
+
+    /// <summary>Copy of every node's reference count, index-parallel to the node array.</summary>
+    public int[] SnapshotRefCounts()
+    {
+        return _refCount.ToArray();
+    }
+
+    /// <summary>Copy of the raw fanin structure (index 0 is the constant, inputs have Left &lt; 0).</summary>
+    public (int Left, int Right)[] SnapshotNodes()
+    {
+        return _nodes.ToArray();
+    }
+
+    /// <summary>
+    ///     Recursively drop the reference counts of everything in the fanin cone of a node,
+    ///     as if the node were removed. Decrements each fanin edge and recurses into any
+    ///     child whose count reaches zero. The node's own count is left untouched (its
+    ///     fanouts live outside the cone). Returns the number of AND nodes freed — the MFFC
+    ///     size. Exact inverse of <see cref="Reference" />. Inputs and the constant are not
+    ///     counted and have no fanins to descend into.
+    /// </summary>
+    public int Dereference(int literal)
+    {
+        var node = literal >> 1;
+        if (node == 0 || _nodes[node].Left < 0) return 0;
+        return DereferenceNode(node, null);
+    }
+
+    /// <summary>
+    ///     Undo a <see cref="Dereference" />: restore the reference counts of the fanin cone,
+    ///     re-referencing exactly the nodes the matching dereference freed. Returns the same
+    ///     count as the paired dereference.
+    /// </summary>
+    public int Reference(int literal)
+    {
+        var node = literal >> 1;
+        if (node == 0 || _nodes[node].Left < 0) return 0;
+        return ReferenceNode(node, null);
+    }
+
+    /// <summary>
+    ///     Number of AND nodes in the maximum fanout-free cone of <paramref name="literal" /> —
+    ///     the nodes that would become dead if this node were removed. Computed by the classic
+    ///     deref/ref pair, which leaves all reference counts exactly as they were.
+    /// </summary>
+    public int MffcSize(int literal)
+    {
+        var node = literal >> 1;
+        if (node == 0 || _nodes[node].Left < 0) return 0;
+        var freed = DereferenceNode(node, null);
+        ReferenceNode(node, null);
+        return freed;
+    }
+
+    /// <summary>
+    ///     Node indices making up the maximum fanout-free cone of <paramref name="literal" />
+    ///     (the node itself plus every descendant used only within the cone). Inputs and the
+    ///     constant are excluded. Reference counts are restored before returning.
+    /// </summary>
+    public int[] ComputeMffc(int literal)
+    {
+        var node = literal >> 1;
+        if (node == 0 || _nodes[node].Left < 0) return Array.Empty<int>();
+        var cone = new List<int>();
+        DereferenceNode(node, cone);
+        ReferenceNode(node, null);
+        return cone.ToArray();
+    }
+
+    private int DereferenceNode(int node, List<int>? cone)
+    {
+        var (left, right) = _nodes[node];
+        cone?.Add(node);
+        return 1 + DereferenceChild(left, cone) + DereferenceChild(right, cone);
+    }
+
+    private int DereferenceChild(int fanin, List<int>? cone)
+    {
+        var child = fanin >> 1;
+        // A child drops out of the cone (and recurses) only when its last fanin edge goes
+        // away; inputs and the constant are never part of an MFFC.
+        if (--_refCount[child] == 0 && _nodes[child].Left >= 0)
+            return DereferenceNode(child, cone);
+        return 0;
+    }
+
+    private int ReferenceNode(int node, List<int>? cone)
+    {
+        var (left, right) = _nodes[node];
+        cone?.Add(node);
+        return 1 + ReferenceChild(left, cone) + ReferenceChild(right, cone);
+    }
+
+    private int ReferenceChild(int fanin, List<int>? cone)
+    {
+        var child = fanin >> 1;
+        if (++_refCount[child] == 1 && _nodes[child].Left >= 0)
+            return ReferenceNode(child, cone);
+        return 0;
     }
 }

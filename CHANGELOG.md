@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Internal AIG rewriting infrastructure (reference counting + MFFC).** The internal
+  `AndInverterGraph` now maintains a per-node reference (fanout) count — the number of
+  fanin edges pointing at each node, one per consuming AND node plus one for the Root
+  primary output — kept in sync as the graph is built. On top of it, recursive
+  `Dereference`/`Reference` primitives (exact inverses) and maximum fanout-free cone
+  computation (`ComputeMffc`, `MffcSize`) provide the gain-evaluation primitive needed by
+  the upcoming DAG-aware cut rewriter. This is internal bookkeeping only: there is no
+  public API change and the existing AIG semantics (`And`/`Or`/`Ite`/`FromAst`/`ToAst`/
+  `Evaluate`/`Cleanup`/`AndNodeCount`) are unchanged.
+
 ## [2.4.0] - 2026-07-28
 
 ### Changed
