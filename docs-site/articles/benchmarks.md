@@ -40,9 +40,36 @@ matches or beats the two-level minimizers: `maj3` 5 vs 6, `xor3` 10 vs 12, `maj4
 `OptimizeExpression` returns a **multi-level (factored)** form, while SymPy and
 PyEDA return a **two-level SOP**. `pos6` is the clearest case: a 6-literal
 product-of-sums stays 6 literals for us but expands to a 24-literal DNF for a
-two-level tool. If a two-level SOP is specifically what you need, the `--dnf`
-path (`TruthTableMinimizer`) matches them cube for cube; the table above shows the
-*default* multi-level output.
+two-level tool. That advantage is real, but it is not a like-for-like SOP proof —
+for that, see the apples-to-apples two-level table below.
+
+## Head-to-head: two-level SOP result size (apples-to-apples, `--dnf`)
+
+To compare **like for like**, run our two-level SOP path (`compare --dnf`) and count
+`result.DNF` — the exact QM / SAT-cover / espresso-lite cover, the same two-level
+form SymPy and PyEDA emit. OUR column is the real `--dnf` literal count; the
+SymPy/PyEDA columns are the same Linux-CI numbers as the table above. Bold =
+LogicalOptimizer strictly smaller.
+
+| Function | Vars | LogicalOptimizer (`--dnf`) | SymPy | PyEDA |
+|----------|-----:|:--------------------------:|:-----:|:-----:|
+| maj3 | 3 | 6 | 6 | 6 |
+| consensus3 | 3 | 4 | 4 | 4 |
+| xor2 | 2 | 4 | 4 | 4 |
+| xor3 | 3 | 12 | 12 | 12 |
+| maj4 | 4 | 12 | 12 | 12 |
+| mux2 | 3 | 4 | 4 | 4 |
+| pos6 | 6 | 24 | 24 | 24 |
+| eq5 | 5 | 10 | 10 | 10 |
+| pairs8 | 8 | 8 | 8 | 8 |
+| pairs10 | 10 | 10 | `timeout` | 10 |
+| pairs12 | 12 | 12 | `timeout` | 12 |
+| collapse14 | 14 | 7 | `timeout` | 7 |
+
+On a genuine two-level basis LogicalOptimizer **ties** the specialized two-level
+minimizers cube for cube on every function where they finish (and matches PyEDA,
+which never times out, on all 12 rows). The multi-level column above is then an
+*additional* win on top — not the whole story.
 
 **Scale.** SymPy builds a 2ⁿ truth table for Quine–McCluskey, so it degrades
 sharply with variable count and **times out (> 10 s)** from 10 variables onward
@@ -61,6 +88,8 @@ impractical there.
 ```bash
 # Our side (result size, minimality status, time per corpus function):
 dotnet run -c Release --project LogicalOptimizer.Benchmarks -- compare
+# Apples-to-apples two-level SOP (result.DNF), matching SymPy/PyEDA:
+dotnet run -c Release --project LogicalOptimizer.Benchmarks -- compare --dnf
 
 # Competitor side (SymPy + PyEDA; Linux/POSIX, where the per-function timeout fires):
 python tools/compare_sympy_pyeda.py --max-vars 14 --timeout 10

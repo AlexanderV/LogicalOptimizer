@@ -54,6 +54,39 @@ public class TruthTableMinimizerTests
         AssertMinimalSop("s & a | !s & b", 4);
     }
 
+    // --- Apples-to-apples two-level (--dnf) comparison-harness path (roadmap Track 4) ---
+    // These pin the two-level SOP literal counts the `compare --dnf` harness reports for
+    // corpus functions, and assert result.DNF (the facade's two-level form) agrees with
+    // the standalone TruthTableMinimizer.MinimalSop. Known-correct sizes match SymPy/PyEDA
+    // cube-for-cube: maj3 = 6, xor3 = 12, maj4 = 12, pos6 = 24.
+    [Theory]
+    [InlineData("a & b | a & c | b & c", 6)] // maj3
+    [InlineData("a & !b & !c | !a & b & !c | !a & !b & c | a & b & c", 12)] // xor3
+    [InlineData("a & b & c | a & b & d | a & c & d | b & c & d", 12)] // maj4
+    [InlineData("(a | b) & (c | d) & (e | f)", 24)] // pos6 (two-level SOP expansion)
+    public void TwoLevelSop_CorpusFunctions_MatchKnownLiteralCounts(string expression, int expectedLiterals)
+    {
+        AssertMinimalSop(expression, expectedLiterals);
+    }
+
+    [Theory]
+    [InlineData("a & b | a & c | b & c", 6)] // maj3
+    [InlineData("a & !b & !c | !a & b & !c | !a & !b & c | a & b & c", 12)] // xor3
+    [InlineData("a & b & c | a & b & d | a & c & d | b & c & d", 12)] // maj4
+    public void FacadeDnf_TwoLevelForm_MatchesKnownLiteralCount(string expression, int expectedLiterals)
+    {
+        // The `--dnf` harness counts literals of result.DNF; assert the facade's two-level
+        // SOP is equivalent and matches the exact minimizer's size on the guarantee zone.
+        var result = new BooleanExpressionOptimizer().OptimizeExpression(expression,
+            new OptimizationOptions { ComputeCnf = false, ComputeDnf = true, ComputeAdvancedForms = false });
+
+        Assert.Equal(MinimizationStatus.MinimalProven, result.MinimizationStatus);
+        var dnf = Parse(result.DNF);
+        Assert.True(TruthTable.AreEquivalent(Parse(expression), dnf),
+            $"result.DNF of '{expression}' is not equivalent: '{result.DNF}'");
+        Assert.Equal(expectedLiterals, AstMetrics.CountLiterals(dnf));
+    }
+
     [Fact]
     public void MinimalSop_Parity3_TwelveLiterals()
     {

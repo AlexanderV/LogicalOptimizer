@@ -20,6 +20,13 @@ namespace LogicalOptimizer.Benchmarks;
 ///     single-command source for OUR column.
 ///
 ///     Run: <c>dotnet run -c Release --project LogicalOptimizer.Benchmarks -- compare</c>
+///
+///     Pass <c>--dnf</c> for an apples-to-apples <b>two-level</b> comparison: it counts
+///     literals of <c>result.DNF</c> (the two-level SOP from the exact QM / SAT-cover /
+///     espresso-lite backends) instead of the default multi-level factored
+///     <c>result.Optimized</c>, matching what SymPy (<c>simplify_logic(form="dnf")</c>)
+///     and PyEDA (<c>espresso_tts</c>) emit:
+///     <c>dotnet run -c Release --project LogicalOptimizer.Benchmarks -- compare --dnf</c>
 /// </summary>
 internal static class ComparisonHarness
 {
@@ -28,7 +35,10 @@ internal static class ComparisonHarness
 
     public static int Run(string[] args)
     {
-        var corpusPath = args.Length > 1 ? args[1] : FindCorpus();
+        // Two-level mode: count the SOP (result.DNF), not the multi-level factored form.
+        var twoLevel = args.Any(a => string.Equals(a, "--dnf", StringComparison.OrdinalIgnoreCase));
+        var corpusPath =
+            args.Skip(1).FirstOrDefault(a => !a.StartsWith("--", StringComparison.Ordinal)) ?? FindCorpus();
         if (corpusPath is null || !File.Exists(corpusPath))
         {
             Console.Error.WriteLine(
@@ -45,10 +55,11 @@ internal static class ComparisonHarness
 
         var optimizer = new BooleanExpressionOptimizer();
         var options = new OptimizationOptions
-        { ComputeCnf = false, ComputeDnf = false, ComputeAdvancedForms = false };
+        { ComputeCnf = false, ComputeDnf = twoLevel, ComputeAdvancedForms = false };
 
+        var ourColumn = twoLevel ? "LogicalOptimizer DNF literals" : "LogicalOptimizer literals";
         var sb = new StringBuilder();
-        sb.AppendLine("| Zone | Function | Vars | Input literals | LogicalOptimizer literals | Status | Time (ms) |");
+        sb.AppendLine($"| Zone | Function | Vars | Input literals | {ourColumn} | Status | Time (ms) |");
         sb.AppendLine("|------|----------|-----:|---------------:|--------------------------:|--------|----------:|");
 
         foreach (var (zone, name, expression) in functions)
@@ -70,13 +81,18 @@ internal static class ComparisonHarness
 
             Array.Sort(samples);
             var medianMs = samples[MeasuredRuns / 2];
-            var outputLiterals = AstMetrics.CountLiterals(Parse(result.Optimized));
+            var outputForm = twoLevel ? result.DNF : result.Optimized;
+            // A DNF the converter abandoned is emitted as "-"; keep it visible rather
+            // than feeding a non-expression to the parser.
+            var outputCell = outputForm is "" or "-"
+                ? "-"
+                : AstMetrics.CountLiterals(Parse(outputForm)).ToString(CultureInfo.InvariantCulture);
 
             sb.Append("| ").Append(zone)
                 .Append(" | ").Append(name)
                 .Append(" | ").Append(result.Variables.Count.ToString(CultureInfo.InvariantCulture))
                 .Append(" | ").Append(inputLiterals.ToString(CultureInfo.InvariantCulture))
-                .Append(" | ").Append(outputLiterals.ToString(CultureInfo.InvariantCulture))
+                .Append(" | ").Append(outputCell)
                 .Append(" | ").Append(StatusLabel(result.MinimizationStatus))
                 .Append(" | ").Append(medianMs.ToString("F3", CultureInfo.InvariantCulture))
                 .AppendLine(" |");

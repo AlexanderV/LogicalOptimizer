@@ -58,7 +58,10 @@ two-level SOP; that is a genuine product difference, not a measurement artifact.
 Our side (real numbers below):
 
 ```powershell
+# Default: multi-level (factored) output
 dotnet run -c Release --project LogicalOptimizer.Benchmarks -- compare
+# Apples-to-apples two-level SOP (result.DNF), matching SymPy/PyEDA
+dotnet run -c Release --project LogicalOptimizer.Benchmarks -- compare --dnf
 ```
 
 Competitor side (fills the SymPy/PyEDA columns where the tools are installed):
@@ -141,9 +144,48 @@ two-level minimizers and often smaller: `maj3` 5 vs 6, `xor3` 10 vs 12, `maj4`
 `OptimizeExpression` returns a **multi-level (factored)** form, while SymPy's
 `simplify_logic` and PyEDA's Espresso return a **two-level SOP**. `pos6` is the
 clearest case: a 6-literal product-of-sums stays 6 literals for us but expands to
-a 24-literal DNF for a two-level tool. Where a two-level SOP is specifically what
-you want, our two-level path (`--dnf`, `TruthTableMinimizer`) matches them cube
-for cube; the table shows the *default* multi-level output.
+a 24-literal DNF for a two-level tool. That multi-level advantage is real, but it
+is **not** a like-for-like proof that our SOP minimizer beats theirs — for that,
+see the apples-to-apples two-level table below.
+
+### Head-to-head: two-level SOP result size (apples-to-apples, `--dnf`)
+
+The table above compares our *default* multi-level output against two-level tools.
+To compare **like for like**, run our two-level SOP path and count `result.DNF`
+(the exact QM / SAT-cover / espresso-lite cover — the same two-level form SymPy and
+PyEDA produce):
+
+```powershell
+dotnet run -c Release --project LogicalOptimizer.Benchmarks -- compare --dnf
+```
+
+OUR column below is the real `--dnf` literal count from that harness (Windows-local
+run, .NET 10); the SymPy/PyEDA columns are the **same** Linux-CI numbers as the
+multi-level table. Bold = LogicalOptimizer strictly smaller.
+
+| Zone | Function | Vars | LogicalOptimizer (`--dnf`) | SymPy | PyEDA |
+|------|----------|-----:|:--------------------------:|:-----:|:-----:|
+| small | maj3 | 3 | 6 | 6 | 6 |
+| small | consensus3 | 3 | 4 | 4 | 4 |
+| small | xor2 | 2 | 4 | 4 | 4 |
+| small | xor3 | 3 | 12 | 12 | 12 |
+| small | maj4 | 4 | 12 | 12 | 12 |
+| small | mux2 | 3 | 4 | 4 | 4 |
+| small | pos6 | 6 | 24 | 24 | 24 |
+| small | eq5 | 5 | 10 | 10 | 10 |
+| small | pairs8 | 8 | 8 | 8 | 8 |
+| small | pairs10 | 10 | 10 | `timeout` | 10 |
+| mid | pairs12 | 12 | 12 | `timeout` | 12 |
+| mid | collapse14 | 14 | 7 | `timeout` | 7 |
+
+**Reading it (the honest claim).** On a genuine two-level basis LogicalOptimizer
+**ties** the specialized two-level minimizers cube for cube on every function where
+they finish — `maj3` 6 = 6, `xor3` 12 = 12, `maj4` 12 = 12, `pos6` 24 = 24, and it
+matches PyEDA (which never times out) on all 12 rows. This is what the multi-level
+table alone could not show: our exact SOP minimizer is not merely *smaller because
+it is factored*, it is **at parity** with SymPy/PyEDA on the two-level form they
+each emit. The multi-level column is then an *additional* win on top, not the whole
+story.
 
 **Timing (indicative, cross-machine — not a controlled benchmark).** SymPy builds
 a 2ⁿ truth table for Quine–McCluskey, so it degrades sharply with variable count:

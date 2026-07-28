@@ -5,6 +5,9 @@ using LogicalOptimizer.Benchmarks;
 
 // Roadmap B2: `-- compare` runs the deterministic cross-tool comparison harness
 // (emits OUR column of the SymPy/PyEDA table); anything else is a BenchmarkDotNet run.
+// `-- compare --dnf` switches OUR column to the two-level SOP (result.DNF) for an
+// apples-to-apples comparison against the two-level SymPy/PyEDA outputs. The full
+// arg array is forwarded, so the harness sees the --dnf flag.
 if (args.Length > 0 && string.Equals(args[0], "compare", StringComparison.OrdinalIgnoreCase))
     return ComparisonHarness.Run(args);
 
