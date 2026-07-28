@@ -62,6 +62,17 @@ internal readonly struct AigTemplate
     /// </summary>
     public int BuildInto(AndInverterGraph target, IReadOnlyList<int> leafLiterals)
     {
+        return BuildInto(target.And, leafLiterals);
+    }
+
+    /// <summary>
+    ///     Replay the template through an arbitrary two-input AND builder. The graph overload
+    ///     passes <see cref="AndInverterGraph.And" />; the rewriter also uses this with a
+    ///     non-mutating "dry" AND to count how many new nodes a replacement would create
+    ///     without committing it to the graph.
+    /// </summary>
+    public int BuildInto(Func<int, int, int> and, IReadOnlyList<int> leafLiterals)
+    {
         var map = new int[1 + NumInputs + Gates.Length];
         map[0] = AndInverterGraph.FalseLiteral;
         for (var i = 0; i < NumInputs; i++) map[i + 1] = leafLiterals[i];
@@ -71,7 +82,7 @@ internal readonly struct AigTemplate
             var (a, b) = Gates[g];
             var litA = map[a >> 1] ^ (a & 1);
             var litB = map[b >> 1] ^ (b & 1);
-            map[1 + NumInputs + g] = target.And(litA, litB);
+            map[1 + NumInputs + g] = and(litA, litB);
         }
 
         return map[Output >> 1] ^ (Output & 1);

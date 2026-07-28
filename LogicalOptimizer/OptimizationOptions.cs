@@ -15,6 +15,16 @@ public sealed class OptimizationOptions
     public bool IncludeTruthTables { get; init; }
     public bool IncludeDebugInfo { get; init; }
 
+    /// <summary>
+    ///     Experimental: enable multi-level, DAG-aware structural rewriting of the optimized
+    ///     expression via the internal And-Inverter Graph (cut-based ABC-style rewrite). When
+    ///     set, the optimizer produces one extra candidate — the AIG-rewritten form — and adopts
+    ///     it only if it is verified equivalent to the input and strictly cheaper than the
+    ///     current best; it can never make the result worse. Off by default, so enabling it
+    ///     only ever adds candidates and never changes existing behavior.
+    /// </summary>
+    public bool EnableAigRewriting { get; init; }
+
     /// <summary>Work budgets for the expensive engines (exact minimizer, SAT guard).</summary>
     public ResourceBudget Budget { get; init; } = ResourceBudget.Default;
 

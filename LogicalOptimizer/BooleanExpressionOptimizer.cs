@@ -192,6 +192,29 @@ public class BooleanExpressionOptimizer
             if (options.ComputeCnf && options.CnfMode == CnfMode.Tseitin)
                 cnfText = TseitinConverter.Convert(optimized).ToString();
 
+            // Experimental opt-in: DAG-aware AIG rewriting as one more multi-level candidate.
+            // Adopted only when it is verified equivalent AND strictly cheaper, so it can only
+            // ever improve the result and never regress it. Off by default -> no effect at all.
+            if (options.EnableAigRewriting)
+            {
+                var aigCandidate = TryAigRewrite(optimized, factory, options);
+                if (aigCandidate != null)
+                {
+                    var selected = SelectCheapest(optimized, aigCandidate);
+                    if (!ReferenceEquals(selected, optimized))
+                    {
+                        if (metrics != null)
+                        {
+                            metrics.RuleApplicationCount.TryAdd("AigRewrite", 0);
+                            metrics.RuleApplicationCount["AigRewrite"]++;
+                        }
+
+                        optimized = selected;
+                        if (metrics != null) metrics.OptimizedNodes = AstMetrics.CountNodes(optimized);
+                    }
+                }
+            }
+
             var advancedForms = "";
             if (options.ComputeAdvancedForms &&
                 variables.Count <= PerformanceValidator.MAX_PATTERN_RECOGNITION_VARIABLES)
@@ -243,6 +266,40 @@ public class BooleanExpressionOptimizer
 
         PerformanceValidator.ValidateExpression(expression);
         return TseitinConverter.Convert(expression);
+    }
+
+    /// <summary>Rounds of AIG rewriting attempted before giving up on further gains.</summary>
+    private const int AigRewriteMaxRounds = 32;
+
+    /// <summary>
+    ///     Ceiling on AIG size (AND nodes) for the experimental rewrite candidate: past it the
+    ///     O(graph)-per-move rebuild is skipped so the opt-in path cannot dominate runtime.
+    /// </summary>
+    private const int AigRewriteMaxAndNodes = 4000;
+
+    /// <summary>
+    ///     Produce the AIG-rewritten form of <paramref name="expression" /> as an optimization
+    ///     candidate, or null when it does not apply (too large, rewriting found nothing, or the
+    ///     result fails the belt-and-suspenders equivalence check). Never throws on the SAT/AIG
+    ///     path failing — a null just means "no extra candidate".
+    /// </summary>
+    private static AstNode? TryAigRewrite(AstNode expression, FormulaFactory factory, OptimizationOptions options)
+    {
+        var aig = AndInverterGraph.FromAst(expression);
+        if (aig.AndNodeCount > AigRewriteMaxAndNodes) return null;
+
+        var rewritten = aig.RewriteToFixpoint(AigRewriteMaxRounds, options.CancellationToken);
+        if (rewritten.AndNodeCount >= aig.AndNodeCount) return null; // no structural gain
+
+        var candidate = factory.Import(rewritten.ToAst(rewritten.Root));
+
+        // Belt-and-suspenders: the rewrite is function-preserving by construction, but the
+        // adopted candidate must independently pass the existing equivalence checker.
+        var equivalent = EquivalenceChecker
+            .Check(expression, candidate, options.Budget.SatConflictLimit, options.CancellationToken)
+            .AreEquivalent;
+
+        return equivalent == true ? candidate : null;
     }
 
     /// <summary>Minterm indices where the expression is true; bit j = value of variables[j].</summary>

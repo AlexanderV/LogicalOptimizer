@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Opt-in DAG-aware AIG cut rewriting in the optimizer (`OptimizationOptions.EnableAigRewriting`).**
+  Experimental multi-level structural rewriting that reduces AND-node count via cut-based
+  replacement (ABC-style `rewrite`): each AND node's ≤4-input cuts are enumerated, the local
+  truth table is NPN-canonicalized, an exact library template is instantiated onto the cut
+  leaves, and the move is applied only when it strictly shrinks the graph. Fanouts are
+  redirected by a whole-graph rebuild-with-substitution (inherently correct, no fanout index),
+  and the pass is function-preserving with a non-increasing AND count by construction. Wired
+  into the facade as one additional multi-level candidate, adopted only when it is both verified
+  equivalent to the input (belt-and-suspenders `EquivalenceChecker`) and strictly cheaper by the
+  existing cost metric — so it can only ever improve the result. Off by default: enabling it
+  never changes existing behavior; the only new public surface is the one boolean flag.
+
 - **Internal AIG rewriting infrastructure (reference counting + MFFC).** The internal
   `AndInverterGraph` now maintains a per-node reference (fanout) count — the number of
   fanin edges pointing at each node, one per consuming AND node plus one for the Root

@@ -92,6 +92,7 @@ namespace LogicalOptimizer
         public bool ComputeAdvancedForms { get; init; }
         public bool ComputeCnf { get; init; }
         public bool ComputeDnf { get; init; }
+        public bool EnableAigRewriting { get; init; }
         public bool IncludeDebugInfo { get; init; }
         public bool IncludeMetrics { get; init; }
         public bool IncludeTruthTables { get; init; }

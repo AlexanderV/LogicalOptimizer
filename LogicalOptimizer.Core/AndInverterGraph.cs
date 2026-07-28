@@ -9,7 +9,7 @@ namespace LogicalOptimizer;
 ///     Full cut-based rewriting is future work — see <see cref="Cleanup" /> for the
 ///     rebuild pass provided today.
 /// </summary>
-internal sealed class AndInverterGraph
+internal sealed partial class AndInverterGraph
 {
     public const int FalseLiteral = 0;
     public const int TrueLiteral = 1;
