@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING: AIG DAG-aware cut rewriting is now ENABLED BY DEFAULT
+  (`OptimizationOptions.EnableAigRewriting` defaults to `true`).** This is a major
+  (v3.0) change: the default optimizer output may now be a smaller multi-level form than
+  the two-level/multi-level result produced before v3.0, because the DAG-aware AIG rewrite
+  candidate is computed on the default path. As before, the candidate is adopted only when it
+  is verified equivalent to the input (belt-and-suspenders `EquivalenceChecker`) *and* strictly
+  cheaper by the existing cost metric, so every result stays equivalence-verified and never
+  regresses. Set `EnableAigRewriting = false` to restore the exact pre-3.0 behavior. The only
+  behavior change is the default value of this one flag; there is no public API change.
+
 - **The internal AIG cut-rewrite library is now provably AND-minimal for every ≤4-input
   function.** The previous constructive Shannon/ITE template synthesis (correct but not
   minimal) is replaced by a baked table of minimum two-input-AND recipes, one per NPN class

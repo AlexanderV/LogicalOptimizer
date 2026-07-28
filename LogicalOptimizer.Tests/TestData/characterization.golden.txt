@@ -169,10 +169,10 @@ expr: a & b | a & c | b & c
   variables: [a, b, c]
 
 expr: a & !b & !c | !a & b & !c | !a & !b & c | a & b & c
-  optimized: a & (b & c | !b & !c) | !a & (b & !c | c & !b)
+  optimized: !(c & !(a & b) & (a | b)) & (c | !(a & b) & (a | b))
   cnf: (a | b | c) & (a | !b | !c) & (b | !a | !c) & (c | !a | !b) [Computed]
   dnf: a & b & c | a & !b & !c | b & !a & !c | c & !a & !b [Computed]
-  advanced: a & (b ↔ c) | !a & (b XOR c)
+  advanced: !(c & !(a & b) & (a | b)) & (c | !(a & b) & (a | b))
   minimality: MinimalProven
   variables: [a, b, c]
 

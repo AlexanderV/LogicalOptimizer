@@ -16,14 +16,16 @@ public sealed class OptimizationOptions
     public bool IncludeDebugInfo { get; init; }
 
     /// <summary>
-    ///     Experimental: enable multi-level, DAG-aware structural rewriting of the optimized
-    ///     expression via the internal And-Inverter Graph (cut-based ABC-style rewrite). When
-    ///     set, the optimizer produces one extra candidate — the AIG-rewritten form — and adopts
-    ///     it only if it is verified equivalent to the input and strictly cheaper than the
-    ///     current best; it can never make the result worse. Off by default, so enabling it
-    ///     only ever adds candidates and never changes existing behavior.
+    ///     Multi-level, DAG-aware structural rewriting of the optimized expression via the
+    ///     internal And-Inverter Graph (cut-based ABC-style rewrite). The optimizer produces
+    ///     one extra candidate — the AIG-rewritten form — and adopts it only if it is verified
+    ///     equivalent to the input and strictly cheaper than the current best; it can never make
+    ///     the result worse. On by default since v3.0, so the default optimizer output may be a
+    ///     smaller multi-level form than the two-level/multi-level result produced before v3.0.
+    ///     Set it to <c>false</c> to restore the exact pre-3.0 behavior; results stay
+    ///     equivalence-verified either way.
     /// </summary>
-    public bool EnableAigRewriting { get; init; }
+    public bool EnableAigRewriting { get; init; } = true;
 
     /// <summary>Work budgets for the expensive engines (exact minimizer, SAT guard).</summary>
     public ResourceBudget Budget { get; init; } = ResourceBudget.Default;
