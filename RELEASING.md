@@ -46,8 +46,19 @@ git push origin v2.1.0
 ```
 
 `release.yml`: setup .NET 10 → `dotnet build -warnaserror` → `dotnet test` (CI-фільтр) →
-`dotnet pack` 6 пакетів → `dotnet nuget push --skip-duplicate`. Якщо тести впадуть —
-публікації не буде.
+`dotnet pack` 6 пакетів → `dotnet nuget push --skip-duplicate` → **верифікація присутності в
+реєстрі**. Якщо тести впадуть — публікації не буде.
+
+**Автоматична перевірка присутності:** після push крок «Verify packages on nuget.org» запускає
+[`tools/verify_nuget.ps1`](tools/verify_nuget.ps1), який опитує flat-container-індекс
+(`https://api.nuget.org/v3-flatcontainer/<id>/index.json`) для всіх 6 пакетів на випущену версію,
+з retry+backoff (індексація має лаг, до ~10 спроб по 30 с). Якщо якийсь пакет так і не з'явиться —
+workflow падає. Скрипт можна запустити й локально проти вже опублікованої версії:
+
+```bash
+pwsh tools/verify_nuget.ps1 -Version 2.1.0
+# швидкий разовий чек без очікування: -MaxAttempts 1
+```
 
 **Перевірка:** вкладка **Actions** → run «Release»; за ~5–15 хв пакети на nuget.org.
 Smoke-тест:
