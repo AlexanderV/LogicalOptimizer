@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.0.0] - 2026-07-29
 
 ### Fixed (contract honesty — the documented guarantees now match the implementation)
 
@@ -69,8 +69,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ComputationBudgetExceededException`, `NodeBudgetExceededException` and
   `NormalFormTooLargeException` public types (all derive from `InvalidOperationException`), so
   budget/size fallbacks are distinguishable from genuine invariant violations.
-
-## [3.0.0] - 2026-07-28
 
 ### Changed
 
