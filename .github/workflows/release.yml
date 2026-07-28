@@ -53,8 +53,10 @@ jobs:
       - name: Push to NuGet
         run: dotnet nuget push "artifacts/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
 
-      # Confirm the six packages actually surface in the nuget.org index for this version.
-      # Indexing lags behind push, so the script retries with backoff before failing.
+      # Confirm the seven packages actually surface in the nuget.org index for this version.
+      # Indexing lags behind push (commonly 10-20 min), so the script retries on a ~30-min
+      # window before failing — long enough that real indexing lag never reds the release,
+      # short enough to still catch a genuine publish failure.
       - name: Verify packages on nuget.org
         shell: pwsh
         run: pwsh tools/verify_nuget.ps1 -Version ${{ env.VERSION }}

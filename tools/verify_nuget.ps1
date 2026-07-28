@@ -25,10 +25,14 @@
     Package IDs to verify. Defaults to the seven published LogicalOptimizer packages.
 
 .PARAMETER MaxAttempts
-    Maximum number of attempts per package before giving up. Default 10.
+    Maximum number of attempts per package before giving up. Default 30.
 
 .PARAMETER DelaySeconds
-    Delay between attempts, in seconds. Default 30.
+    Delay between attempts, in seconds. Default 60.
+    The defaults give a ~30-minute window: nuget.org validation + flat-container
+    indexing of a freshly pushed package commonly takes 10-20 minutes (and occasionally
+    longer when several packages are pushed at once), well past the old 5-minute window
+    which failed the release even though every package had actually published.
 
 .EXAMPLE
     pwsh tools/verify_nuget.ps1 -Version 2.2.0
@@ -54,10 +58,10 @@ param(
     ),
 
     [ValidateRange(1, 100)]
-    [int] $MaxAttempts = 10,
+    [int] $MaxAttempts = 30,
 
     [ValidateRange(0, 3600)]
-    [int] $DelaySeconds = 30
+    [int] $DelaySeconds = 60
 )
 
 Set-StrictMode -Version Latest
