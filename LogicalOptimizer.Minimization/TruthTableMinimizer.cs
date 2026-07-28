@@ -152,6 +152,11 @@ public static class TruthTableMinimizer
         var primes = new List<Implicant>();
         var comparisons = 0L;
 
+        // Reusable popcount buckets (index = number of set value-bits, 0..variableCount);
+        // sized once, cleared per mask group.
+        var buckets = new List<Implicant>[variableCount + 1];
+        for (var b = 0; b < buckets.Length; b++) buckets[b] = new List<Implicant>();
+
         while (current.Count > 0)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -159,27 +164,43 @@ public static class TruthTableMinimizer
             var next = new HashSet<Implicant>();
             var combined = new HashSet<Implicant>();
 
-            // Group by mask; combine cubes whose values differ in exactly one masked bit
+            // Group by mask; within a mask two cubes can combine only if their values
+            // differ in exactly one bit — i.e. their set-bit counts differ by one. Bucket
+            // by value popcount and compare only adjacent buckets (classic QM speedup):
+            // this yields the identical prime set while skipping every pair that provably
+            // cannot merge.
             foreach (var group in current.GroupBy(c => c.Mask))
             {
-                var cubes = group.ToList();
-                comparisons += (long)cubes.Count * (cubes.Count - 1) / 2;
-                if (comparisons > pairComparisonLimit)
-                    throw new ComputationBudgetExceededException(WorkLimitMessage);
+                foreach (var b in buckets) b.Clear();
+                foreach (var cube in group)
+                    buckets[System.Numerics.BitOperations.PopCount((uint)cube.Value)].Add(cube);
 
-                for (var i = 0; i < cubes.Count; i++)
+                for (var k = 0; k < buckets.Length - 1; k++)
                 {
-                    // Dense levels pair millions of cubes; a per-level check alone
-                    // leaves cancellation unobserved for tens of seconds
-                    if ((i & 0xFF) == 0) cancellationToken.ThrowIfCancellationRequested();
-                    for (var j = i + 1; j < cubes.Count; j++)
-                    {
-                        var difference = cubes[i].Value ^ cubes[j].Value;
-                        if (System.Numerics.BitOperations.PopCount((uint)difference) != 1) continue;
+                    var lo = buckets[k];
+                    var hi = buckets[k + 1];
+                    if (lo.Count == 0 || hi.Count == 0) continue;
 
-                        next.Add(new Implicant(cubes[i].Mask & ~difference, cubes[i].Value & ~difference));
-                        combined.Add(cubes[i]);
-                        combined.Add(cubes[j]);
+                    comparisons += (long)lo.Count * hi.Count;
+                    if (comparisons > pairComparisonLimit)
+                        throw new ComputationBudgetExceededException(WorkLimitMessage);
+
+                    for (var i = 0; i < lo.Count; i++)
+                    {
+                        // Dense levels pair millions of cubes; a per-level check alone
+                        // leaves cancellation unobserved for tens of seconds
+                        if ((i & 0xFF) == 0) cancellationToken.ThrowIfCancellationRequested();
+                        var a = lo[i];
+                        for (var j = 0; j < hi.Count; j++)
+                        {
+                            var b = hi[j];
+                            var difference = a.Value ^ b.Value;
+                            if (System.Numerics.BitOperations.PopCount((uint)difference) != 1) continue;
+
+                            next.Add(new Implicant(a.Mask & ~difference, a.Value & ~difference));
+                            combined.Add(a);
+                            combined.Add(b);
+                        }
                     }
                 }
             }
@@ -250,52 +271,76 @@ public static class TruthTableMinimizer
             // 13-variable table ignores cancellation for tens of seconds
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Essential primes: a minterm covered by exactly one candidate forces it
+            // Essential primes: a minterm covered by exactly one candidate forces it.
+            // Collect every essential in a single pass and apply them together — essentials
+            // are forced into every minimal cover, so this yields the same forced set as
+            // extracting them one at a time, but without restarting the whole fixpoint (and
+            // its quadratic dominance passes) after each one.
+            var essentials = new List<Implicant>();
+            var essentialSet = new HashSet<Implicant>();
             foreach (var minterm in uncovered)
             {
-                Implicant? sole = null;
+                Implicant sole = default;
                 var coverCount = 0;
                 foreach (var candidate in candidates)
                 {
                     if (!candidate.Covers(minterm)) continue;
-                    coverCount++;
+                    if (++coverCount > 1) break;
                     sole = candidate;
-                    if (coverCount > 1) break;
                 }
 
-                if (coverCount == 1 && sole.HasValue)
+                if (coverCount == 1 && essentialSet.Add(sole))
+                    essentials.Add(sole);
+            }
+
+            if (essentials.Count > 0)
+            {
+                foreach (var essential in essentials)
                 {
-                    cover.Add(sole.Value);
-                    uncovered.RemoveWhere(m => sole.Value.Covers(m));
-                    candidates.Remove(sole.Value);
-                    progress = true;
-                    break;
+                    cover.Add(essential);
+                    candidates.Remove(essential);
+                    uncovered.RemoveWhere(essential.Covers);
                 }
+
+                progress = true;
             }
 
             if (progress || uncovered.Count == 0) continue;
 
             candidates.RemoveAll(c => !uncovered.Any(c.Covers));
 
-            // Row dominance: if every candidate covering m1 also covers m2, drop m2
+            // Row dominance: if every candidate covering m1 also covers m2, drop m2.
+            // Coverage is held as a bitmask over candidate indices, so the O(rows^2)
+            // subset/equality tests are a handful of word ops instead of HashSet<int>
+            // operations with per-row allocation.
             var rows = uncovered.ToList();
-            var rowCandidates = rows.ToDictionary(
-                m => m,
-                m => candidates.Select((c, i) => (c, i)).Where(x => x.c.Covers(m)).Select(x => x.i).ToHashSet());
-            foreach (var m1 in rows)
+            var candWords = (candidates.Count + 63) / 64 + 1;
+            var rowMask = new ulong[rows.Count][];
+            var rowPop = new int[rows.Count];
+            for (var r = 0; r < rows.Count; r++)
+            {
+                var mask = new ulong[candWords];
+                for (var i = 0; i < candidates.Count; i++)
+                    if (candidates[i].Covers(rows[r]))
+                        mask[i >> 6] |= 1UL << (i & 63);
+                rowMask[r] = mask;
+                rowPop[r] = PopCount(mask);
+            }
+
+            for (var a = 0; a < rows.Count; a++)
             {
                 // A single row-dominance pass over a dense table is O(rows^2); the
                 // per-round check above is too coarse, so observe cancellation per row.
                 cancellationToken.ThrowIfCancellationRequested();
-                if (!uncovered.Contains(m1)) continue;
-                foreach (var m2 in rows)
+                if (!uncovered.Contains(rows[a])) continue;
+                for (var b = 0; b < rows.Count; b++)
                 {
-                    if (m1 == m2 || !uncovered.Contains(m2) || !uncovered.Contains(m1)) continue;
-                    if (rowCandidates[m1].Count > rowCandidates[m2].Count) continue;
-                    if (rowCandidates[m1].SetEquals(rowCandidates[m2]) && m1 > m2) continue;
-                    if (rowCandidates[m1].IsSubsetOf(rowCandidates[m2]))
+                    if (a == b || !uncovered.Contains(rows[b]) || !uncovered.Contains(rows[a])) continue;
+                    if (rowPop[a] > rowPop[b]) continue;
+                    if (rowPop[a] == rowPop[b] && MaskEquals(rowMask[a], rowMask[b]) && rows[a] > rows[b]) continue;
+                    if (IsSubset(rowMask[a], rowMask[b]))
                     {
-                        uncovered.Remove(m2);
+                        uncovered.Remove(rows[b]);
                         progress = true;
                     }
                 }
@@ -309,10 +354,22 @@ public static class TruthTableMinimizer
             if (candidates.Count > MaxColumnDominanceCandidates) continue;
 
             // Column dominance: if c1 covers a superset of c2's rows at no higher literal
-            // cost, c2 has a no-worse substitute and can be dropped
-            var columnRows = candidates.ToDictionary(
-                c => c,
-                c => uncovered.Where(c.Covers).ToHashSet());
+            // cost, c2 has a no-worse substitute and can be dropped. Coverage is a bitmask
+            // over the (positional) uncovered-minterm indices.
+            var uncoveredList = uncovered.ToList();
+            var uncoveredWords = (uncoveredList.Count + 63) / 64 + 1;
+            var colMask = new ulong[candidates.Count][];
+            var colPop = new int[candidates.Count];
+            for (var i = 0; i < candidates.Count; i++)
+            {
+                var mask = new ulong[uncoveredWords];
+                for (var u = 0; u < uncoveredList.Count; u++)
+                    if (candidates[i].Covers(uncoveredList[u]))
+                        mask[u >> 6] |= 1UL << (u & 63);
+                colMask[i] = mask;
+                colPop[i] = PopCount(mask);
+            }
+
             for (var i = 0; i < candidates.Count && !progress; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -322,10 +379,10 @@ public static class TruthTableMinimizer
                     var c1 = candidates[i];
                     var c2 = candidates[j];
                     if (c1.LiteralCount > c2.LiteralCount) continue;
-                    if (columnRows[c1].Count == columnRows[c2].Count &&
-                        columnRows[c1].SetEquals(columnRows[c2]) && c1.LiteralCount == c2.LiteralCount && i > j)
+                    if (colPop[i] == colPop[j] && MaskEquals(colMask[i], colMask[j]) &&
+                        c1.LiteralCount == c2.LiteralCount && i > j)
                         continue;
-                    if (columnRows[c2].IsSubsetOf(columnRows[c1]))
+                    if (IsSubset(colMask[j], colMask[i]))
                     {
                         candidates.RemoveAt(j);
                         progress = true;
@@ -334,6 +391,30 @@ public static class TruthTableMinimizer
                 }
             }
         } while (progress && uncovered.Count > 0);
+    }
+
+    /// <summary>Total set bits across a bitset stored as 64-bit words.</summary>
+    private static int PopCount(ulong[] mask)
+    {
+        var count = 0;
+        foreach (var w in mask) count += System.Numerics.BitOperations.PopCount(w);
+        return count;
+    }
+
+    /// <summary>Whether two equal-length bitsets hold the same elements.</summary>
+    private static bool MaskEquals(ulong[] a, ulong[] b)
+    {
+        for (var w = 0; w < a.Length; w++)
+            if (a[w] != b[w]) return false;
+        return true;
+    }
+
+    /// <summary>Whether every bit of <paramref name="a" /> is also set in <paramref name="b" /> (a ⊆ b).</summary>
+    private static bool IsSubset(ulong[] a, ulong[] b)
+    {
+        for (var w = 0; w < a.Length; w++)
+            if ((a[w] & ~b[w]) != 0) return false;
+        return true;
     }
 
     private sealed class CoverSearch

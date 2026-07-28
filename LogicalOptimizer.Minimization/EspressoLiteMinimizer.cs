@@ -209,31 +209,29 @@ internal static class EspressoLiteMinimizer
     /// <summary>F ⊇ c ⟺ the cofactor of F by c is a tautology. Null = budget ran out.</summary>
     internal static bool? Covers(IReadOnlyList<Cube> cover, Cube cube, int variableCount, ref int budget)
     {
-        var cofactored = new List<Cube>();
+        // Cofactoring F by `cube` fixes exactly cube's variables. Rather than allocate a
+        // reduced Cube per element, seed those variables into an "eliminated" bitmask and
+        // keep the original cubes by reference — EffectiveLiteralCount masks the fixed
+        // positions out, giving the same result as building cofactor cubes.
+        var words = variableCount == 0 ? 1 : (variableCount + 63) / 64;
+        var eliminated = new ulong[words];
+        for (var w = 0; w < words; w++) eliminated[w] = cube.Pos[w] | cube.Neg[w];
+
+        var filtered = new List<Cube>(cover.Count);
         foreach (var f in cover)
         {
-            var reduced = CofactorByCube(f, cube);
-            if (reduced != null) cofactored.Add(reduced);
+            var conflict = false;
+            for (var w = 0; w < f.Pos.Length; w++)
+                if ((f.Pos[w] & cube.Neg[w]) != 0 || (f.Neg[w] & cube.Pos[w]) != 0)
+                {
+                    conflict = true;
+                    break;
+                }
+
+            if (!conflict) filtered.Add(f);
         }
 
-        return IsTautology(cofactored, variableCount, ref budget);
-    }
-
-    /// <summary>Cofactor one cube by all literals of another; null when they conflict.</summary>
-    private static Cube? CofactorByCube(Cube f, Cube by)
-    {
-        for (var w = 0; w < f.Pos.Length; w++)
-            if ((f.Pos[w] & by.Neg[w]) != 0 || (f.Neg[w] & by.Pos[w]) != 0)
-                return null;
-
-        var result = new Cube(f.Pos.Length);
-        for (var w = 0; w < f.Pos.Length; w++)
-        {
-            result.Pos[w] = f.Pos[w] & ~by.Pos[w];
-            result.Neg[w] = f.Neg[w] & ~by.Neg[w];
-        }
-
-        return result;
+        return IsTautology(filtered, variableCount, eliminated, ref budget);
     }
 
     /// <summary>
@@ -242,8 +240,21 @@ internal static class EspressoLiteMinimizer
     /// </summary>
     internal static bool? IsTautology(List<Cube> cover, int variableCount, ref int budget)
     {
+        var words = variableCount == 0 ? 1 : (variableCount + 63) / 64;
+        return IsTautology(cover, variableCount, new ulong[words], ref budget);
+    }
+
+    /// <summary>
+    ///     Tautology recursion over an "eliminated" variable mask: instead of cloning cubes
+    ///     to strip the branch variable, both cofactor branches share one mask (they always
+    ///     eliminate the same variable) — set the bit, recurse, clear it. Zero cube cloning.
+    /// </summary>
+    private static bool? IsTautology(List<Cube> cover, int variableCount, ulong[] eliminated, ref int budget)
+    {
         if (--budget <= 0) return null;
-        if (cover.Any(c => c.LiteralCount() == 0)) return true;
+        // Universal cube: no literals remain once eliminated variables are masked out
+        foreach (var c in cover)
+            if (EffectiveLiteralCount(c, eliminated) == 0) return true;
         if (cover.Count == 0) return false;
 
         // Find the most binate variable; a unate cover without the universal cube
@@ -252,6 +263,7 @@ internal static class EspressoLiteMinimizer
         var bestScore = -1;
         for (var v = 0; v < variableCount; v++)
         {
+            if ((eliminated[v >> 6] & (1UL << (v & 63))) != 0) continue;
             int pos = 0, neg = 0;
             foreach (var c in cover)
             {
@@ -270,22 +282,39 @@ internal static class EspressoLiteMinimizer
 
         if (bestVariable < 0) return false;
 
-        foreach (var value in new[] { true, false })
-        {
-            var cofactor = new List<Cube>();
-            foreach (var c in cover)
-            {
-                if (value ? c.HasNeg(bestVariable) : c.HasPos(bestVariable)) continue;
-                var reduced = c.Clone();
-                reduced.Clear(bestVariable);
-                cofactor.Add(reduced);
-            }
+        // Both branches eliminate bestVariable, so set the bit once around both recursions
+        eliminated[bestVariable >> 6] |= 1UL << (bestVariable & 63);
 
-            var verdict = IsTautology(cofactor, variableCount, ref budget);
-            if (verdict != true) return verdict;
+        // value = true: keep cubes without a negative literal on bestVariable
+        var branch = new List<Cube>(cover.Count);
+        foreach (var c in cover)
+            if (!c.HasNeg(bestVariable)) branch.Add(c);
+        var verdict = IsTautology(branch, variableCount, eliminated, ref budget);
+
+        if (verdict == true)
+        {
+            // value = false: keep cubes without a positive literal on bestVariable
+            branch = new List<Cube>(cover.Count);
+            foreach (var c in cover)
+                if (!c.HasPos(bestVariable)) branch.Add(c);
+            verdict = IsTautology(branch, variableCount, eliminated, ref budget);
         }
 
-        return true;
+        eliminated[bestVariable >> 6] &= ~(1UL << (bestVariable & 63));
+        return verdict;
+    }
+
+    /// <summary>Literal count of a cube ignoring variables already fixed by cofactoring.</summary>
+    private static int EffectiveLiteralCount(Cube c, ulong[] eliminated)
+    {
+        var count = 0;
+        for (var w = 0; w < c.Pos.Length; w++)
+        {
+            count += BitOperations.PopCount(c.Pos[w] & ~eliminated[w]);
+            count += BitOperations.PopCount(c.Neg[w] & ~eliminated[w]);
+        }
+
+        return count;
     }
 
     /// <summary>Parse a sum-of-products AST into cubes; null when the tree is not SOP.</summary>

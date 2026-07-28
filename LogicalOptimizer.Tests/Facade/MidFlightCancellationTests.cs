@@ -106,10 +106,18 @@ public class MidFlightCancellationTests
     public void Facade_CancelsDuringOptimization()
     {
         // Full pipeline on a dense 12-variable expression: with the budgets lifted the
-        // exact backend runs for minutes uncancelled, so the token must interrupt it
+        // exact backend runs for well over ten seconds uncancelled, so the token must
+        // interrupt it. The terms are 8-literal products (not 3-literal): a short-term
+        // cover unions to a near-tautology that the covering-table reductions collapse in
+        // milliseconds, whereas an 8-of-12 cover keeps the ON-set dense and irregular so
+        // prime generation and cover search stay genuinely expensive.
         var rng = new Random(777);
-        var terms = Enumerable.Range(0, 400)
-            .Select(_ => $"v{rng.Next(12):D2} & {(rng.Next(2) == 0 ? "!" : "")}v{rng.Next(12):D2} & v{rng.Next(12):D2}");
+        var terms = Enumerable.Range(0, 140).Select(_ =>
+        {
+            var vars = new SortedSet<int>();
+            while (vars.Count < 8) vars.Add(rng.Next(12));
+            return string.Join(" & ", vars.Select(v => (rng.Next(2) == 0 ? "!" : "") + $"v{v:D2}"));
+        });
         var expression = string.Join(" | ", terms);
 
         AssertCancelsPromptly(token =>
