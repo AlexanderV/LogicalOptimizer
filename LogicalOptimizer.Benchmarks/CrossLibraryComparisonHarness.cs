@@ -42,7 +42,9 @@ namespace LogicalOptimizer.Benchmarks;
 ///     Run: <c>dotnet run -c Release --project LogicalOptimizer.Benchmarks -- comparison-suite</c>
 ///     Options: <c>--out &lt;dir&gt;</c> (default <c>doc/comparison</c>),
 ///     <c>--emit-sat-dimacs &lt;dir&gt;</c> (write the miter DIMACS files a SAT competitor
-///     — CaDiCaL / Kissat — would consume), <c>&lt;corpusPath&gt;</c>.
+///     — CaDiCaL / Kissat — would consume), <c>--emit-function-dimacs &lt;dir&gt;</c> (write the
+///     count-preserving per-function DIMACS a #SAT counter — d4 / c2d — consumes for a
+///     head-to-head model-count comparison), <c>&lt;corpusPath&gt;</c>.
 /// </summary>
 internal static class CrossLibraryComparisonHarness
 {
@@ -65,6 +67,7 @@ internal static class CrossLibraryComparisonHarness
     {
         var outDir = OptionValue(args, "--out");
         var dimacsDir = OptionValue(args, "--emit-sat-dimacs");
+        var functionDimacsDir = OptionValue(args, "--emit-function-dimacs");
         var corpusPath = PositionalCorpus(args) ?? FindCorpus();
 
         if (corpusPath is null || !File.Exists(corpusPath))
@@ -103,6 +106,8 @@ internal static class CrossLibraryComparisonHarness
             twoLevel.Add(MeasureTwoLevel(zone, name, expression));
             sat.Add(MeasureSat(zone, name, expression, dimacsDir));
             bddDnnf.Add(MeasureBddDnnf(zone, name, expression));
+            if (functionDimacsDir is not null)
+                EmitFunctionCnf(functionDimacsDir, name, expression);
             Console.Error.Write('.');
         }
 
@@ -124,6 +129,8 @@ internal static class CrossLibraryComparisonHarness
         Console.Out.WriteLine($"Wrote {ToRepoRelative(repoRoot, manifestPath)}");
         if (dimacsDir is not null)
             Console.Out.WriteLine($"Wrote SAT miter DIMACS to {dimacsDir}");
+        if (functionDimacsDir is not null)
+            Console.Out.WriteLine($"Wrote per-function (count-preserving Tseitin) DIMACS to {functionDimacsDir}");
 
         var nonEquivalent = symbolic.Count(r => r.equivalence != "equivalent")
                             + twoLevel.Count(r => r.equivalence is not ("equivalent" or "n/a"));
@@ -476,7 +483,22 @@ internal static class CrossLibraryComparisonHarness
     }
 
     // --- helpers -------------------------------------------------------------------
-    private static readonly string[] ValueOptions = { "--out", "--emit-sat-dimacs" };
+    private static readonly string[] ValueOptions = { "--out", "--emit-sat-dimacs", "--emit-function-dimacs" };
+
+    /// <summary>
+    ///     Emit the per-function CNF a #SAT counter (d4 / c2d) consumes for a head-to-head
+    ///     comparison against the BDD / d-DNNF <c>modelCount</c>. Unlike the equivalence miter
+    ///     (all UNSAT ⇒ count 0), this is the function's own CNF. It is the FULL Tseitin encoding
+    ///     (biconditional per gate), so every auxiliary variable is functionally determined by the
+    ///     inputs and the model count over all DIMACS variables equals the input-variable model
+    ///     count — i.e. the counter's result is directly comparable to <c>modelCount</c>.
+    /// </summary>
+    private static void EmitFunctionCnf(string dir, string name, string expression)
+    {
+        Directory.CreateDirectory(dir);
+        var cnf = new BooleanExpressionOptimizer().ToEquisatisfiableCnf(expression);
+        File.WriteAllText(Path.Combine(dir, $"{name}.cnf"), cnf.ToDimacs());
+    }
 
     private static string OptionValue(string[] args, string name)
     {
