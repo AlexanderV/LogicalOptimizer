@@ -34,7 +34,8 @@
 ## Випуск версії
 
 Версія публікованих пакетів береться **з тега** (`/p:Version=${GITHUB_REF_NAME#v}`), тому
-`<Version>` у csproj — це dev/fallback-значення.
+`<Version>` — це dev/fallback-значення. Воно централізоване в
+[`Directory.Build.props`](Directory.Build.props) (одне місце на всі пакети), а не в кожному csproj.
 
 ```bash
 # 0) КОД МАЄ БУТИ НА GITHUB (workflow робить checkout тега):
@@ -74,14 +75,15 @@ logical-optimizer "a & b | a & c"
 
 - **Завжди push `main` → потім push тег** (щоб гілка й docs-сайт були актуальні; docs-workflow
   тригериться на push у `main`).
-- Поточна dev-версія в csproj — **3.0.0** (мажор: AIG DAG-aware rewriting увімкнено за
-  замовчуванням + доведено-мінімальна min-AIG бібліотека; `EnableAigRewriting=false` повертає
-  до-3.0 поведінку).
+- Поточна dev-версія — **3.1.0** (у [`Directory.Build.props`](Directory.Build.props)). Мажор 3.0
+  увімкнув AIG DAG-aware rewriting за замовчуванням + доведено-мінімальну min-AIG бібліотеку
+  (`EnableAigRewriting=false` повертає до-3.0 поведінку).
 - **Історична примітка щодо тегів:** BDD complement edges (C1) влилися комітом `247afcd`. Якщо
   потрібен окремий реліз-міграція **без** complement edges, тегни `v2.0.0` на коміті `9090092`
   (останній перед C1), а `v2.1.0` — на `HEAD`. Якщо це не потрібно — просто випусти все одним
   тегом `v2.1.0` (перший опублікований реліз міститиме і міграцію, і complement edges).
-- Перед новим мінорним/мажорним тегом: онови `<Version>` у 7 csproj і додай запис у
+- Перед новим мінорним/мажорним тегом: онови `<Version>` у
+  [`Directory.Build.props`](Directory.Build.props) (одне місце) і додай запис у
   [CHANGELOG.md](CHANGELOG.md).
 
 ## Після релізу
