@@ -65,15 +65,15 @@ LogicNG серед integrated propositional toolkits, і головний роз
 
 1. виконати competitor runners в одному контрольованому Linux environment;
 2. злити результати в спільний comparison artifact;
-3. закрити open questions projected-counting API, але не обов'язково реалізовувати
-   production feature до v3.3;
-4. виконати повний release gate і оновити comparison/README claims за реальними
+3. виконати повний release gate і оновити comparison/README claims за реальними
    артефактами.
 
 Закрито після зведеного стану вище: категоризацію exhaustive spike-тесту уніфіковано
-до `Category=Exhaustive` (гейт більше не тягне ~1-хвилинний доказ), кількість пакетів
-у README/docs-site узгоджено (9 опублікованих), і додано CHANGELOG-запис `[Unreleased]`
-для v3.1.
+до `Category=Exhaustive` (гейт більше не тягне ~1-хвилинний доказ); кількість пакетів
+у README/docs-site узгоджено (9 опублікованих); додано CHANGELOG-запис `[Unreleased]`
+для v3.1; **open API-питання projected-counting зафіксовано** в
+[`doc/decisions/projected-model-counting-api.md`](doc/decisions/projected-model-counting-api.md)
+(production implementation лишається роботою v3.3).
 
 Нові capability-напрями до закриття цього залишку додавати не потрібно.
 
@@ -479,15 +479,21 @@ public ProjectedModelCountResult CountProjectedModels(
 - hybrid BDD existential-abstraction path підтверджено прототипом і лишається
   opt-in exact fallback для сприятливих projected variable sets.
 
-### Open API-рішення
+### Open API-рішення — зафіксовано
 
-До production implementation треба зафіксувати:
+Усі п'ять питань закриті в
+[`doc/decisions/projected-model-counting-api.md`](doc/decisions/projected-model-counting-api.md):
 
-1. чи projection scope може містити змінні поза formula;
-2. `BigInteger? + ComputationStatus` чи discriminated result;
-3. budget currency для SAT і BDD engines;
-4. explicit engine чи `Auto`, і стабільність вибору між minor releases;
-5. чи потрібна окрема projected-model enumeration API.
+1. **Scope** — `P` може містити змінні поза formula (кожна вільна множить count на 2);
+   empty ⇒ `0/1`; unknown-name не є помилкою;
+2. **Result shape** — `ProjectedModelCountResult { BigInteger? Count; ProjectedCountStatus
+   Status }`, `Count` non-null iff `Exact`; **окремий** enum (не наявний `ComputationStatus`,
+   значення якого — `Computed/TooLarge/NotRequested`);
+3. **Budget** — спільний `ResourceBudget`; кожен engine мапить у власну валюту, але outcome
+   завжди `BudgetExhausted`;
+4. **Engine** — v3.3 лише blocking-enumeration MVP; `Auto`/explicit — коли з'явиться exact
+   path (політика `Auto` як у §17 рішення 6);
+5. **Enumeration** — відкладено як окремий метод, не в counting-контракті.
 
 ### Статус-контракт
 
