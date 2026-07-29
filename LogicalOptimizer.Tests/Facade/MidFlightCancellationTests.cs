@@ -20,9 +20,13 @@ public class MidFlightCancellationTests
         var stopwatch = Stopwatch.StartNew();
         Assert.Throws<OperationCanceledException>(() => workload(source.Token));
         stopwatch.Stop();
-        // Generous bound: the uncancelled workloads run for minutes; under full-suite
-        // parallel CPU load even a promptly-honored token can take seconds to observe
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(30),
+        // Generous bound: the uncancelled workloads run for minutes, so honoring within a
+        // minute proves the token was observed mid-flight rather than at the end. Run in
+        // isolation each cancel is honored in a few seconds; the bound is head-room for the
+        // full parallel suite, where CPU starvation (this is a Category=Performance test that
+        // runs alongside the heavy sampling/exhaustive suites) inflates the wall-clock wait —
+        // 30 s was occasionally tripped at ~36 s, so it is set to 60 s.
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(60),
             $"Cancellation honored only after {stopwatch.Elapsed} — engine ignores the token mid-flight");
     }
 
