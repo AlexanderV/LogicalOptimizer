@@ -2,10 +2,10 @@
 
 Базовий реліз: `v3.0.0`.
 
-Поточний перевірений стан плану: branch `perf/minimizer-and-nuget-verify` (29.07.2026).
+Поточний перевірений стан плану: branch `perf/minimizer-and-nuget-verify`,
+commit `6eddc90` (29.07.2026).
 
-Статуси: ✅ виконано · ◐ частково виконано · 🧪 design spike завершено, production
-API ще не реалізовано · ☐ не розпочато.
+Статуси: ✅ виконано · ◐ частково виконано.
 
 ## 0. Мета
 
@@ -53,19 +53,25 @@ LogicNG серед integrated propositional toolkits, і головний роз
 | ✅ | P0.3 | Internal performance hardening + regression gate | мінімізатори оптимізовано; allocation baseline і blocking CI gate додано | v3.1 |
 | ✅ | P1.1 | DIMACS/WCNF/OPB import | новий пакет `.Formats`, CLI, writers, budgets, fuzz/round-trip tests | v3.1 |
 | ✅ | P3.1 | `LogicalOptimizer.Full` meta-package | meta-package, integration tests і post-publish verification готові | v3.1 |
-| 🧪 | P1.4-spike | Projected counting design spike | SAT і BDD prototypes, 1,048,576 exhaustive checks, рекомендація зафіксована | v3.1 |
-| ☐ | P1.2 | d-DNNF conditioning і batch queries | не розпочато | v3.2 |
-| ☐ | P1.3 | d-DNNF marginals і sampling | не розпочато | v3.2 |
-| ☐ | P1.4 | Production projected model counting | spike завершено; лишилися API-рішення та production implementation | v3.3 |
-| ☐ | P2.3 | Серіалізація BDD/d-DNNF (experimental) | не розпочато | v3.3 |
-| ✅ | P2.1 | Portfolio cardinality/PB encodings | portfolio encodings, `Auto`, `EncodingStats`, fixed corpus і exhaustive-докази реалізовано (additive API) | v3.4 |
-| ☐ | P2.2 | Core-guided MaxSAT | не розпочато | v3.5 |
+| ✅ | P1.4-spike | Projected counting design spike | SAT і BDD prototypes, 1,048,576 exhaustive checks, рекомендація зафіксована | v3.1 |
+| ✅ | P1.2 | d-DNNF conditioning і evidence queries | immutable `Condition`, exact/weighted evidence count, differential tests | v3.1 |
+| ✅ | P1.3 | d-DNNF marginals і sampling | weighted marginals, seeded sampling, exhaustive/statistical tests | v3.1 |
+| ✅ | P1.4 | Production projected model counting | SAT-blocking MVP, typed exact/budget status, public facade API | v3.1 |
+| ✅ | P2.3 | Серіалізація BDD/d-DNNF | experimental binary Save/Load, CRC, budgets, golden/fuzz tests | v3.1 |
+| ✅ | P2.1 | Portfolio cardinality/PB encodings | portfolio, `Auto`, `EncodingStats`, corpus і exhaustive-докази | v3.1 |
+| ✅ | P2.2 | Core-guided MaxSAT | unweighted/weighted core-guided path, bounds, incumbents, Z3 differential | v3.1 |
 
 До завершення v3.1 залишилося:
 
 1. виконати competitor runners в одному контрольованому Linux environment;
 2. злити результати в спільний comparison artifact;
-3. виконати повний release gate і оновити comparison/README claims за реальними
+3. ~~зафіксувати `tools/encoding_corpus.txt` як незмінний calibration baseline~~ —
+   **закрито**: corpus заморожено checksum-lock тестом
+   (`EncodingPortfolioTests.CalibrationCorpus_IsFrozenToItsCommittedShapes`), який пінить
+   точний набір shapes; будь-яка правка тепер свідома (hash оновлюється в тій самій зміні).
+   Ретроспективний недолік «первинний corpus і implementation в одному commit» лишається
+   історичним фактом, але процесна вимога надалі забезпечена механічно;
+4. виконати повний release gate і оновити comparison/README claims за реальними
    артефактами.
 
 Закрито після зведеного стану вище: категоризацію exhaustive spike-тесту уніфіковано
@@ -73,22 +79,25 @@ LogicNG серед integrated propositional toolkits, і головний роз
 у README/docs-site узгоджено (9 опублікованих); додано CHANGELOG-запис `[Unreleased]`
 для v3.1; **open API-питання projected-counting зафіксовано** в
 [`doc/decisions/projected-model-counting-api.md`](doc/decisions/projected-model-counting-api.md)
-(production implementation лишається роботою v3.3).
+(production SAT-blocking MVP уже реалізовано в `f9f52b2`).
 
 Нові capability-напрями до закриття цього залишку додавати не потрібно.
 
 ### Перевірка поточного branch
 
-Локально на branch `perf/minimizer-and-nuget-verify`:
+Локально на commit `6eddc90`:
 
 - Release build усієї solution: **0 warnings, 0 errors**;
-- повний тест-сюїт (без фільтра): **1113/1113 passed**, 0 failed, 0 skipped;
-- gate-фільтр `Category!=Performance&Category!=Exhaustive` — зелений; вичерпний ≤4-змінний
-  spike-доказ
-  (`ProjectedModelCountingTests.ExhaustiveAgreement_AllFourVariableFunctions`) тепер
-  виключено з гейта (trait уніфіковано до `Category=Exhaustive`): під гейт-фільтром
-  spike-набір виконується як **10 тестів за ~0.6 с** замість 11 за ~1 хв 28 с, а сам
-  вичерпний доказ зберігається у повному/nightly-прогоні.
+- gate-фільтр `Category!=Performance&Category!=Exhaustive`:
+  **1157/1157 passed**, 0 failed, 0 skipped, 22 s;
+- вичерпний ≤4-змінний spike-доказ тепер коректно має
+  `Category=Exhaustive` і не потрапляє у fast gate;
+- повний suite разом із `Performance`/`Exhaustive` у цій перевірці не запускався,
+  тому його актуальний total не заявляється.
+
+Перед релізом усе ще потрібен повний/nightly прогін: fast gate підтверджує
+production contract tests, але не замінює exhaustive encoding, spike і
+performance suites.
 
 ## 3. P0.2 — Контрольований cross-library benchmark
 
@@ -357,6 +366,13 @@ logical-optimizer count input.cnf --engine dnnf
 
 ## 7. P1.2 — d-DNNF conditioning і batch queries
 
+**Статус: ✅ виконано (`52919f8`).**
+
+Реалізовано immutable `Condition`, `CountModels(evidence)` і
+`WeightedModelCount(weights, evidence)`. Контракти unknown variables,
+immutability, cancellation і differential parity з BDD/brute force закріплено
+тестами. `DnnfQuerySession` не вводився: потребу в mutable cache не доведено.
+
 ### Мета
 
 Перетворити d-DNNF з одноразового model counter на reusable query engine поверх
@@ -396,6 +412,13 @@ public double WeightedModelCount(
 - cancellation працює на великих circuits.
 
 ## 8. P1.3 — Marginals і model sampling
+
+**Статус: ✅ виконано (`123ebf9`).**
+
+Реалізовано weighted `MarginalProbability`, `SampleModel(Random, weights?)` та
+seeded `SampleModels`. Є exhaustive weighted oracles, перевірка satisfiability
+кожного sample, deterministic seed і статистичні distribution tests. API не має
+cryptographic claims.
 
 ### Мета
 
@@ -475,13 +498,14 @@ public static ProjectedModelCountResult CountProjectedModels(
 Після projection різні повні моделі можуть відповідати одному projected model;
 наївне підсумовування дає overcount.
 
-### Підхід після spike
+### Реалізований і майбутній підхід
 
-- **MVP (v3.3):** SAT blocking enumeration як sound budgeted шлях із чесним
-  `Status`;
+- **MVP реалізовано (`f9f52b2`):** SAT blocking enumeration як sound budgeted
+  шлях із чесним `Status`;
 - **exact d-DNNF projection** (projected compilation з cache за projected scope
-  або existential abstraction з повторною deterministic compilation) — після
-  spike;
+  або existential abstraction з повторною deterministic compilation) —
+  можливий майбутній performance engine, але не потрібен для correctness або
+  закриття поточного milestone;
 - hybrid BDD existential-abstraction path підтверджено прототипом і лишається
   opt-in exact fallback для сприятливих projected variable sets.
 
@@ -497,8 +521,9 @@ public static ProjectedModelCountResult CountProjectedModels(
    значення якого — `Computed/TooLarge/NotRequested`);
 3. **Budget** — спільний `ResourceBudget`; кожен engine мапить у власну валюту, але outcome
    завжди `BudgetExhausted`;
-4. **Engine** — v3.3 лише blocking-enumeration MVP; `Auto`/explicit — коли з'явиться exact
-   path (політика `Auto` як у §17 рішення 6);
+4. **Engine** — перший production engine є blocking-enumeration MVP;
+   `Auto`/explicit додається лише разом із другим exact path (політика `Auto` як
+   у §17 рішення 6);
 5. **Enumeration** — відкладено як окремий метод, не в counting-контракті.
 
 ### Статус-контракт
@@ -608,6 +633,15 @@ byte-identical output (доведено характеризаційним те�
 
 Calibration corpus фіксується **окремим PR до** впровадження евристик — інакше
 evaluation підганяється під результат.
+
+Фактично `tools/encoding_corpus.txt` і portfolio implementation додано одним
+commit `7dc9152`. Семантичну коректність це не ставить під сумнів — її незалежно
+перевіряють exhaustive tests, а `Auto` безпосередньо вимірює всі застосовні
+encodings і не може обрати дорожчий за default. Первинний process criterion
+«попередньо заморожений corpus» ретроспективно не виконано, але надалі забезпечений
+механічно: `CalibrationCorpus_IsFrozenToItsCommittedShapes` пінить SHA-256 набору
+shapes, тож tuning оцінюється лише на незміненій версії, а будь-яка правка вимагає
+свідомого оновлення pin у тій самій зміні (або нового corpus окремою попередньою зміною).
 
 ### Cardinality encodings
 
@@ -722,7 +756,8 @@ capabilities, release verification оновлено. Надалі пункт є 
 
 Дати one-install experience без зміни залежностей існуючого facade. «Один
 toolkit» — маркетингова теза, яку installation-snippet не закриває, тому
-восьмий пакет виправданий.
+окремий meta-package виправданий. Після появи `.Formats` він є дев'ятим
+publishable package у складі v3.1.
 
 ```text
 LogicalOptimizer.Full
@@ -743,8 +778,8 @@ LogicalOptimizer.Full
 - package dependency graph перевіряється integration test;
 - smoke project використовує optimizer, SAT, BDD і d-DNNF;
 - README чітко розрізняє facade, full і individual packages;
-- post-publish verification охоплює восьмий пакет у межах розширеного вікна
-  індексації (див. розд. 15, gate 8).
+- post-publish verification охоплює всі дев'ять пакетів у межах розширеного
+  вікна індексації (див. розд. 15, gate 8).
 
 ## 14. Контракти бібліотеки
 
@@ -802,39 +837,49 @@ serverless/worker-сценаріїв, які мотивують P0.1.
 
 ### v3.1 — Credibility, deployment, interoperability
 
-Виконано: P0.1, P0.3, P1.1, P3.1 і P1.4 spike. P0.2 виконано з OUR-side,
-methodology та runners.
+Усі заплановані capability й infrastructure tracks реалізовано раніше первісної
+послідовності: P0.1, P0.3, P1.1–P1.4, P2.1–P2.3, P3.1 і projected-counting
+spike. P0.2 виконано з OUR-side, methodology та runners.
 
 Залишок перед релізом:
 
 1. competitor-side benchmark runs і merged artifact;
-2. рішення щодо projected-counting public contract;
-3. повний build/test/AOT/perf/API/security/release gate;
-4. синхронізація README, changelog, docs і comparison із фінальним складом v3.1.
-
-Production projected counting не є блокером v3.1.
+2. frozen encoding-corpus declaration/process correction;
+3. новий повний build/test/AOT/perf/API/security/release gate на фінальному commit;
+4. синхронізація README, changelog, docs і comparison із фактичним складом v3.1;
+5. version bump, tag і post-publish verification дев'яти пакетів.
 
 ### v3.2 — Reusable knowledge compilation
 
-1. P1.2 conditioning і batch queries;
-2. P1.3 marginals і sampling.
+Conditioning, evidence queries, marginals і sampling уже реалізовано в
+поточному unreleased v3.1 state. Окремого v3.2 milestone для них більше немає.
 
 ### v3.3 — Unique model-counting capability
 
-1. P1.4 projected model counting (MVP через blocking enumeration, далі exact);
-2. P2.3 d-DNNF serialization (experimental).
+Projected model counting MVP і experimental serialization уже реалізовано.
+Можливий exact d-DNNF/BDD projection engine є умовною performance-роботою після
+реальних benchmark/adoption даних, а не заздалегідь обіцяним v3.3 scope.
 
 ### v3.4 — Encoding portfolio
 
-1. calibration corpus (передумова);
-2. P2.1 cardinality/PB encodings;
-3. BDD serialization.
+Encoding portfolio і BDD serialization уже реалізовано. Подальше tuning `Auto`
+допускається лише проти frozen corpus і не потребує зарезервованого v3.4.
 
 ### v3.5 — MaxSAT depth
 
-1. P2.2 core-guided MaxSAT;
-2. WCNF benchmark corpus;
-3. algorithm auto-selection.
+Core-guided MaxSAT уже реалізовано. Майбутня зміна `Auto` routing та розширення
+WCNF corpus мають бути evidence-driven й не резервують v3.5 наперед.
+
+### Після v3.1
+
+Новий feature roadmap слід формувати лише після:
+
+1. competitor benchmark completion;
+2. v3.1 adoption/issue feedback;
+3. профілів projected counting, serialization і MaxSAT на реальних workloads.
+
+До цього моменту наступні minor-версії не повинні отримувати штучно призначений
+scope лише тому, що старий план уже виконано.
 
 ## 17. Прийняті архітектурні рішення
 
@@ -847,14 +892,15 @@ Production projected counting не є блокером v3.1.
    лише за доведеної вигоди кешу.
 4. **Projected counting** — MVP на SAT blocking enumeration з
    `ProjectedModelCountResult{Count?, Status}`; exact d-DNNF projection після
-   spike; часткове число ніколи не exact. Spike підтвердив soundness SAT і BDD
-   strategies; open API-рішення перелічені в §9.
+   spike; часткове число ніколи не exact. MVP реалізовано; exact alternative
+   лишається умовним performance engine. Spike підтвердив soundness SAT і BDD
+   strategies.
 5. **Serialization format** — experimental до v4, stable лише з першим реальним
    споживачем.
 6. **`Auto` encoding** — може змінювати вибір між minor-релізами з CHANGELOG-записом
    і threshold-гарантією на зафіксованому corpus.
-7. **`LogicalOptimizer.Full`** — восьмий пакет, публікується після стабілізації
-   вікна post-publish verification.
+7. **`LogicalOptimizer.Full`** — meta-package у складі дев'яти publishable
+   пакетів v3.1; post-publish verification охоплює всі дев'ять.
 
 ## 18. Свідомі non-goals
 
