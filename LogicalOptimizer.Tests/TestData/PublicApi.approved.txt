@@ -586,10 +586,18 @@ namespace LogicalOptimizer
         public int Cost { get; }
         public override string ToString() { }
     }
+    public enum MaxSatAlgorithm
+    {
+        Auto = 0,
+        Linear = 1,
+        CoreGuided = 2,
+    }
     public sealed class MaxSatResult
     {
         public long Cost { get; }
+        public long LowerBound { get; }
         public LogicalOptimizer.MaxSatStatus Status { get; }
+        public long UpperBound { get; }
         public bool[]? Values { get; }
         public bool GetValue(int variable) { }
     }
@@ -599,6 +607,7 @@ namespace LogicalOptimizer
         public void AddHard(params int[] literals) { }
         public void AddSoft(int weight, params int[] literals) { }
         public LogicalOptimizer.MaxSatResult Solve(int maxConflictsPerCall = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
+        public LogicalOptimizer.MaxSatResult Solve(LogicalOptimizer.MaxSatAlgorithm algorithm, int maxConflictsPerCall = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
     }
     public enum MaxSatStatus
     {

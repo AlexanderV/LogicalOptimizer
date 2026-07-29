@@ -12,6 +12,26 @@ the public API baseline diff is additive-only.
 
 ### Added
 
+- **Core-guided MaxSAT (P2.2).** `MaxSatSolver` gains an opt-in core-guided search alongside the
+  existing linear one, selected through a new overload
+  `Solve(MaxSatAlgorithm algorithm, int maxConflictsPerCall, CancellationToken)`. **The
+  parameterless `Solve(int, CancellationToken)` is unchanged** — it still runs the linear search
+  byte-for-byte, so no existing caller's behaviour changes; core-guided is reached only through the
+  new overload. The new public surface is additive:
+  `enum MaxSatAlgorithm { Auto, Linear, CoreGuided }` plus two new read-only bounds on
+  `MaxSatResult` (`long LowerBound`, `long UpperBound`) that bracket the optimum. The core-guided
+  path implements an MSU3-style lower-bound search: each soft clause gets a blocking variable, the
+  solver iteratively extracts UNSAT cores under soft-selector assumptions and relaxes only the cores
+  with a cardinality bound (unweighted — textbook MSU3) or a pseudo-Boolean bound raised in unit
+  steps (a sound weighted MSU3 variant), proving the optimum when the formula becomes SAT. The
+  three-valued completion status is explicit: a proven `Optimal`, a sound incumbent under a spent
+  budget/cancellation (`Unknown`, with `LowerBound < UpperBound`), and `HardClausesUnsatisfiable` —
+  and an incumbent is **never** reported as optimal (hard-UNSAT is checked up front, distinct from
+  budget exhaustion). `Auto` currently routes to `Linear`. Both algorithms observe the conflict
+  budget and `CancellationToken`. Validated against brute-force enumeration and Z3 `Optimize` on
+  hundreds of seeded random weighted partial instances (unweighted and weighted), with pigeonhole
+  regression cases where the linear and core-guided searches take visibly different paths yet reach
+  the same proven optimum, plus explicit hard-UNSAT and tiny-budget-incumbent tests.
 - **Encoding portfolio (P2.1).** `CardinalityEncoder` and `PseudoBooleanEncoder` gain
   encoding-selecting overloads that pick from a portfolio of semantically equivalent CNF
   encodings and report the size they introduce. Cardinality adds `Pairwise` (binomial),

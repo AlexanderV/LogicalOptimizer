@@ -127,6 +127,23 @@ Console.WriteLine(result.GetValue(2));  // False
 
 `MaxSatStatus` is `Optimal`, `HardClausesUnsatisfiable`, or `Unknown`.
 
+Two algorithms are available. The parameterless `Solve(...)` above runs the linear
+search and is unchanged; the overload `Solve(MaxSatAlgorithm, ...)` also offers a
+core-guided (MSU3-style) search that extracts UNSAT cores and raises a proven lower
+bound round by round:
+
+```csharp
+var result = maxSat.Solve(MaxSatAlgorithm.CoreGuided);
+Console.WriteLine(result.Status);        // Optimal
+Console.WriteLine(result.Cost);          // 3
+Console.WriteLine(result.LowerBound);    // 3   (== UpperBound when proven optimal)
+```
+
+Both return the same proven optimum. `MaxSatResult.LowerBound` and `UpperBound`
+bracket the optimum; when a conflict budget is spent the result is `Unknown` with a
+sound incumbent (`LowerBound < UpperBound`) — an incumbent is never reported as
+`Optimal`, and `HardClausesUnsatisfiable` is distinct from budget exhaustion.
+
 ## Solving a formula's CNF directly
 
 `SatSolver.FromCnf` builds a solver straight from an equisatisfiable

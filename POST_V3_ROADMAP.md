@@ -660,6 +660,19 @@ CHANGELOG і за умови «не гірше threshold на зафіксова
 
 ## 12. P2.2 — Core-guided MaxSAT
 
+**Статус: ✅ виконано.** `MaxSatSolver` отримав опційний core-guided пошук поряд
+із наявним linear, через additive overload
+`Solve(MaxSatAlgorithm algorithm, int maxConflictsPerCall, CancellationToken)`;
+параметричний `Solve(int, CancellationToken)` не змінено (лишається linear).
+Реалізовано unweighted MSU3 (cardinality relaxation) та sound weighted MSU3-варіант
+(pseudo-Boolean bound з unit-step підйомом lower bound). Three-valued status
+(`Optimal` / `Unknown`-incumbent / `HardClausesUnsatisfiable`) з proven lower/upper
+bounds (`MaxSatResult.LowerBound`/`UpperBound`); incumbent ніколи не видається за
+optimum, hard-UNSAT відрізняється від budget exhaustion. Верифіковано проти brute
+force і Z3 `Optimize` (300 random weighted partial instances, збіг 300/300), плюс
+pigeonhole regression, де linear і core-guided мають різний профіль, але однаковий
+proven optimum, та явні hard-UNSAT / tiny-budget-incumbent тести.
+
 ### Мета
 
 Доповнити linear weighted partial MaxSAT алгоритмом, що використовує наявні
