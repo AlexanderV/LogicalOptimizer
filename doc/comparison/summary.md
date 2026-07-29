@@ -1,4 +1,4 @@
-# LogicalOptimizer — cross-library comparison, OUR-side detail
+# LogicalOptimizer — detailed engine results (no competitors here)
 
 This is the **detailed LogicalOptimizer ("OUR") side** of the P0.2 comparison — each
 engine's own sizes, statuses, exact model counts and (indicative) timings on the shared

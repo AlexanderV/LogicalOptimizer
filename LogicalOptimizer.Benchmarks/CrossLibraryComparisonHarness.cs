@@ -368,7 +368,7 @@ internal static class CrossLibraryComparisonHarness
     private static string BuildSummary(Results r, Manifest m)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("# LogicalOptimizer — cross-library comparison, OUR-side detail");
+        sb.AppendLine("# LogicalOptimizer — detailed engine results (no competitors here)");
         sb.AppendLine();
         sb.AppendLine("This is the **detailed LogicalOptimizer (\"OUR\") side** of the P0.2 comparison — each");
         sb.AppendLine("engine's own sizes, statuses, exact model counts and (indicative) timings on the shared");
