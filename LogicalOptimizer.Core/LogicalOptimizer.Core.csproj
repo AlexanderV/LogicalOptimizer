@@ -16,18 +16,14 @@
     <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
 
+    <!-- Shared package metadata (Version/Authors/License/ProjectUrl/Repository/SourceLink
+         switches) is centralized in ..\Directory.Build.props. -->
     <PackageId>LogicalOptimizer.Core</PackageId>
-    <Version>3.1.0</Version>
-    <Authors>Oleksandr Panasenko</Authors>
     <Description>Core of the LogicalOptimizer toolkit: boolean expression AST, lexer/parser, truth tables, metrics, and the And-Inverter Graph representation. Dependency-free.</Description>
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>boolean;logic;ast;parser;truth-table;aig</PackageTags>
-    <PackageProjectUrl>https://AlexanderV.github.io/LogicalOptimizer/</PackageProjectUrl>
+    <PackageTags>boolean;logic;ast;parser;truth-table;aig;boolean-expression;native-aot;pure-managed</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591;CS1570</NoWarn>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
 
   <ItemGroup>
@@ -39,7 +35,7 @@
     <InternalsVisibleTo Include="LogicalOptimizer.Tests" />
     <InternalsVisibleTo Include="LogicalOptimizer.Cli" />
     <InternalsVisibleTo Include="LogicalOptimizer.Benchmarks" />
-    <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>

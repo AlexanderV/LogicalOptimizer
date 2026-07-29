@@ -1,0 +1,23 @@
+<Project>
+
+  <!--
+    Repo-wide package metadata shared by every LogicalOptimizer package, so a release
+    only bumps the version in ONE place. Kept deliberately minimal: only values that are
+    identical across packages AND harmless on the non-packable projects (tests,
+    benchmarks, AOT smoke) live here. Build-, language- and AOT-analyzer settings stay in
+    the individual library .csproj on purpose — they must NOT apply to the reflection-using
+    test/benchmark projects, which would otherwise fail the trim/AOT analyzers under
+    TreatWarningsAsErrors.
+  -->
+  <PropertyGroup>
+    <Version>3.1.0</Version>
+    <Authors>Oleksandr Panasenko</Authors>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://AlexanderV.github.io/LogicalOptimizer/</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/AlexanderV/LogicalOptimizer.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+  </PropertyGroup>
+
+</Project>
