@@ -3,7 +3,7 @@
 Базовий реліз: `v3.0.0`.
 
 Поточний перевірений стан плану: branch `perf/minimizer-and-nuget-verify`,
-commit `fda61df` + незакомічені comparison artifacts (29.07.2026).
+commit `e20f8a3` (29.07.2026).
 
 Статуси: ✅ виконано · ◐ частково виконано.
 
@@ -102,11 +102,11 @@ LogicNG серед integrated propositional toolkits, і головний роз
 
 ### Перевірка поточного branch
 
-Локально на commit `fda61df` + поточні generated comparison artifacts:
+Локально на commit `e20f8a3` + поточні незакомічені документаційні зміни:
 
 - Release build усієї solution: **0 warnings, 0 errors**;
 - gate-фільтр `Category!=Performance&Category!=Exhaustive`:
-  **1158/1158 passed**, 0 failed, 0 skipped, 15 s;
+  **1158/1158 passed**, 0 failed, 0 skipped, 17 s;
 - вичерпний ≤4-змінний spike-доказ тепер коректно має
   `Category=Exhaustive` і не потрапляє у fast gate;
 - повний suite разом із `Performance`/`Exhaustive` у цій перевірці не запускався,
@@ -118,12 +118,18 @@ performance suites.
 
 ## 3. P0.2 — Контрольований cross-library benchmark
 
-**Статус: ◐ числовий прогін виконано, reproducible integration ще не закрито.**
+**Статус: ✅ виконано (`54dcccb`, `66d08bc`, `fda61df`, `fd1d3fb`,
+`b4315cf`, документаційні уточнення до `e20f8a3`).**
 
-OUR side закомічено в `54dcccb`; count-preserving DIMACS і container tooling —
-у `66d08bc`/`fda61df`. Generated competitor outputs і `merged.md` успішно
-отримані, але ще не є частиною commit history. Числа вже придатні для локального
-аналізу, проте milestone стає ✅ лише після artifact commit, pin/docs/CI closure.
+OUR harness, count-preserving DIMACS, container tooling, pinned competitor
+versions, Z3 adapter, generated outputs і `merged.md` є частиною commit history.
+Methodology розрізняє два свідомі шляхи:
+
+- fast manual GitHub workflow — OUR-side artifact;
+- manual/periodic pinned container — повний cross-library run.
+
+Це не прогалина CI: повний container build дорогий і зовнішньо залежний, тому не
+є PR gate. Відтворюваність забезпечується pinning і committed artifacts.
 
 Готові:
 
@@ -134,8 +140,8 @@ OUR side закомічено в `54dcccb`; count-preserving DIMACS і container
 - CI workflow;
 - [`tools/comparison/Dockerfile`](tools/comparison/Dockerfile) — один Ubuntu-runner із
   .NET, SymPy, PyEDA, CaDiCaL, Kissat, d4 і [`logicng/`](tools/comparison/logicng) (2.4.1);
-- [`doc/comparison/merged.md`](doc/comparison/merged.md) — реальні competitor columns
-  у поточному worktree.
+- [`doc/comparison/merged.md`](doc/comparison/merged.md) — committed
+  human-readable competitor comparison.
 
 Результат (17-функційний corpus, один Ubuntu 24.04 / .NET 10 runner):
 
@@ -152,16 +158,16 @@ OUR side закомічено в `54dcccb`; count-preserving DIMACS і container
 виявило й закрило латентні баги: `printf '----:|'` падав під `set -e`; d4v2 рахує лише
 з `-mc`; merge ключував SymPy/PyEDA за колонкою Zone замість Function.
 
-Незакриті методичні питання:
+Методичні рішення:
 
-- c2d не встановлено; фактичний #SAT comparator — d4, тому combined label
-  `c2d/d4` треба уточнити;
-- Z3 був у початковому переліку учасників, але adapter відсутній;
-- Dockerfile використовує floating sources для частини tools, тому повторний
-  build пізніше може отримати інші revisions;
-- `summary.md` лишається OUR-side документом із `pending`; authoritative merged
-  artifact і його статус треба явно описати;
-- intentional max-vars skips не повинні виглядати як незавершений запуск.
+- фактичний exact #SAT comparator — pinned d4; c2d пропрієтарний і явно
+  self-skipped, тому human-readable table називає колонку `d4`;
+- Z3 4.16.0.0 входить у SAT table разом із CaDiCaL і Kissat;
+- base image pinned digest-ом, Python packages — exact versions,
+  CaDiCaL/Kissat/d4 — commit hashes, LogicNG — 2.4.1;
+- `summary.md` свідомо є OUR-only artifact, `merged.md` — authoritative
+  cross-library comparison;
+- `pending`, `timeout` і `skipped(max-vars)` мають різні, явно описані значення.
 
 ### Мета
 
@@ -887,16 +893,15 @@ serverless/worker-сценаріїв, які мотивують P0.1.
 ### v3.1 — Credibility, deployment, interoperability
 
 Усі заплановані capability tracks реалізовано раніше первісної
-послідовності: P0.1, P0.3, P1.1–P1.4, P2.1–P2.3, P3.1 і projected-counting
-spike. P0.2 має успішний full run, але ще потребує reproducibility/integration
-closure.
+послідовності: P0.1–P0.3, P1.1–P1.4, P2.1–P2.3, P3.1 і projected-counting
+spike. P0.2 також повністю закрито: pinned container, generated outputs,
+methodology, cross-library `merged.md` і точні tool/skip labels закомічено.
 
 Залишок перед релізом:
 
-1. P0.2 pin/commit/methodology/CI closure і точні skip/tool labels;
-2. новий повний build/test/AOT/perf/API/security/release gate на фінальному commit;
-3. синхронізація README, changelog, docs і comparison із фактичним складом v3.1;
-4. version bump, tag і post-publish verification дев'яти пакетів.
+1. новий повний build/test/AOT/perf/API/security/release gate на фінальному commit;
+2. синхронізація README, changelog, docs і comparison із фактичним складом v3.1;
+3. version bump, tag і post-publish verification дев'яти пакетів.
 
 ### v3.2 — Reusable knowledge compilation
 
