@@ -1,17 +1,65 @@
-# LogicalOptimizer - Boolean Expression Optimizer
+# LogicalOptimizer
 
-📚 **Documentation site: [https://AlexanderV.github.io/LogicalOptimizer/](https://AlexanderV.github.io/LogicalOptimizer/)** — API reference (generated from the library XML doc comments) plus conceptual articles with a runnable example for every capability area: getting started, formula construction, optimizer & options, operation contracts & statuses, budgets & the zone model, normal forms & transformations, minimization, SAT solving, BDDs, knowledge compilation, equivalence & backbones, exporters, packages & architecture, CLI usage, migration, testing. **Every code example in the docs (and in this README) is mirrored by an executed, asserted test** in `LogicalOptimizer.Tests/Documentation/DocExamplesTests.cs`, so the shown outputs are real and cannot silently drift. Built by the [`Docs` workflow](.github/workflows/docs.yml) from `docs-site/` and deployed to GitHub Pages on every push to `main`.
+> **Verified Boolean reasoning toolkit for .NET**  
+> Optimize, compare, count, and solve Boolean formulas with zero runtime dependencies.
 
-> **🤖 AI-Assisted Development Notice**
-> 
-> This project was developed with extensive assistance from Large Language Models (LLM), including:
-> - Architecture design and implementation guidance
-> - Code generation and optimization techniques
-> - Comprehensive testing framework creation
-> - Documentation and specification writing
-> - Best practices implementation and code quality improvements
->
-> The collaboration between human creativity and AI capabilities resulted in a robust, well-tested boolean expression optimization system with advanced features and comprehensive documentation.
+LogicalOptimizer is a dependency-free .NET toolkit for **verified** Boolean optimization,
+equivalence checking, SAT solving, model counting, and knowledge compilation. Every
+optimization result is checked for equivalence with the input; minimality and
+resource-limit outcomes are reported explicitly — there are no silent fallbacks.
+
+## Why LogicalOptimizer
+
+- **Verified results** — every optimization is proven equivalent to the input before it is returned (truth table up to 12 variables, built-in SAT miter beyond).
+- **Explicit proof status** — minimality is never silently downgraded: `OptimizationResult.MinimizationStatus` reports `MinimalProven` / `BudgetExceeded` / `Heuristic`.
+- **Pure managed .NET** — zero production dependencies, Native AOT and trimming supported.
+
+## Install
+
+```bash
+dotnet add package LogicalOptimizer            # facade: Core + Sat + Bdd + Minimization
+# dotnet add package LogicalOptimizer.Full     # everything in one install
+# dotnet tool install -g LogicalOptimizer.Cli  # CLI, command: logical-optimizer
+```
+
+## Quick example
+
+```csharp
+using LogicalOptimizer;
+
+var result = new BooleanExpressionOptimizer().OptimizeExpression("a & b | a & c");
+
+Console.WriteLine(result.Optimized);          // a & (b | c)
+Console.WriteLine(result.IsEquivalent());     // True          (verified against the input)
+Console.WriteLine(result.MinimizationStatus); // MinimalProven
+```
+
+The point isn't only the smaller expression — it's that the library tells you **what it
+proved**. The CLI prints the same result as a proof report:
+
+```text
+Original: a & b | a & c
+Optimized: a & (b | c)
+Equivalent: proven
+Minimality: proven
+Cost: 4 -> 3 literals
+```
+
+## Choosing a tool
+
+| Need | Recommended choice |
+|---|---|
+| Managed .NET with no native dependencies | **LogicalOptimizer** |
+| Verified Boolean expression optimization | **LogicalOptimizer** |
+| Equivalence checking with a counterexample | **LogicalOptimizer** |
+| Full SMT and arithmetic theories | Z3 |
+| Competition-scale raw SAT throughput | Kissat or CaDiCaL |
+| Industrial logic synthesis | Berkeley ABC |
+| Mature JVM propositional ecosystem | LogicNG |
+
+The table maps needs to tools honestly; it is not a claim of universal superiority.
+
+📚 **Full documentation:** [AlexanderV.github.io/LogicalOptimizer](https://AlexanderV.github.io/LogicalOptimizer/) — API reference plus a runnable example for every capability area. **Every code example in the docs and this README is mirrored by an executed, asserted test** in `LogicalOptimizer.Tests/Documentation/DocExamplesTests.cs`, so the shown outputs are real and cannot silently drift. Built by the [`Docs` workflow](.github/workflows/docs.yml) and deployed to GitHub Pages on every push to `main`.
 
 ## Overview
 
@@ -111,6 +159,9 @@ dotnet run --project LogicalOptimizer.Cli -- "a & b | a & c"
 # Output:
 # Original: a & b | a & c
 # Optimized: a & (b | c)
+# Equivalent: proven
+# Minimality: proven
+# Cost: 4 -> 3 literals
 # CNF: a & (b | c)
 # DNF: a & b | a & c
 # Variables: [a, b, c]
@@ -122,6 +173,9 @@ dotnet run --project LogicalOptimizer.Cli -- "a & !b | !a & b"
 # Output:
 # Original: a & !b | !a & b
 # Optimized: a & !b | b & !a
+# Equivalent: proven
+# Minimality: proven
+# Cost: 4 -> 4 literals
 # CNF: (a | b) & (!a | !b)
 # DNF: a & !b | b & !a
 # Variables: [a, b]
@@ -132,6 +186,9 @@ dotnet run --project LogicalOptimizer.Cli -- "((a & !b) | (!a & b)) & ((!c | d) 
 # Output:
 # Original: ((a & !b) | (!a & b)) & ((!c | d) | (e & f))
 # Optimized: (d | !c | e & f) & (a & !b | b & !a)
+# Equivalent: proven
+# Minimality: proven
+# Cost: 8 -> 8 literals
 # CNF: (a | b) & (!a | !b) & (d | e | !c) & (d | f | !c)
 # DNF: a & d & !b | b & d & !a | a & !b & !c | b & !a & !c | a & e & f & !b | b & e & f & !a
 # Variables: [a, b, c, d, e, f]
@@ -585,6 +642,10 @@ graph LR
 - **Operator support**: 3 core operators (AND, OR, NOT) in the text grammar; the AST has a canonical n-ary core (And/Or/Not/Variable/Constant) plus derived binary nodes (XOR, IMP, EQV, NAND, NOR) used for pattern-recognition display
 - **Truth table capacity**: Up to 20 variables (1M+ combinations)
 - **Platform support**: Cross-platform (packages net8.0/net10.0; CLI net10.0)
+
+## AI-assisted development
+
+This project was developed with extensive assistance from large language models (architecture design, code generation, the testing framework, documentation and code-quality work). The combination produced a robust, well-tested Boolean-expression toolkit with comprehensive documentation.
 
 ## Contributing
 

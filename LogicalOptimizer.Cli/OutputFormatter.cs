@@ -92,6 +92,16 @@ internal class OutputFormatter
     {
         Console.WriteLine($"Original: {result.Original}");
         Console.WriteLine($"Optimized: {result.Optimized}");
+
+        // Proof report — the key differentiator over a plain expression simplifier:
+        // report WHAT was proven about the smaller expression, not just the expression.
+        Console.WriteLine($"Equivalent: {(result.IsEquivalent() ? "proven" : "unverified")}");
+        Console.WriteLine($"Minimality: {DescribeMinimality(result.MinimizationStatus)}");
+        var originalLiterals = TryCountLiterals(result.Original);
+        var optimizedLiterals = TryCountLiterals(result.Optimized);
+        if (originalLiterals is { } before && optimizedLiterals is { } after)
+            Console.WriteLine($"Cost: {before} -> {after} literals");
+
         Console.WriteLine($"CNF: {result.CNF}");
         Console.WriteLine($"DNF: {result.DNF}");
         Console.WriteLine($"Variables: [{string.Join(", ", result.Variables)}]");
@@ -109,6 +119,34 @@ internal class OutputFormatter
         }
 
         DisplayTruthTableIfSmall(result);
+    }
+
+    /// <summary>Friendly rendering of the minimality provenance for the standard proof report.</summary>
+    private static string DescribeMinimality(MinimizationStatus status)
+    {
+        return status switch
+        {
+            MinimizationStatus.MinimalProven => "proven",
+            MinimizationStatus.BudgetExceeded => "unproven (budget exceeded)",
+            _ => "heuristic"
+        };
+    }
+
+    /// <summary>
+    ///     Literal count of an expression for the cost line, or <c>null</c> when the string
+    ///     cannot be parsed (never let a display helper fail the whole run).
+    /// </summary>
+    private static int? TryCountLiterals(string expression)
+    {
+        try
+        {
+            var ast = new Parser(new Lexer(expression).Tokenize()).Parse();
+            return AstMetrics.CountLiterals(ast);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     private void DisplayTruthTableIfSmall(OptimizationResult result)
