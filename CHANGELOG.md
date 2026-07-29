@@ -12,6 +12,28 @@ the public API baseline diff is additive-only.
 
 ### Added
 
+- **Circuit serialization (P2.3) — EXPERIMENTAL until v4.** `BinaryDecisionDiagram` and
+  `DnnfCircuit` each gain `Save(Stream)` and
+  `static Load(Stream, ResourceBudget?, CancellationToken)` over a compact, hand-written binary
+  format (magic · format version · engine byte · variable table · node table · root · CRC-32),
+  letting a service compile a circuit once and reuse it across restarts. The format is
+  **experimental**: it may change before v4 and carries no cross-version compatibility guarantee
+  other than the version gate, which makes a build **refuse** (never misread) a blob written by a
+  newer build. Output is **deterministic** (the same circuit always yields identical bytes) and
+  **little-endian** (documented, via `BinaryPrimitives`); the engine byte makes loading a d-DNNF
+  blob as a BDD — or vice versa — a typed error. `Load` is fully validated: it verifies the CRC-32
+  (which catches corruption but does **not** replace structure checks), and enforces semantic
+  validity — variable indices in range, a genuine variable-order permutation (BDD), children
+  strictly before their parent (acyclic/topological) and at a deeper level (reduced-ordered BDD),
+  and a valid root and terminals. There is **no reflection or object deserialization**, and the
+  read is **budgeted**: a hostile size header is checked against `ResourceBudget.BddNodeLimit` and
+  the actual stream, so it aborts with `NodeBudgetExceededException` (or a truncation error) rather
+  than pre-allocating. A loaded BDD is a valid hash-consed manager whose queries answer
+  identically. Any malformed input is the new typed `CircuitSerializationException`. Validated by a
+  differential Save/Load round-trip (model count, variables, evaluation) on random formulas,
+  deterministic-bytes and committed golden-blob drift tests, forward-version and wrong-engine
+  rejection, a 24000+-iteration corrupted-input fuzz (truncations and bit-flips — only a clean load
+  or the typed/budget exception, never a hang or unbounded allocation), and budgeted-load tests.
 - **Projected model counting (P1.4).** `FormulaAnalysis.CountProjectedModels(formula,
   projectedVariables, ResourceBudget?, CancellationToken)` counts the number of DISTINCT
   assignments over a chosen subset of variables that extend to some model of the formula —

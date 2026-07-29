@@ -173,10 +173,12 @@ namespace LogicalOptimizer
         public System.Collections.Generic.IReadOnlyDictionary<string, bool> FindSatisfyingAssignment() { }
         public bool IsContradiction() { }
         public bool IsTautology() { }
+        public void Save(System.IO.Stream destination) { }
         public static bool? AreEquivalent(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, int nodeBudget = 1000000) { }
         public static LogicalOptimizer.BinaryDecisionDiagram Build(LogicalOptimizer.AstNode ast, int nodeBudget = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
         public static LogicalOptimizer.BinaryDecisionDiagram BuildWithBestOrder(LogicalOptimizer.AstNode ast, int nodeBudget = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
         public static LogicalOptimizer.BinaryDecisionDiagram BuildWithSiftedOrder(LogicalOptimizer.AstNode ast, int nodeBudget = 1000000, int maxRebuilds = 400, System.Threading.CancellationToken cancellationToken = default) { }
+        public static LogicalOptimizer.BinaryDecisionDiagram Load(System.IO.Stream source, LogicalOptimizer.ResourceBudget? budget = null, System.Threading.CancellationToken cancellationToken = default) { }
     }
 }
 
@@ -225,6 +227,11 @@ namespace LogicalOptimizer
         public override int GetHashCode() { }
         public override System.Collections.Generic.HashSet<string> GetVariables() { }
         public override string ToString() { }
+    }
+    public sealed class CircuitSerializationException : System.Exception
+    {
+        public CircuitSerializationException(string message) { }
+        public CircuitSerializationException(string message, System.Exception innerException) { }
     }
     public sealed class ComputationBudgetExceededException : System.InvalidOperationException
     {
@@ -404,12 +411,14 @@ namespace LogicalOptimizer
         public System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyDictionary<string, bool>> SampleModels(int count, int seed, [System.Runtime.CompilerServices.TupleElementNames(new string[] {
                 "positive",
                 "negative"})] System.Collections.Generic.IReadOnlyDictionary<string, System.ValueTuple<double, double>>? weights = null, System.Threading.CancellationToken cancellationToken = default) { }
+        public void Save(System.IO.Stream destination) { }
         public double WeightedModelCount([System.Runtime.CompilerServices.TupleElementNames(new string[] {
                 "positive",
                 "negative"})] System.Collections.Generic.IReadOnlyDictionary<string, System.ValueTuple<double, double>> weights) { }
         public double WeightedModelCount([System.Runtime.CompilerServices.TupleElementNames(new string[] {
                 "positive",
                 "negative"})] System.Collections.Generic.IReadOnlyDictionary<string, System.ValueTuple<double, double>> weights, System.Collections.Generic.IReadOnlyDictionary<string, bool> evidence) { }
+        public static LogicalOptimizer.DnnfCircuit Load(System.IO.Stream source, LogicalOptimizer.ResourceBudget? budget = null, System.Threading.CancellationToken cancellationToken = default) { }
     }
     public static class KnowledgeCompilation
     {

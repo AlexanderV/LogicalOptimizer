@@ -524,6 +524,14 @@ public sealed class ProjectedModelCountResult
 
 ## 10. P2.3 — Серіалізація BDD і d-DNNF
 
+> **Статус: ✅ реалізовано (experimental до v4).** `BinaryDecisionDiagram` і `DnnfCircuit`
+> мають `Save(Stream)` / `static Load(Stream, ResourceBudget?, CancellationToken)` над
+> compact binary-форматом (magic · version · engine byte · variable table · node table · root ·
+> CRC-32). Deterministic output, explicit little-endian, forward-version rejection, budgeted +
+> semantically-validated load, engine-byte cross-load як typed error, жодної unsafe object
+> deserialization. Malformed input → `CircuitSerializationException`. Golden-blob drift-тести
+> регенеруються через `LOGICALOPTIMIZER_REGENERATE_GOLDEN=1`.
+
 ### Мета
 
 Дозволити сервісам компілювати circuit один раз і повторно використовувати його

@@ -18,7 +18,7 @@ namespace LogicalOptimizer;
 ///         auxiliaries are projected away.
 ///     </para>
 /// </summary>
-public sealed class DnnfCircuit
+public sealed partial class DnnfCircuit
 {
     private readonly int _falseId;
     private readonly int _inputVariableCount;

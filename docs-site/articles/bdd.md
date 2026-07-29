@@ -70,6 +70,27 @@ sifted.CountSatisfyingAssignments();  // 7
 Every builder takes an optional `nodeBudget` (default `DefaultNodeBudget = 1_000_000`) and
 `CancellationToken`; exceeding the budget throws rather than exhausting memory.
 
+## Serialization (experimental)
+
+A built diagram can be persisted to a compact binary blob and read back into a valid
+hash-consed manager, so a service can compile once and reuse across restarts:
+
+```csharp
+using var file = File.Create("diagram.locx");
+bdd.Save(file);
+// ...later / another process:
+var reloaded = BinaryDecisionDiagram.Load(File.OpenRead("diagram.locx"));
+reloaded.CountSatisfyingAssignments();  // identical to the original
+```
+
+The format is **experimental until v4** (no cross-version guarantee beyond the version gate,
+which refuses — never misreads — a blob from a newer build). It is deterministic and
+little-endian, stores both variable identities and the current variable order, and `Load`
+is CRC-32 checked, structurally validated (a valid ordered/reduced diagram) and budgeted:
+a hostile size header aborts with `NodeBudgetExceededException` instead of pre-allocating,
+and any malformed input is a `CircuitSerializationException`. There is no reflection or
+object deserialization. The engine byte means a d-DNNF blob loaded here is a typed error.
+
 ## Related
 
 For exact **#SAT** and weighted model counting on a compiled circuit (rather than a BDD),

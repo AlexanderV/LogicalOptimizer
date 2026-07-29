@@ -34,6 +34,7 @@
     <InternalsVisibleTo Include="LogicalOptimizer" />
     <InternalsVisibleTo Include="LogicalOptimizer.Sat" />
     <InternalsVisibleTo Include="LogicalOptimizer.Bdd" />
+    <InternalsVisibleTo Include="LogicalOptimizer.Dnnf" />
     <InternalsVisibleTo Include="LogicalOptimizer.Minimization" />
     <InternalsVisibleTo Include="LogicalOptimizer.Tests" />
     <InternalsVisibleTo Include="LogicalOptimizer.Cli" />

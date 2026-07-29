@@ -28,7 +28,7 @@ namespace LogicalOptimizer;
 ///         swaps instead of rebuilding the whole diagram.
 ///     </para>
 /// </summary>
-public sealed class BinaryDecisionDiagram
+public sealed partial class BinaryDecisionDiagram
 {
     public const int DefaultNodeBudget = 1_000_000;
 

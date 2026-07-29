@@ -127,3 +127,24 @@ independent ROBDD oracle: for a large corpus of random and structured formulas,
 `BinaryDecisionDiagram.BuildWithBestOrder(f).CountSatisfyingAssignments()` exactly, and
 also matches full truth-table brute force on small formulas. Enumeration is cross-checked
 against `FormulaAnalysis.EnumerateModels`.
+
+## Serialization (experimental)
+
+A compiled circuit can be persisted and reloaded so counting/enumeration need not recompile:
+
+```csharp
+using var file = File.Create("circuit.locx");
+circuit.Save(file);
+// ...later / another process:
+var reloaded = DnnfCircuit.Load(File.OpenRead("circuit.locx"));
+reloaded.CountModels();  // identical to the original
+```
+
+The format is **experimental until v4** (no cross-version guarantee beyond the version gate,
+which refuses — never misreads — a blob from a newer build). It is deterministic, little-endian
+and CRC-32 checked; `Load` is structurally validated (indices in range, acyclic/topological,
+valid root and terminals) and budgeted — a hostile size header aborts with
+`NodeBudgetExceededException` rather than pre-allocating, and malformed input is a
+`CircuitSerializationException`. There is no reflection or object deserialization, and the engine
+byte makes loading a BDD blob as a d-DNNF circuit a typed error. A round-trip preserves the
+variables, model count, weighted counts and evaluation exactly.
