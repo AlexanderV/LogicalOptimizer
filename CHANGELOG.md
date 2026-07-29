@@ -12,6 +12,22 @@ the public API baseline diff is additive-only.
 
 ### Added
 
+- **Controlled cross-library benchmark, executed (P0.2).** The competitor side of the comparison
+  now runs in one reproducible, **version-pinned** Linux container
+  ([`tools/comparison/Dockerfile`](tools/comparison/Dockerfile)) bundling the .NET harness with
+  SymPy, PyEDA, CaDiCaL, Kissat, Z3, d4 and a new self-contained LogicNG BDD adapter
+  ([`tools/comparison/logicng/`](tools/comparison/logicng)), driven from the single committed
+  corpus; real competitor numbers are merged into a human-readable
+  [`doc/comparison/merged.md`](doc/comparison/merged.md) (TL;DR, per-table interpretation, and
+  agreement/size markers). The comparison harness gains `comparison-suite --emit-function-dimacs`,
+  which writes the **count-preserving** per-function Tseitin CNF (auxiliary variables functionally
+  determined, so a #SAT counter's result equals the exact `modelCount`). Headline cross-checks:
+  OUR `modelCount` = d4 = LogicNG on all 17 functions; every equivalence miter is UNSAT under
+  CaDiCaL, Kissat **and** Z3; OUR two-level SOP matches SymPy/PyEDA literal counts where they
+  finish. Running the previously documentation-only adapters for the first time uncovered and
+  fixed latent bugs in them (a `printf` separator that aborted under `set -e`, d4v2's `-mc`
+  counting flag, a merge that keyed SymPy/PyEDA rows by the wrong column, and an unhashable
+  `CheckSatResult` dict key in the Z3 adapter). Dev-tooling only — no public API or runtime change.
 - **Core-guided MaxSAT (P2.2).** `MaxSatSolver` gains an opt-in core-guided search alongside the
   existing linear one, selected through a new overload
   `Solve(MaxSatAlgorithm algorithm, int maxConflictsPerCall, CancellationToken)`. **The

@@ -1,9 +1,9 @@
 {
-  "generatedAtUtc": "2026-07-29T05:54:51.4549053Z",
+  "generatedAtUtc": "2026-07-29T12:30:57.9200465Z",
   "tool": "LogicalOptimizer.Benchmarks -- comparison-suite",
-  "dotnetVersion": "10.0.9",
-  "runtimeIdentifier": ".NET 10.0.9",
-  "osDescription": "Microsoft Windows 10.0.26200",
+  "dotnetVersion": "10.0.10",
+  "runtimeIdentifier": ".NET 10.0.10",
+  "osDescription": "Ubuntu 24.04.4 LTS",
   "architecture": "X64",
   "processorCount": 8,
   "cpuPolicy": "single-runner, single-thread; median-of-7 after 1 warm-up; wall-clock is indicative and machine-dependent (never asserted)",

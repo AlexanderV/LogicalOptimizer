@@ -3,7 +3,7 @@
 Базовий реліз: `v3.0.0`.
 
 Поточний перевірений стан плану: branch `perf/minimizer-and-nuget-verify`,
-commit `6eddc90` (29.07.2026).
+commit `fda61df` + незакомічені comparison artifacts (29.07.2026).
 
 Статуси: ✅ виконано · ◐ частково виконано.
 
@@ -48,7 +48,7 @@ LogicNG серед integrated propositional toolkits, і головний роз
 
 | Статус | ID | Зміна | Фактичний результат / залишок | Реліз |
 |:---:|---|---|---|---|
-| ◐ | P0.2 | Контрольований cross-library benchmark | OUR-side JSON/manifest/summary і runners готові; competitor columns ще `pending` | v3.1 |
+| ✅ | P0.2 | Контрольований cross-library benchmark | pinned-версійний контейнер (7 конкурентів вкл. Z3); merged outputs закомічено; methodology/README синхронізовані; CI лишається OUR-only, контейнер — manual/periodic | v3.1 |
 | ✅ | P0.1 | Native AOT і trimming certification | 6 бібліотек + `.Formats` позначені AOT/trim-safe; smoke app і workflow готові | v3.1 |
 | ✅ | P0.3 | Internal performance hardening + regression gate | мінімізатори оптимізовано; allocation baseline і blocking CI gate додано | v3.1 |
 | ✅ | P1.1 | DIMACS/WCNF/OPB import | новий пакет `.Formats`, CLI, writers, budgets, fuzz/round-trip tests | v3.1 |
@@ -63,15 +63,32 @@ LogicNG серед integrated propositional toolkits, і головний роз
 
 До завершення v3.1 залишилося:
 
-1. виконати competitor runners в одному контрольованому Linux environment;
-2. злити результати в спільний comparison artifact;
+1. ~~виконати competitor runners в одному контрольованому Linux environment~~ —
+   **функціонально закрито**: [`tools/comparison/Dockerfile`](tools/comparison/Dockerfile) бандлить .NET
+   із SymPy, PyEDA, CaDiCaL, Kissat, d4 і LogicNG в одному Ubuntu-runner'і;
+   [`run_all_in_container.sh`](tools/comparison/run_all_in_container.sh) проганяє всі 4 таблиці
+   з одного committed corpus;
+2. ~~злити результати в спільний comparison artifact~~ — **функціонально закрито**: реальні числа в
+   [`doc/comparison/merged.md`](doc/comparison/merged.md). Ключовий cross-check:
+   `modelCount` OUR = d4 = LogicNG на всіх 17 функціях; SAT-мітери UNSAT у CaDiCaL і Kissat;
+   two-level літерали збігаються з SymPy/PyEDA там, де ті вкладаються в 2ⁿ-бюджет;
 3. ~~зафіксувати `tools/encoding_corpus.txt` як незмінний calibration baseline~~ —
    **закрито**: corpus заморожено checksum-lock тестом
    (`EncodingPortfolioTests.CalibrationCorpus_IsFrozenToItsCommittedShapes`), який пінить
    точний набір shapes; будь-яка правка тепер свідома (hash оновлюється в тій самій зміні).
    Ретроспективний недолік «первинний corpus і implementation в одному commit» лишається
    історичним фактом, але процесна вимога надалі забезпечена механічно;
-4. виконати повний release gate і оновити comparison/README claims за реальними
+4. ~~завершити P0.2 integration~~ — **закрито**:
+   - generated outputs і `merged.md` закомічено;
+   - усі версії запіновано — base image за digest, SymPy 1.14.0, PyEDA 0.29.0,
+     Z3 4.16.0.0, CaDiCaL/Kissat/d4 за commit-хешами, LogicNG 2.4.1;
+   - `COMPARISON_METHODOLOGY.md` оновлено (competitor-side виконується в контейнері);
+   - CI лишається OUR-only; контейнер задокументовано як manual/periodic path;
+   - **Z3-adapter додано** (SAT на мітерах, Table 3) — усі 17 мітерів `unsat`;
+   - `>16` skips тепер явний `skipped(max-vars)`;
+   - `c2d/d4` перейменовано на фактично запущений `d4` (c2d self-skip, пропрієтарний);
+   - `merged.md` переписано в людиночитабельний звіт (TL;DR, легенда, «what it means»);
+5. виконати повний release gate і оновити comparison/README claims за реальними
    артефактами.
 
 Закрито після зведеного стану вище: категоризацію exhaustive spike-тесту уніфіковано
@@ -85,11 +102,11 @@ LogicNG серед integrated propositional toolkits, і головний роз
 
 ### Перевірка поточного branch
 
-Локально на commit `6eddc90`:
+Локально на commit `fda61df` + поточні generated comparison artifacts:
 
 - Release build усієї solution: **0 warnings, 0 errors**;
 - gate-фільтр `Category!=Performance&Category!=Exhaustive`:
-  **1157/1157 passed**, 0 failed, 0 skipped, 22 s;
+  **1158/1158 passed**, 0 failed, 0 skipped, 15 s;
 - вичерпний ≤4-змінний spike-доказ тепер коректно має
   `Category=Exhaustive` і не потрапляє у fast gate;
 - повний suite разом із `Performance`/`Exhaustive` у цій перевірці не запускався,
@@ -101,18 +118,50 @@ performance suites.
 
 ## 3. P0.2 — Контрольований cross-library benchmark
 
-**Статус: ◐ частково виконано (`54dcccb`).**
+**Статус: ◐ числовий прогін виконано, reproducible integration ще не закрито.**
+
+OUR side закомічено в `54dcccb`; count-preserving DIMACS і container tooling —
+у `66d08bc`/`fda61df`. Generated competitor outputs і `merged.md` успішно
+отримані, але ще не є частиною commit history. Числа вже придатні для локального
+аналізу, проте milestone стає ✅ лише після artifact commit, pin/docs/CI closure.
 
 Готові:
 
-- `CrossLibraryComparisonHarness`;
-- `doc/comparison/our-results.json`, `manifest.json`, `summary.md`;
+- `CrossLibraryComparisonHarness` (+ `--emit-function-dimacs` для count-preserving #SAT);
+- `doc/comparison/our-results.json`, `manifest.json`, `summary.md` (Linux-runner);
 - окрема methodology;
-- runners і merge tooling;
-- CI workflow.
+- runners і merge tooling (латентні баги адаптерів виправлено — див. нижче);
+- CI workflow;
+- [`tools/comparison/Dockerfile`](tools/comparison/Dockerfile) — один Ubuntu-runner із
+  .NET, SymPy, PyEDA, CaDiCaL, Kissat, d4 і [`logicng/`](tools/comparison/logicng) (2.4.1);
+- [`doc/comparison/merged.md`](doc/comparison/merged.md) — реальні competitor columns
+  у поточному worktree.
 
-Залишок: запустити зовнішні інструменти та замінити `pending` у SymPy/PyEDA,
-CaDiCaL/Kissat, LogicNG/c2d/d4 columns результатами з того самого environment.
+Результат (17-функційний corpus, один Ubuntu 24.04 / .NET 10 runner):
+
+- **#SAT**: `modelCount` OUR = d4 = LogicNG на всіх 17 функціях (потрійне незалежне
+  підтвердження точного counting);
+- **SAT**: усі equivalence-мітери UNSAT у CaDiCaL і Kissat (зовнішнє підтвердження, що
+  кожна оптимізація зберігає еквівалентність);
+- **two-level**: OUR DNF-літерали = SymPy = PyEDA там, де truth-table-інструменти
+  вкладаються в 2ⁿ-бюджет (`--max-vars 16`); понад це вони чесно `timeout`/`pending`, а OUR
+  рахує всі;
+- **multi-level**: OUR out-літерали ≤ SymPy/PyEDA (напр. `pos6` 6 проти 24).
+
+Виконання адаптерів уперше (раніше вони були «задокументовані, але не запускалися»)
+виявило й закрило латентні баги: `printf '----:|'` падав під `set -e`; d4v2 рахує лише
+з `-mc`; merge ключував SymPy/PyEDA за колонкою Zone замість Function.
+
+Незакриті методичні питання:
+
+- c2d не встановлено; фактичний #SAT comparator — d4, тому combined label
+  `c2d/d4` треба уточнити;
+- Z3 був у початковому переліку учасників, але adapter відсутній;
+- Dockerfile використовує floating sources для частини tools, тому повторний
+  build пізніше може отримати інші revisions;
+- `summary.md` лишається OUR-side документом із `pending`; authoritative merged
+  artifact і його статус треба явно описати;
+- intentional max-vars skips не повинні виглядати як незавершений запуск.
 
 ### Мета
 
@@ -837,17 +886,17 @@ serverless/worker-сценаріїв, які мотивують P0.1.
 
 ### v3.1 — Credibility, deployment, interoperability
 
-Усі заплановані capability й infrastructure tracks реалізовано раніше первісної
+Усі заплановані capability tracks реалізовано раніше первісної
 послідовності: P0.1, P0.3, P1.1–P1.4, P2.1–P2.3, P3.1 і projected-counting
-spike. P0.2 виконано з OUR-side, methodology та runners.
+spike. P0.2 має успішний full run, але ще потребує reproducibility/integration
+closure.
 
 Залишок перед релізом:
 
-1. competitor-side benchmark runs і merged artifact;
-2. frozen encoding-corpus declaration/process correction;
-3. новий повний build/test/AOT/perf/API/security/release gate на фінальному commit;
-4. синхронізація README, changelog, docs і comparison із фактичним складом v3.1;
-5. version bump, tag і post-publish verification дев'яти пакетів.
+1. P0.2 pin/commit/methodology/CI closure і точні skip/tool labels;
+2. новий повний build/test/AOT/perf/API/security/release gate на фінальному commit;
+3. синхронізація README, changelog, docs і comparison із фактичним складом v3.1;
+4. version bump, tag і post-publish verification дев'яти пакетів.
 
 ### v3.2 — Reusable knowledge compilation
 

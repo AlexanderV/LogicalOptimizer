@@ -15,7 +15,7 @@ dotnet run -c Release --project LogicalOptimizer.Benchmarks -- comparison-suite
 ```
 
 Corpus: `tools/comparison_corpus.txt` (sha256 `5964fdf799e9c4b45cfc86b73bc1b8843f39d43deee305f2d931d669c206bf5b`, 17 functions). 
-Environment: .NET 10.0.9, Microsoft Windows 10.0.26200, X64. 
+Environment: .NET 10.0.10, Ubuntu 24.04.4 LTS, X64. 
 Timings are machine-dependent and indicative (median of 7 after 1 warm-up); 
 they are **never** asserted. Sizes, counts, statuses, verdicts and model counts 
 are deterministic given the corpus.
@@ -27,23 +27,23 @@ of timing by `EquivalenceChecker` (truth-table ≤ 12 vars, SAT-miter beyond).
 
 | Zone | Function | Vars | In lits | Out lits | In nodes | Out nodes | Status | Equivalence | Time (ms) | Alloc (B) | SymPy lits | PyEDA lits |
 |------|----------|-----:|--------:|---------:|---------:|----------:|--------|-------------|----------:|----------:|:----------:|:----------:|
-| small | maj3 | 3 | 6 | 5 | 10 | 9 | MinimalProven | equivalent | 0.551 | 221424 | `pending` | `pending` |
-| small | consensus3 | 3 | 6 | 4 | 11 | 8 | MinimalProven | equivalent | 0.354 | 164848 | `pending` | `pending` |
-| small | xor2 | 2 | 4 | 4 | 9 | 9 | MinimalProven | equivalent | 0.124 | 93904 | `pending` | `pending` |
-| small | xor3 | 3 | 12 | 10 | 23 | 21 | MinimalProven | equivalent | 2.075 | 750344 | `pending` | `pending` |
-| small | maj4 | 4 | 12 | 8 | 17 | 13 | MinimalProven | equivalent | 3.516 | 729856 | `pending` | `pending` |
-| small | mux2 | 3 | 4 | 4 | 8 | 8 | MinimalProven | equivalent | 0.191 | 116976 | `pending` | `pending` |
-| small | pos6 | 6 | 6 | 6 | 10 | 10 | MinimalProven | equivalent | 1.656 | 757232 | `pending` | `pending` |
-| small | eq5 | 5 | 10 | 10 | 18 | 18 | MinimalProven | equivalent | 1.688 | 321192 | `pending` | `pending` |
-| small | pairs8 | 8 | 8 | 8 | 13 | 13 | MinimalProven | equivalent | 2.522 | 1160072 | `pending` | `pending` |
-| small | pairs10 | 10 | 10 | 10 | 16 | 16 | MinimalProven | equivalent | 9.758 | 6303336 | `pending` | `pending` |
-| mid | pairs12 | 12 | 12 | 12 | 19 | 19 | BudgetExceeded | equivalent | 26.214 | 16892736 | `pending` | `pending` |
-| mid | collapse14 | 14 | 28 | 7 | 50 | 8 | Heuristic | equivalent | 1.928 | 631688 | `pending` | `pending` |
-| mid | pairs16 | 16 | 16 | 16 | 25 | 25 | Heuristic | equivalent | 7.457 | 1854088 | `pending` | `pending` |
-| mid | collapse18 | 18 | 36 | 9 | 64 | 10 | Heuristic | equivalent | 2.983 | 1051200 | `pending` | `pending` |
-| mid | pairs20 | 20 | 20 | 20 | 31 | 31 | Heuristic | equivalent | 8.711 | 2900488 | `pending` | `pending` |
-| mid | chain22 | 22 | 60 | 40 | 81 | 73 | Heuristic | equivalent | 55.927 | 26889200 | `pending` | `pending` |
-| mid | pairs24 | 24 | 24 | 24 | 37 | 37 | Heuristic | equivalent | 2.639 | 3456480 | `pending` | `pending` |
+| small | maj3 | 3 | 6 | 5 | 10 | 9 | MinimalProven | equivalent | 1.094 | 223224 | `pending` | `pending` |
+| small | consensus3 | 3 | 6 | 4 | 11 | 8 | MinimalProven | equivalent | 0.766 | 164848 | `pending` | `pending` |
+| small | xor2 | 2 | 4 | 4 | 9 | 9 | MinimalProven | equivalent | 0.744 | 93904 | `pending` | `pending` |
+| small | xor3 | 3 | 12 | 10 | 23 | 21 | MinimalProven | equivalent | 3.318 | 750440 | `pending` | `pending` |
+| small | maj4 | 4 | 12 | 8 | 17 | 13 | MinimalProven | equivalent | 6.652 | 730048 | `pending` | `pending` |
+| small | mux2 | 3 | 4 | 4 | 8 | 8 | MinimalProven | equivalent | 0.333 | 116976 | `pending` | `pending` |
+| small | pos6 | 6 | 6 | 6 | 10 | 10 | MinimalProven | equivalent | 3.866 | 757520 | `pending` | `pending` |
+| small | eq5 | 5 | 10 | 10 | 18 | 18 | MinimalProven | equivalent | 2.781 | 319344 | `pending` | `pending` |
+| small | pairs8 | 8 | 8 | 8 | 13 | 13 | MinimalProven | equivalent | 3.971 | 1160216 | `pending` | `pending` |
+| small | pairs10 | 10 | 10 | 10 | 16 | 16 | MinimalProven | equivalent | 16.226 | 6303624 | `pending` | `pending` |
+| mid | pairs12 | 12 | 12 | 12 | 19 | 19 | BudgetExceeded | equivalent | 30.640 | 16896936 | `pending` | `pending` |
+| mid | collapse14 | 14 | 28 | 7 | 50 | 8 | Heuristic | equivalent | 2.528 | 635744 | `pending` | `pending` |
+| mid | pairs16 | 16 | 16 | 16 | 25 | 25 | Heuristic | equivalent | 9.029 | 1857712 | `pending` | `pending` |
+| mid | collapse18 | 18 | 36 | 9 | 64 | 10 | Heuristic | equivalent | 4.360 | 1058760 | `pending` | `pending` |
+| mid | pairs20 | 20 | 20 | 20 | 31 | 31 | Heuristic | equivalent | 12.479 | 2898712 | `pending` | `pending` |
+| mid | chain22 | 22 | 60 | 40 | 81 | 73 | Heuristic | equivalent | 58.289 | 27766960 | `pending` | `pending` |
+| mid | pairs24 | 24 | 24 | 24 | 37 | 37 | Heuristic | equivalent | 2.907 | 3450928 | `pending` | `pending` |
 
 Competitor columns: `pending (run python tools/compare_sympy_pyeda.py)`.
 
@@ -55,23 +55,23 @@ marks a DNF the converter declined to expand (reported, never guessed).
 
 | Zone | Function | Vars | Terms | Literals | Proof status | Equivalence | Abandoned | Time (ms) | SymPy lits | PyEDA lits |
 |------|----------|-----:|------:|---------:|--------------|-------------|:---------:|----------:|:----------:|:----------:|
-| small | maj3 | 3 | 3 | 6 | MinimalProven | equivalent | no | 0.491 | `pending` | `pending` |
-| small | consensus3 | 3 | 2 | 4 | MinimalProven | equivalent | no | 0.277 | `pending` | `pending` |
-| small | xor2 | 2 | 2 | 4 | MinimalProven | equivalent | no | 0.125 | `pending` | `pending` |
-| small | xor3 | 3 | 4 | 12 | MinimalProven | equivalent | no | 2.119 | `pending` | `pending` |
-| small | maj4 | 4 | 4 | 12 | MinimalProven | equivalent | no | 3.608 | `pending` | `pending` |
-| small | mux2 | 3 | 2 | 4 | MinimalProven | equivalent | no | 0.181 | `pending` | `pending` |
-| small | pos6 | 6 | 8 | 24 | MinimalProven | equivalent | no | 1.615 | `pending` | `pending` |
-| small | eq5 | 5 | 2 | 10 | MinimalProven | equivalent | no | 1.741 | `pending` | `pending` |
-| small | pairs8 | 8 | 4 | 8 | MinimalProven | equivalent | no | 2.378 | `pending` | `pending` |
-| small | pairs10 | 10 | 5 | 10 | MinimalProven | equivalent | no | 11.974 | `pending` | `pending` |
-| mid | pairs12 | 12 | 6 | 12 | BudgetExceeded | equivalent | no | 21.957 | `pending` | `pending` |
-| mid | collapse14 | 14 | 7 | 7 | Heuristic | equivalent | no | 2.809 | `pending` | `pending` |
-| mid | pairs16 | 16 | 8 | 16 | Heuristic | equivalent | no | 6.267 | `pending` | `pending` |
-| mid | collapse18 | 18 | 9 | 9 | Heuristic | equivalent | no | 3.490 | `pending` | `pending` |
-| mid | pairs20 | 20 | 10 | 20 | Heuristic | equivalent | no | 8.306 | `pending` | `pending` |
-| mid | chain22 | 22 | 20 | 60 | Heuristic | equivalent | no | 21.190 | `pending` | `pending` |
-| mid | pairs24 | 24 | 12 | 24 | Heuristic | equivalent | no | 3.163 | `pending` | `pending` |
+| small | maj3 | 3 | 3 | 6 | MinimalProven | equivalent | no | 1.153 | `pending` | `pending` |
+| small | consensus3 | 3 | 2 | 4 | MinimalProven | equivalent | no | 0.431 | `pending` | `pending` |
+| small | xor2 | 2 | 2 | 4 | MinimalProven | equivalent | no | 0.455 | `pending` | `pending` |
+| small | xor3 | 3 | 4 | 12 | MinimalProven | equivalent | no | 4.171 | `pending` | `pending` |
+| small | maj4 | 4 | 4 | 12 | MinimalProven | equivalent | no | 6.363 | `pending` | `pending` |
+| small | mux2 | 3 | 2 | 4 | MinimalProven | equivalent | no | 0.455 | `pending` | `pending` |
+| small | pos6 | 6 | 8 | 24 | MinimalProven | equivalent | no | 3.451 | `pending` | `pending` |
+| small | eq5 | 5 | 2 | 10 | MinimalProven | equivalent | no | 3.441 | `pending` | `pending` |
+| small | pairs8 | 8 | 4 | 8 | MinimalProven | equivalent | no | 4.351 | `pending` | `pending` |
+| small | pairs10 | 10 | 5 | 10 | MinimalProven | equivalent | no | 13.582 | `pending` | `pending` |
+| mid | pairs12 | 12 | 6 | 12 | BudgetExceeded | equivalent | no | 29.423 | `pending` | `pending` |
+| mid | collapse14 | 14 | 7 | 7 | Heuristic | equivalent | no | 2.687 | `pending` | `pending` |
+| mid | pairs16 | 16 | 8 | 16 | Heuristic | equivalent | no | 8.661 | `pending` | `pending` |
+| mid | collapse18 | 18 | 9 | 9 | Heuristic | equivalent | no | 4.122 | `pending` | `pending` |
+| mid | pairs20 | 20 | 10 | 20 | Heuristic | equivalent | no | 10.333 | `pending` | `pending` |
+| mid | chain22 | 22 | 20 | 60 | Heuristic | equivalent | no | 20.343 | `pending` | `pending` |
+| mid | pairs24 | 24 | 12 | 24 | Heuristic | equivalent | no | 3.012 | `pending` | `pending` |
 
 Competitor columns: `pending (run python tools/compare_sympy_pyeda.py)`.
 
@@ -85,22 +85,22 @@ optimizer's own timing. Regenerate the DIMACS a SAT competitor consumes with
 
 | Zone | Function | Miter vars | Clauses | Verdict | Conflicts | Proof | Proof lines | Time (ms) | CaDiCaL | Kissat |
 |------|----------|-----------:|--------:|:-------:|----------:|:-----:|------------:|----------:|:-------:|:------:|
-| small | maj3 | 13 | 32 | unsat | 5 | yes | 9 | 0.048 | `pending` | `pending` |
-| small | consensus3 | 11 | 26 | unsat | 4 | yes | 8 | 0.030 | `pending` | `pending` |
+| small | maj3 | 13 | 32 | unsat | 5 | yes | 9 | 0.116 | `pending` | `pending` |
+| small | consensus3 | 11 | 26 | unsat | 4 | yes | 8 | 0.034 | `pending` | `pending` |
 | small | xor2 | 1 | 2 | unsat | 0 | yes | 1 | 0.000 | `pending` | `pending` |
-| small | xor3 | 17 | 51 | unsat | 9 | yes | 13 | 0.091 | `pending` | `pending` |
-| small | maj4 | 17 | 48 | unsat | 7 | yes | 11 | 0.078 | `pending` | `pending` |
+| small | xor3 | 17 | 51 | unsat | 9 | yes | 13 | 0.103 | `pending` | `pending` |
+| small | maj4 | 17 | 48 | unsat | 7 | yes | 11 | 0.103 | `pending` | `pending` |
 | small | mux2 | 1 | 2 | unsat | 0 | yes | 1 | 0.000 | `pending` | `pending` |
-| small | pos6 | 11 | 19 | unsat | 1 | yes | 10 | 0.017 | `pending` | `pending` |
+| small | pos6 | 11 | 19 | unsat | 1 | yes | 10 | 0.022 | `pending` | `pending` |
 | small | eq5 | 1 | 2 | unsat | 0 | yes | 1 | 0.000 | `pending` | `pending` |
 | small | pairs8 | 1 | 2 | unsat | 0 | yes | 1 | 0.000 | `pending` | `pending` |
 | small | pairs10 | 1 | 2 | unsat | 0 | yes | 1 | 0.000 | `pending` | `pending` |
 | mid | pairs12 | 1 | 2 | unsat | 0 | yes | 1 | 0.000 | `pending` | `pending` |
-| mid | collapse14 | 33 | 75 | unsat | 8 | yes | 12 | 0.132 | `pending` | `pending` |
+| mid | collapse14 | 33 | 75 | unsat | 8 | yes | 12 | 0.211 | `pending` | `pending` |
 | mid | pairs16 | 1 | 2 | unsat | 0 | yes | 1 | 0.000 | `pending` | `pending` |
-| mid | collapse18 | 41 | 93 | unsat | 10 | yes | 14 | 0.187 | `pending` | `pending` |
+| mid | collapse18 | 41 | 93 | unsat | 10 | yes | 14 | 0.252 | `pending` | `pending` |
 | mid | pairs20 | 1 | 2 | unsat | 0 | yes | 1 | 0.000 | `pending` | `pending` |
-| mid | chain22 | 79 | 216 | unsat | 66 | yes | 70 | 0.325 | `pending` | `pending` |
+| mid | chain22 | 79 | 216 | unsat | 66 | yes | 70 | 0.295 | `pending` | `pending` |
 | mid | pairs24 | 1 | 2 | unsat | 0 | yes | 1 | 0.000 | `pending` | `pending` |
 
 Competitor columns: `pending (run tools/comparison/run_sat_competitors.sh)`.
@@ -113,23 +113,23 @@ model counts must be identical (both are exact #SAT), independent of any timing.
 
 | Zone | Function | Vars | BDD nodes | d-DNNF nodes | Model count | Agree | BDD compile (ms) | d-DNNF compile (ms) | BDD query (ms) | d-DNNF query (ms) | LogicNG BDD | c2d/d4 #SAT |
 |------|----------|-----:|----------:|-------------:|------------:|:-----:|-----------------:|--------------------:|---------------:|------------------:|:-----------:|:-----------:|
-| small | maj3 | 3 | 10 | 20 | 4 | yes | 0.010 | 0.049 | 0.001 | 0.001 | `pending` | `pending` |
-| small | consensus3 | 3 | 9 | 19 | 4 | yes | 0.007 | 0.034 | 0.001 | 0.001 | `pending` | `pending` |
-| small | xor2 | 2 | 6 | 13 | 2 | yes | 0.004 | 0.015 | 0.001 | 0.000 | `pending` | `pending` |
-| small | xor3 | 3 | 20 | 23 | 4 | yes | 0.012 | 0.046 | 0.001 | 0.001 | `pending` | `pending` |
-| small | maj4 | 4 | 20 | 25 | 5 | yes | 0.013 | 0.060 | 0.001 | 0.001 | `pending` | `pending` |
-| small | mux2 | 3 | 8 | 15 | 4 | yes | 0.005 | 0.016 | 0.001 | 0.000 | `pending` | `pending` |
-| small | pos6 | 6 | 16 | 16 | 27 | yes | 0.008 | 0.019 | 0.001 | 0.000 | `pending` | `pending` |
-| small | eq5 | 5 | 27 | 19 | 2 | yes | 0.014 | 0.028 | 0.002 | 0.001 | `pending` | `pending` |
-| small | pairs8 | 8 | 25 | 40 | 175 | yes | 0.012 | 0.074 | 0.002 | 0.001 | `pending` | `pending` |
-| small | pairs10 | 10 | 36 | 50 | 781 | yes | 0.031 | 0.254 | 0.005 | 0.002 | `pending` | `pending` |
-| mid | pairs12 | 12 | 49 | 60 | 3367 | yes | 0.022 | 0.194 | 0.004 | 0.002 | `pending` | `pending` |
-| mid | collapse14 | 14 | 416 | 673 | 16256 | yes | 0.213 | 13.034 | 0.004 | 0.054 | `pending` | `pending` |
-| mid | pairs16 | 16 | 81 | 80 | 58975 | yes | 0.043 | 0.319 | 0.005 | 0.003 | `pending` | `pending` |
-| mid | collapse18 | 18 | 1587 | 2603 | 261632 | yes | 0.858 | 45.504 | 0.009 | 0.179 | `pending` | `pending` |
-| mid | pairs20 | 20 | 121 | 100 | 989527 | yes | 0.052 | 0.402 | 0.013 | 0.004 | `pending` | `pending` |
-| mid | chain22 | 22 | 578 | 2572 | 3438828 | yes | 0.317 | 25.016 | 0.029 | 0.231 | `pending` | `pending` |
-| mid | pairs24 | 24 | 169 | 120 | 16245775 | yes | 0.085 | 0.358 | 0.014 | 0.006 | `pending` | `pending` |
+| small | maj3 | 3 | 10 | 20 | 4 | yes | 0.013 | 0.131 | 0.001 | 0.001 | `pending` | `pending` |
+| small | consensus3 | 3 | 9 | 19 | 4 | yes | 0.011 | 0.047 | 0.000 | 0.001 | `pending` | `pending` |
+| small | xor2 | 2 | 6 | 13 | 2 | yes | 0.005 | 0.017 | 0.001 | 0.000 | `pending` | `pending` |
+| small | xor3 | 3 | 20 | 23 | 4 | yes | 0.015 | 0.056 | 0.001 | 0.001 | `pending` | `pending` |
+| small | maj4 | 4 | 20 | 25 | 5 | yes | 0.018 | 0.089 | 0.002 | 0.002 | `pending` | `pending` |
+| small | mux2 | 3 | 8 | 15 | 4 | yes | 0.008 | 0.026 | 0.002 | 0.001 | `pending` | `pending` |
+| small | pos6 | 6 | 16 | 16 | 27 | yes | 0.011 | 0.040 | 0.002 | 0.001 | `pending` | `pending` |
+| small | eq5 | 5 | 27 | 19 | 2 | yes | 0.123 | 0.057 | 0.003 | 0.001 | `pending` | `pending` |
+| small | pairs8 | 8 | 25 | 40 | 175 | yes | 0.018 | 0.120 | 0.002 | 0.002 | `pending` | `pending` |
+| small | pairs10 | 10 | 36 | 50 | 781 | yes | 0.021 | 0.142 | 0.003 | 0.003 | `pending` | `pending` |
+| mid | pairs12 | 12 | 49 | 60 | 3367 | yes | 0.034 | 0.301 | 0.006 | 0.004 | `pending` | `pending` |
+| mid | collapse14 | 14 | 416 | 673 | 16256 | yes | 0.359 | 21.796 | 0.005 | 0.101 | `pending` | `pending` |
+| mid | pairs16 | 16 | 81 | 80 | 58975 | yes | 0.087 | 0.460 | 0.007 | 0.007 | `pending` | `pending` |
+| mid | collapse18 | 18 | 1587 | 2603 | 261632 | yes | 1.650 | 67.375 | 0.010 | 0.316 | `pending` | `pending` |
+| mid | pairs20 | 20 | 121 | 100 | 989527 | yes | 0.100 | 0.578 | 0.012 | 0.006 | `pending` | `pending` |
+| mid | chain22 | 22 | 578 | 2572 | 3438828 | yes | 0.314 | 27.806 | 0.032 | 0.235 | `pending` | `pending` |
+| mid | pairs24 | 24 | 169 | 120 | 16245775 | yes | 0.021 | 0.490 | 0.008 | 0.006 | `pending` | `pending` |
 
 Competitor columns: `pending (run tools/comparison/run_modelcount_competitors.sh)`.
 
