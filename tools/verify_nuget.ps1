@@ -27,6 +27,10 @@
 .PARAMETER MaxAttempts
     Maximum number of attempts per package before giving up. Default 30.
 
+.PARAMETER ReportPath
+    Optional path for a machine-readable JSON report of the per-package outcome, for inclusion in
+    a release evidence bundle. Written whether the run passes or fails.
+
 .PARAMETER DelaySeconds
     Delay between attempts, in seconds. Default 60.
     The defaults give a ~30-minute window: nuget.org validation + flat-container
@@ -63,7 +67,9 @@ param(
     [int] $MaxAttempts = 30,
 
     [ValidateRange(0, 3600)]
-    [int] $DelaySeconds = 60
+    [int] $DelaySeconds = 60,
+
+    [string] $ReportPath
 )
 
 Set-StrictMode -Version Latest
@@ -165,6 +171,43 @@ foreach ($id in $Packages) {
     }
 }
 Write-Host '===================================='
+
+if ($ReportPath) {
+    $reportDirectory = Split-Path -Parent $ReportPath
+    if ($reportDirectory -and -not (Test-Path $reportDirectory)) {
+        New-Item -ItemType Directory -Path $reportDirectory -Force | Out-Null
+    }
+    # .NET file APIs resolve relative paths against the process directory, not PowerShell's location.
+    if (-not [System.IO.Path]::IsPathRooted($ReportPath)) {
+        $ReportPath = Join-Path (Get-Location).Path $ReportPath
+    }
+    [ordered]@{
+        reportVersion  = 1
+        tool           = 'tools/verify_nuget.ps1'
+        version        = $Version
+        source         = 'https://api.nuget.org/v3-flatcontainer'
+        generatedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
+        summary        = [ordered]@{
+            expected = $Packages.Count
+            indexed  = $found.Count
+            missing  = $pending.Count
+            result   = $(if ($pending.Count -eq 0) { 'pass' } else { 'fail' })
+        }
+        packages       = @($Packages | ForEach-Object {
+            [ordered]@{
+                id     = $_
+                status = $(if ($found.ContainsKey($_)) { 'indexed' } else { 'missing' })
+            }
+        })
+    } | ConvertTo-Json -Depth 5 |
+        # BOM-free: Windows PowerShell 5.1's `Out-File -Encoding utf8` would add one and trip
+        # strict JSON parsers; pwsh 7 would not. Keep the report identical on both.
+        ForEach-Object {
+            [System.IO.File]::WriteAllText($ReportPath, $_,
+                (New-Object System.Text.UTF8Encoding($false)))
+        }
+    Write-Host ("Report written to {0}" -f $ReportPath)
+}
 
 if ($pending.Count -gt 0) {
     Write-Error ("{0} package(s) still missing on nuget.org after {1} attempt(s): {2}" -f $pending.Count, $MaxAttempts, ($pending -join ', '))

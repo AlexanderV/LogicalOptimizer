@@ -46,10 +46,11 @@ git tag -a v2.1.0 -m "v2.1.0: BDD complement edges"
 git push origin v2.1.0
 ```
 
-`release.yml`: setup .NET 10 → `dotnet build -warnaserror` → `dotnet test` (CI-фільтр) →
-`dotnet pack` 9 пакетів → **checksums + provenance attestation** → `dotnet nuget push
---skip-duplicate` → **верифікація присутності в реєстрі** → **installation smoke test**.
-Якщо тести впадуть — публікації не буде.
+`release.yml`: setup .NET 10 → `dotnet build -warnaserror` → `dotnet test` (CI-фільтр, `.trx`) →
+`dotnet pack` 9 пакетів → **audit вмісту пакетів (gate перед публікацією)** → **checksums +
+provenance attestation** → `dotnet nuget push --skip-duplicate` → **верифікація присутності в
+реєстрі** → **installation + Native AOT smoke test з опублікованих пакетів** → **release evidence
+bundle**. Якщо тести або audit впадуть — публікації не буде.
 
 **Supply-chain гарантії кожного релізу:**
 
@@ -69,6 +70,25 @@ git push origin v2.1.0
 Підпис самих NuGet-пакетів author-сертификатом не робимо: для цього потрібен code-signing
 сертифікат. Provenance attestation + checksums дають публічно перевірюване походження без нього.
 
+**Audit вмісту пакетів (перед публікацією):** крок «Verify package contract» запускає
+[`tools/verify_package_contract.ps1`](tools/verify_package_contract.ps1), який **відкриває кожен
+`.nupkg` як zip** і перевіряє контракт: власний README всередині пакета (і що він згадує саме цей
+пакет), змістовний і **унікальний** `Description`, теги, `PackageProjectUrl` і repository
+url/type/commit, SPDX-вираз ліцензії, `.snupkg` із `.pdb` на кожен TFM, наявність контрактних
+target frameworks у `lib/` (і `tools/` + `DotnetToolSettings.xml` + `packageType=DotnetTool` для
+CLI), відсутність будь-якої **сторонньої** runtime-залежності, і що meta-пакет транзитивно тягне
+всі library-пакети. Запускається до `nuget push` — опублікований пакет уже не видалити. Той самий
+audit працює і в CI на кожному PR (там же артефакт `package-contract-report`).
+
+```bash
+dotnet pack LogicalOptimizer.sln -c Release -o artifacts /p:Version=3.1.0
+pwsh tools/verify_package_contract.ps1 -Version 3.1.0
+# аудит уже опублікованих пакетів: завантаж їх у теку й вкажи -ArtifactsPath
+```
+
+Звіт — `package-contract-report.json` (machine-readable, з переліком того, чого він **не**
+доводить). Наразі: 9 пакетів, 161 перевірка.
+
 **Автоматична перевірка присутності:** після push крок «Verify packages on nuget.org» запускає
 [`tools/verify_nuget.ps1`](tools/verify_nuget.ps1), який опитує flat-container-індекс
 (`https://api.nuget.org/v3-flatcontainer/<id>/index.json`) для всіх 7 пакетів на випущену версію,
@@ -87,11 +107,35 @@ pwsh tools/verify_nuget.ps1 -Version 2.1.0
 `IsEquivalent()`/`MinimizationStatus`, тоді ставить CLI як global tool і перевіряє його
 `--format=json` звіт. Присутність в індексі ще не означає придатність — цей крок доводить її.
 
+З `-IncludeAot` той самий консьюмерський проєкт додатково збирається з `PublishAot=true` і
+**запускається як нативний бінарник**. [`aot.yml`](.github/workflows/aot.yml) доводить
+AOT-сумісність лише через project reference — це не ловить поломку на рівні пакування, тож реліз
+перевіряє AOT саме **з опублікованого пакета** (звіт: `aot-package-smoke.json`). Потрібен нативний
+toolchain: clang + zlib headers на Linux, MSVC build tools на Windows (локально — з Developer
+Command Prompt, інакше `link.exe` не знайдеться).
+
 ```bash
 # локально проти вже опублікованої версії:
 pwsh tools/smoke_install.ps1 -Version 3.1.0
 # без частини з global tool:
 pwsh tools/smoke_install.ps1 -Version 3.1.0 -SkipTool
+# + Native AOT з пакета:
+pwsh tools/smoke_install.ps1 -Version 3.1.0 -IncludeAot -AotReportPath aot-package-smoke.json
+```
+
+**Release evidence bundle:** останній крок збирає
+[`tools/build_evidence_bundle.ps1`](tools/build_evidence_bundle.ps1) — усі докази релізу в одній
+теці: audit пакетів, перевірка індексу, AOT-звіт, `test-summary.json` (з `.trx`), `SHA256SUMS.txt`,
+`claim-changes.md` (секція CHANGELOG цієї версії) і `verifying-provenance.md` — інструкція, як
+**самостійно** перевірити attestation, checksums, контракт пакетів, install/AOT і JSON-схему CLI.
+`INDEX.md` каже, що кожен файл доводить (і чого **не** доводить), `manifest.json` дублює це
+machine-readable із SHA-256 кожного файлу. `-RequireAll` валить job, якщо якогось ключового доказу
+немає, тож bundle не може виглядати повним, коли він неповний. Bundle вантажиться як run-артефакт
+`release-evidence-<version>` і, якщо GitHub release для тега вже існує, прикріплюється до нього.
+
+```bash
+# локальний dry run (без -RequireAll відсутні входи просто позначаються 'absent'):
+pwsh tools/build_evidence_bundle.ps1 -Version 3.1.0 -PackageContractReport package-contract-report.json
 ```
 
 **Перевірка:** вкладка **Actions** → run «Release»; за ~5–15 хв пакети на nuget.org.
