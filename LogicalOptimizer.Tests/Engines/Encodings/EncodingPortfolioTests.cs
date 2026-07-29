@@ -314,6 +314,29 @@ public class EncodingPortfolioTests
             $"Auto is larger than the default on: {string.Join("; ", offenders)}");
     }
 
+    /// <summary>
+    ///     The calibration corpus is a FROZEN baseline (roadmap P2.1 / §17 decision 6): tuning is
+    ///     only ever evaluated against this exact, unchanged set of shapes, or against a new corpus
+    ///     added by a separate prior change. This lock hashes the canonical shape lines (the same
+    ///     normalized, comment-free content <see cref="ReadCorpus" /> consumes, so it is immune to
+    ///     comment edits and CRLF/LF differences) and pins it. Any change to the measured shapes —
+    ///     addition, removal, reordering, or edit — trips this test, forcing the change to be a
+    ///     deliberate, reviewed act rather than a silent re-tuning that flatters Auto.
+    /// </summary>
+    [Fact]
+    public void CalibrationCorpus_IsFrozenToItsCommittedShapes()
+    {
+        var canonical = string.Join('\n', ReadCorpus().Select(shape => shape.Label));
+        var hash = Convert.ToHexString(
+                System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(canonical)))
+            .ToLowerInvariant();
+
+        // To retune deliberately: change tools/encoding_corpus.txt in a dedicated change, then
+        // update this pin in the same change so the freeze moves forward on purpose, never by drift.
+        const string frozen = "0e9785f9c98f94eaf8412db7dd5a2c952dfa23d28c4ffeea5ae83163db80be25";
+        Assert.Equal(frozen, hash);
+    }
+
     private static (EncodingStats Auto, EncodingStats Default) MeasureShape(CorpusShape shape)
     {
         var literals = Enumerable.Range(1, shape.N).ToList();

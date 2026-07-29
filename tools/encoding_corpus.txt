@@ -6,6 +6,12 @@
 # constraint SHAPE, and the test measures Auto's size (clauses + auxiliary variables)
 # against the stable default's size on that same shape.
 #
+# FROZEN BASELINE. The set of shapes below is locked by a checksum test
+# (EncodingPortfolioTests.CalibrationCorpus_IsFrozenToItsCommittedShapes): any edit,
+# addition, removal or reordering of shape lines trips it. Retuning is therefore a
+# deliberate act — change this file and update the pinned hash in the same change, or
+# add a NEW corpus in a separate prior change; never re-tune by silent drift.
+#
 # One shape per line. Blank lines and lines starting with '#' are ignored.
 # Grammar:
 #   CARD <AM|AL|EX> n=<literals> k=<bound>

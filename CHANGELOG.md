@@ -52,8 +52,11 @@ the public API baseline diff is additive-only.
   `tools/encoding_corpus.txt`). Every encoding is verified assignment-by-assignment (313,000+
   exhaustive satisfiability checks over all small-n cardinality and random weighted PB shapes);
   characterization tests pin the default output and each encoding's clause / auxiliary-variable
-  counts, and the calibration-corpus gate confirms `Auto ≤ default` on every shape. The OPB
-  feasibility path (`PseudoBooleanProblem`) continues to route through the unchanged default.
+  counts, and the calibration-corpus gate confirms `Auto ≤ default` on every shape. The
+  calibration corpus is now a **frozen baseline**: a checksum test pins the exact set of shapes,
+  so any edit, addition, removal or reordering must be a deliberate, reviewed change (the pinned
+  hash moves in the same change) rather than silent re-tuning. The OPB feasibility path
+  (`PseudoBooleanProblem`) continues to route through the unchanged default.
 - **Circuit serialization (P2.3) — EXPERIMENTAL until v4.** `BinaryDecisionDiagram` and
   `DnnfCircuit` each gain `Save(Stream)` and
   `static Load(Stream, ResourceBudget?, CancellationToken)` over a compact, hand-written binary
