@@ -246,13 +246,13 @@ public class CoreGuidedMaxSatTests
         var soft = new List<(int Weight, int[] Clause)>();
 
         for (var h = 1; h <= holes; h++)
-        for (var i = 1; i <= pigeons; i++)
-        for (var j = i + 1; j <= pigeons; j++)
-        {
-            var clause = new[] { -Var(i, h), -Var(j, h) };
-            hard.Add(clause);
-            solver.AddHard(clause);
-        }
+            for (var i = 1; i <= pigeons; i++)
+                for (var j = i + 1; j <= pigeons; j++)
+                {
+                    var clause = new[] { -Var(i, h), -Var(j, h) };
+                    hard.Add(clause);
+                    solver.AddHard(clause);
+                }
 
         for (var i = 1; i <= pigeons; i++)
         {
