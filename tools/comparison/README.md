@@ -17,7 +17,9 @@ The methodology requires a **single Linux runner** for every tool. [`Dockerfile`
 bundles the OUR side (.NET SDK) with every competitor — SymPy, PyEDA, CaDiCaL, Kissat, Z3, d4
 and LogicNG — and [`run_all_in_container.sh`](run_all_in_container.sh) runs the whole
 comparison from the one committed corpus and writes the artifacts back under
-`doc/comparison/` (including the merged [`merged.md`](../../doc/comparison/merged.md)). Every
+`doc/comparison/` (including the merged [`merged.md`](../../doc/comparison/merged.md) and a
+self-contained, auto-generated [`merged.html`](../../doc/comparison/merged.html) you can open
+in a browser — it renders itself from the same run's data, so it never drifts). Every
 competitor is **version-pinned** for reproducibility (base image by digest, Python tools by
 exact version, SAT/#SAT solvers by commit hash, LogicNG by release):
 

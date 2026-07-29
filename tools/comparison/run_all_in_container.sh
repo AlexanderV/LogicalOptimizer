@@ -67,13 +67,14 @@ echo "== 7/7 merge into merged.md =="
 python3 tools/comparison/merge_results.py "$OUT/our-results.json" \
     --sympy "$OUT/sympy_out.md" --sat "$OUT/sat_out.md" --z3 "$OUT/z3_out.md" \
     --modelcount "$OUT/mc_out.md" --logicng "$OUT/logicng_out.md" \
+    --html "$OUT/merged.html" \
     > "$OUT/merged.md" 2> "$OUT/merged.log" || true
 
 echo "== copy artifacts back to $SRC/$OUT_REL =="
 DEST="$SRC/$OUT_REL"
 mkdir -p "$DEST"
 for f in our-results.json summary.md manifest.json \
-         sympy_out.md sat_out.md z3_out.md mc_out.md logicng_out.md merged.md; do
+         sympy_out.md sat_out.md z3_out.md mc_out.md logicng_out.md merged.md merged.html; do
     if [[ -f "$OUT/$f" ]]; then cp "$OUT/$f" "$DEST/$f"; fi
 done
 
