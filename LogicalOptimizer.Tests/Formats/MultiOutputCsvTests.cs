@@ -42,6 +42,16 @@ public class MultiOutputCsvTests
         // Sum is 3-input parity: 12 literals minimal; Cout is majority: 6 literals minimal
         var sumAst = new Parser(new Lexer(resultMap["Sum"]).Tokenize()).Parse();
         var coutAst = new Parser(new Lexer(resultMap["Cout"]).Tokenize()).Parse();
+
+        // Literal count alone is only a minimality proxy — a wrong 12-literal function would
+        // pass it. Pin the actual FUNCTION against independent reference forms of parity/majority.
+        var parity = new Parser(new Lexer(
+            "a & !b & !cin | !a & b & !cin | !a & !b & cin | a & b & cin").Tokenize()).Parse();
+        var majority = new Parser(new Lexer("a & b | a & cin | b & cin").Tokenize()).Parse();
+        Assert.True(TruthTable.AreEquivalent(sumAst, parity), "Sum is not 3-input parity");
+        Assert.True(TruthTable.AreEquivalent(coutAst, majority), "Cout is not majority");
+
+        // …and that they are the minimal two-level forms.
         Assert.Equal(12, AstMetrics.CountLiterals(sumAst));
         Assert.Equal(6, AstMetrics.CountLiterals(coutAst));
     }

@@ -90,7 +90,9 @@ public class AigRewriteLibraryTests
         // Sanity on AND-counts for canonical simple gates.
         Assert.Equal(1, AigRewriteLibrary.Synthesize(0b1000, 2).AndCount); // AND2
         Assert.Equal(1, AigRewriteLibrary.Synthesize(0b1110, 2).AndCount); // OR2
-        Assert.True(AigRewriteLibrary.Synthesize(0b0110, 2).AndCount <= 3); // XOR2
+        // XOR2's minimum AIG is exactly 3 ANDs (also pinned in AigMinLibraryTests); the
+        // former `<= 3` would have passed even if the library regressed to a worse-but-bounded form.
+        Assert.Equal(3, AigRewriteLibrary.Synthesize(0b0110, 2).AndCount); // XOR2
     }
 
     [Fact]

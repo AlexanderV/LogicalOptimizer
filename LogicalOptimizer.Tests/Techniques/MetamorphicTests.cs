@@ -32,8 +32,10 @@ public class MetamorphicTests
             var optimizedFirst = RandomExpressions.Rename(
                 RandomExpressions.Parse(Optimize(expression)), map);
 
-            Assert.True(TruthTable.AreEquivalent(RandomExpressions.Parse(renamedFirst), optimizedFirst),
-                $"Trial {trial}: renaming does not commute for '{expression}'");
+            // The "renamed_" prefix is constant, so it preserves the canonical variable order;
+            // under v2 construction-time canonicalization the two paths must produce a
+            // BYTE-IDENTICAL string, not merely an equivalent one (as TermPermutation already pins).
+            Assert.Equal(optimizedFirst.ToString(), renamedFirst);
         }
     }
 
@@ -249,7 +251,11 @@ public class MetamorphicTests
             var ast = RandomExpressions.Parse(RandomExpressions.Generate(rng, 4, 3));
             var plain = AndInverterGraph.FromAst(ast);
             var duplicated = AndInverterGraph.FromAst(new OrNode(ast, ast));
+            // Structural hashing must collapse F | F back to F: identical AND-node COUNT is
+            // necessary but not sufficient (two different graphs can share a count), so also
+            // require the same canonical output literal (Root) under deterministic node numbering.
             Assert.Equal(plain.AndNodeCount, duplicated.AndNodeCount);
+            Assert.Equal(plain.Root, duplicated.Root);
         }
     }
 

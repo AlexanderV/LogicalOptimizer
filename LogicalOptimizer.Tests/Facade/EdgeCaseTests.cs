@@ -47,7 +47,7 @@ public class EdgeCaseTests
     [Theory]
     [InlineData("a & !a & b", "0")]
     [InlineData("(a & !a) | b", "b")]
-    [InlineData("a & b & !a & c", "0")]
+    // ("a & b & !a & c" → "0" is pinned in OptimizerTruthTableTests.Tautologies… — not duplicated here)
     public void EdgeCases_ContradictoryExpressions_ShouldOptimizeToZero(string input, string expected)
     {
         // Act & Assert
@@ -57,7 +57,7 @@ public class EdgeCaseTests
     [Theory]
     [InlineData("a | !a | b", "1")]
     [InlineData("(a | !a) & b", "b")]
-    [InlineData("a | b | !a | c", "1")]
+    // ("a | b | !a | c" → "1" is pinned in OptimizerTruthTableTests.Tautologies… — not duplicated here)
     public void EdgeCases_Tautologies_ShouldOptimizeCorrectly(string input, string expected)
     {
         // Act & Assert

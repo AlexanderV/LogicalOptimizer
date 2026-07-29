@@ -19,9 +19,9 @@ public class EqvIntegrationTests
         // Act
         var result = optimizer.OptimizeExpression(expression);
 
-        // Assert
+        // Assert - the advanced rendering of a bare EQV is deterministic; pin it exactly
         Assert.NotNull(result);
-        Assert.Contains("a ↔ b", result.Advanced);
+        Assert.Equal("a ↔ b", result.Advanced);
     }
 
     [Fact]
@@ -36,18 +36,18 @@ public class EqvIntegrationTests
         // Act
         var result = optimizer.OptimizeExpression(expression);
 
-        // Assert
+        // Assert - the conjunct survives and the EQV is folded; pin the full form so
+        // Contains("c") (nearly always true) cannot mask a dropped/misplaced conjunct
         Assert.NotNull(result);
-        Assert.Contains("a ↔ b", result.Advanced);
-        Assert.Contains("c", result.Advanced);
+        Assert.Equal("c & (a ↔ b)", result.Advanced);
     }
 
     [Theory]
     [InlineData("x & y | !x & !y", "x ↔ y")]
     [InlineData("p & q | !p & !q", "p ↔ q")]
-    [InlineData("!m & !n | m & n", "↔")] // Either "m ↔ n" or "n ↔ m" is valid
-    [InlineData("a & b | !a & !b", "↔")]
-    public void EqvPattern_VariousInputs_DetectedCorrectly(string input, string expectedContains)
+    [InlineData("!m & !n | m & n", "m ↔ n")] // Rendering is deterministic — pin the operand order
+    [InlineData("a & b | !a & !b", "a ↔ b")]
+    public void EqvPattern_VariousInputs_DetectedCorrectly(string input, string expected)
     {
         // Test various EQV patterns through string API
 
@@ -57,7 +57,8 @@ public class EqvIntegrationTests
         // Act
         var result = detector.ConvertToAdvancedForms(input);
 
-        // Assert
-        Assert.Contains(expectedContains, result);
+        // Assert - the detector output is a single deterministic string; a bare Contains("↔")
+        // would pass on a wrong operand pairing, so assert the exact advanced form
+        Assert.Equal(expected, result);
     }
 }

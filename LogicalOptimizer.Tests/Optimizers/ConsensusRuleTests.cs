@@ -38,9 +38,9 @@ public class ConsensusRuleTests
         var result = _optimizer.OptimizeExpression(input);
 
         // Assert - the consensus term (b & c / y & z) is eliminated, leaving exactly the
-        // two essential terms in canonical form.
+        // two essential terms in canonical form (the exact-string pin already implies the
+        // two-term shape, so a separate split-count assert would be redundant).
         Assert.Equal(expected, result.Optimized);
-        Assert.Equal(2, result.Optimized.Split('|').Length);
     }
 
     [Fact]
@@ -57,9 +57,10 @@ public class ConsensusRuleTests
         // The pattern cap now matches the overall input limit, so the 6-variable
         // expression DOES get its XOR recognized (previously silently ""), and the
         // double-parentheses printing bug around forced-parens children is fixed
-        Assert.Contains("XOR", result.Advanced);
-        // The forced-parens child must not be double-wrapped anymore
-        Assert.DoesNotContain("((a XOR b))", result.Advanced);
+        // Pin the full advanced rendering: the 6-variable XOR is folded, the residual
+        // clause is rendered verbatim, and (regression guard) the forced-parens child is
+        // NOT double-wrapped as "((a XOR b))".
+        Assert.Equal("(d | !c | e & f) & (a XOR b)", result.Advanced);
 
         var inCapResult = _optimizer.OptimizeExpression("((a & !b) | (!a & b)) & (!c | d)");
         Assert.Equal("(c → d) & (a XOR b)", inCapResult.Advanced);

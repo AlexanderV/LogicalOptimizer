@@ -1,6 +1,21 @@
 # Testing Strategy — Analysis, Actuality & Checklist
 
-**Last audited:** 2026-07-27 (v2.0 post-migration re-audit: six parallel read-only reviewers
+**Last audited:** 2026-07-29 (four-criteria re-audit: nine parallel read-only reviewers covered
+every test file — representative, logically-correct, strong, non-duplicating — verified each
+flagged finding against production code, and re-ran the ten techniques against current behavior.
+~30 fixes applied. The one genuine circular oracle was in the flagship minimizer honesty test
+(`MinimalSopWithStatus_ProvenClaimUnderAnyBudget_ImpliesTrueMinimum`): its "reference optimum"
+was the SAME routine at a larger budget, so a branch-and-bound mutant would corrupt both runs
+identically — now cross-checked by an INDEPENDENT SatTwoLevelMinimizer prime-cover (a SAT cover
+beating a proven QM minimum disproves the proof). Two "status-only" minimizer tests asserted the
+`proven`/`MinimalProven` flag but never the returned cover — now pinned against a brute-force
+on-set / truth-table oracle. One dead no-op (`Assert.Same(circuit, circuit)`) and one AND/OR-
+indistinguishable CSV assertion fixed; the golden-master guard now re-verifies CNF/DNF, not just
+Optimized. ~15 weak `Contains`/`<=`/`NotEmpty`/`ThrowsAny` assertions pinned to exact values where
+the output is deterministic; Metamorphic renaming now pins byte-identical output and AIG idempotent
+duplication compares the canonical Root. Exact-duplicate rows removed. Gate suite 1158 → **1152**
+green (−6 dups, every removed behavior still pinned by a stronger surviving test).
+**Previous audit:** 2026-07-27 (v2.0 post-migration re-audit: six parallel read-only reviewers
 covered every test file against the four quality criteria — representative, logically correct,
 strong, non-duplicating — and doc/TESTING.md's own audit rules; ~35 fixes applied across all
 folders. Two genuine "green-masking" weakenings introduced by the bulk v2 migration were caught
@@ -26,7 +41,7 @@ Status legend: ☑ current and verified in the last audit · ◪ present with kn
 | # | Technique | Applicability | Status | Coverage today | Effort to extend | Priority |
 |---|-----------|:---:|:---:|---|:---:|:---:|
 | 1 | **Property-Based (CsCheck)** | ★★★★★ | ☑ | 14 properties incl. extended-operator generators, `Techniques/PropertyBasedTests.cs` | Med | P0 |
-| 2 | **Metamorphic** | ★★★★★ | ☑ | 11 relations (permutation MRs now pin byte-identical canonical output), `Techniques/MetamorphicTests.cs` | Med | P0 |
+| 2 | **Metamorphic** | ★★★★★ | ☑ | 11 relations (permutation AND renaming MRs pin byte-identical canonical output; AIG idempotent-duplication compares the canonical Root), `Techniques/MetamorphicTests.cs` | Med | P0 |
 | 3 | **Mutation (Stryker.NET)** | ★★★★☆ | ☑ | per-module runs + killer tests (Part 5); Transformations.cs 100% | Low | P1 |
 | 4 | **Algebraic** | ★★★★★ | ☑ | all axioms as laws, `Techniques/AlgebraicLawTests.cs` | Low | P1 |
 | 5 | **Snapshot / Approval (Verify)** | ★★★★☆ | ☑ | 7 approved snapshots, `Techniques/SnapshotTests.cs` | Low | P1 |
@@ -137,7 +152,10 @@ No output oracle — a semantics-preserving transformation of the *input* must p
 the documented relation between the two *outputs*: variable renaming, negation,
 cofactor substitution, disjunction composition and De Morgan duality all commute with
 optimization; permuting top-level OR terms preserves semantics and (inside the exact
-zone) the proven-minimal cost.
+zone) the proven-minimal cost. Where v2 construction-time canonicalization guarantees it,
+the relation is pinned as byte-identical output rather than mere equivalence (term
+permutation and order-preserving renaming), and the AIG idempotent-duplication MR
+(`F` vs `F | F`) compares the canonical `Root`, not just the AND-node count.
 
 ### Algebraic — `Techniques/AlgebraicLawTests.cs`
 
@@ -174,8 +192,9 @@ re-verified), and limit probing (nesting cap, 10 000-char cap, wide flat chains)
 The complete observable output over a fixed 32-expression corpus is pinned. Any drift
 fails the test and writes `.received.txt`. Regenerate intended changes with
 `LOGICALOPTIMIZER_REGENERATE_GOLDEN=1` and review the diff; a guard test re-verifies
-every pinned result is still semantically equivalent, so the golden master can never
-legitimize a wrong answer.
+every pinned result — Optimized AND CNF AND DNF — is still semantically equivalent, so the
+golden master can never legitimize a wrong answer (CNF/DNF are checked in the truth-table
+zone; above it the CNF may be an equisatisfiable Tseitin encoding).
 
 ### Snapshot / approval (Verify) — `Techniques/SnapshotTests.cs`
 
@@ -219,6 +238,78 @@ Standard mutation level, string mutations ignored, thresholds 80/60 with `break:
 ---
 
 ## Part 4: Audit log
+
+**2026-07-29 — four-criteria full-suite re-audit (nine parallel read-only reviewers; ten
+techniques re-run against current behavior).** Every test file was re-graded representative /
+logically-correct / strong / non-duplicating; each flagged finding was verified against production
+before any change; the ten cross-cutting techniques were re-validated (the critical failure mode —
+a degenerated cross-engine miter — was checked and is NOT present: the differential/property SAT
+paths deliberately call `EquivalenceChecker.CheckWithSat`/`BinaryDecisionDiagram.AreEquivalent`
+past the truth-table threshold, so the second engine really runs).
+
+Genuine logical defects fixed (green-masking / circular oracle / dead assert):
+- **Circular oracle (minimizer honesty).** `TruthTableMinimizerTests.MinimalSopWithStatus_
+  ProvenClaimUnderAnyBudget_ImpliesTrueMinimum` compared each budgeted run to a "reference optimum"
+  produced by the SAME routine at a larger budget — a branch-and-bound mutant (bad lower bound /
+  best-update) corrupts both identically and the test still passes. Now the reference is cross-checked
+  by an INDEPENDENT engine (`SatTwoLevelMinimizer`, a BOOM-style SAT prime-cover): a SAT cover with
+  fewer literals than the "proven" QM optimum disproves the proof.
+- **Status-only paints-green.** `MinimalSopWithStatus_RandomFunctions_AlwaysProvenInGuaranteeZone`
+  and `OptimizeExpression_AllThreeVariableFunctions_MinimalProven` asserted only the `proven` /
+  `MinimalProven` flag and never checked the returned cover — a mutant hard-coding the flag survived.
+  Added a brute-force on-set oracle (evaluate the result over all 2ⁿ assignments == the requested
+  on-set) and a truth-table equivalence check respectively.
+- **Dead assertion.** `DnnfConditioningTests` had `Assert.Same(circuit, circuit)` (can never fail);
+  replaced with `Assert.NotSame(source, conditioned)` — `Condition()` must return a fresh circuit.
+- **AND/OR-indistinguishable.** `ExportTests.TruthTableToCsv` asserted only the two rows AND shares
+  with OR (`0,0,0` / `1,1,1`); the OR table passed the "AND" test. Now pins all four data rows.
+  `MultiOutputCsvTests` full-adder pinned only literal counts (a proxy a wrong 12-literal function
+  passes) → now asserts equivalence to independent parity / majority reference forms.
+- **Golden-master guard gap.** `CharacterizationTests` froze Optimized+CNF+DNF but the equivalence
+  guard checked only Optimized; a wrong pinned CNF/DNF could be legitimized. Guard now re-verifies
+  CNF and DNF too (truth-table zone; above it the CNF may be an equisatisfiable Tseitin encoding).
+
+Weak assertions strengthened (exact where the output is deterministic and knowable):
+- `AdvancedPatternDetectorTests` XOR/IMP detections: `Contains("XOR")`/`Contains("→")` →
+  exact renderings (`"(a XOR b) | c"`, `"(x → w) | (z → y)"`, …) so a swapped/dropped operand fails.
+- `EqvIntegrationTests`, `OptimizerTruthTableTests` (factorization + complex), `ConsensusRuleTests`:
+  equivalence-only / `Contains` → exact optimized strings (an equivalence-only check accepts a
+  worse-but-equivalent rewrite; the removed `EqvPattern` "either m↔n or n↔m" hedge was a false
+  disjunct — the rendering is deterministic).
+- `ConsoleInterfaceTests` `NotEmpty(Variables)` → exact `["a"]` + exact CNF/DNF; `IncrementalSatTests`
+  `Assert.Superset` → exact `{-1,-2}` unsat core; `TseitinConverterTests` `<= 3*aux+1` → exact 10;
+  `EspressoLiteTests` `< original` → exact 52 literals; `AigRewriteLibraryTests` `<= 3` → `== 3`.
+- Over-broad / vanity: `CircuitSerializationTests` `ThrowsAny<Exception>` → typed
+  `CircuitSerializationException`; `BddSiftingTests` `Stopwatch < 5 s` deleted (the deterministic
+  `NodeCount <= staticBest` bound is the real check); `NaryNodeContractTests` vacuous
+  `Assert.NotNull(symbol)` fillers → meaningful per-node diagnostics (they were load-bearing only
+  for the xUnit1026 unused-parameter analyzer under `TreatWarningsAsErrors`).
+- **Metamorphic** strengthened past mere equivalence where v2 canonicalization guarantees more:
+  `Renaming_CommutesWithOptimization` now pins BYTE-IDENTICAL output (the constant `"renamed_"`
+  prefix preserves canonical variable order); `AigStructure_IsInvariantUnderIdempotentDuplication`
+  now compares the canonical `Root` literal, not just the AND-node count (equal counts ≠ equal graphs).
+- **ProjectedModelCounting** `ConflictBudget_NeverPassesPartialAsExact` asserted nothing on the
+  `Exact` branch (green-passed whenever the seed solved trivially); both branches are now
+  falsifiable — an `Exact` result is checked against the brute-force projected oracle.
+
+Duplicates removed (kept the stronger home): `OptimizerTests` absorption rows (subsumed by
+`OptimizerTruthTableTests.Optimizer_AbsorptionLaws`); two `EdgeCaseTests` contradiction/tautology
+rows and one `OptimizerTruthTableTests` complex row (subsumed by the Tautologies… theory /
+`OptimizerTests.SmartCommutativity`); one duplicate `AdvancedPatternDetectorTests` StandardXor row.
+
+Reviewer suggestions REJECTED on verification (not defects):
+- `Spikes/ProjectedModelCountingTests` is NOT a duplicate of the facade suite — it exercises a
+  DIFFERENT production API (`ProjectedModelCounting.BddExistentialAbstraction`), cross-checked
+  exhaustively against brute force and the SAT-blocking count; kept.
+- `RuleCompletenessTests`' `<= maxLiterals` is not slack: the budgets are calibrated so the
+  non-filler prefix must collapse (e.g. `!a | a & b` → 2 literals under a 14-literal cap), and
+  exact-string pins on 13-variable canonical output would be brittle; kept as-is.
+- `ArchitectureTests` public-type list vs `ApiSurfaceTests` member-level baseline: kept as a
+  deliberate belt-and-suspenders (type-level architectural pin + member-level snapshot).
+
+Net: gate suite 1158 → **1152 cases** (−6 exact-duplicate rows; every removed behavior remains
+pinned by a stronger surviving test). All added assertions are independent-oracle (SAT prime-cover,
+brute-force on-set/projected, truth-table) or exact-string/exact-count. Suite green (net10.0, CI filter).
 
 **2026-07-28 — contract-honesty change-set audit (tests for the review-driven fixes
 re-graded against the four criteria; all ten techniques re-run against the new behavior).**

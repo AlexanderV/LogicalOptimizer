@@ -42,6 +42,23 @@ public class TruthTableMinimizerTests
         return new Parser(new Lexer(expression).Tokenize()).Parse();
     }
 
+    /// <summary>
+    ///     Independent oracle: evaluate a minimizer result over ALL 2^n assignments and require
+    ///     it to be true exactly on the requested on-set. Direct brute-force membership, so a
+    ///     mutant that returns a wrong cover (yet stamps it "proven") is caught — no reliance on
+    ///     the minimizer's own equivalence bookkeeping.
+    /// </summary>
+    private static void AssertRepresentsOnSet(AstNode result, IReadOnlyList<string> variables, HashSet<int> onSet)
+    {
+        var assignment = new Dictionary<string, bool>();
+        for (var minterm = 0; minterm < 1 << variables.Count; minterm++)
+        {
+            for (var j = 0; j < variables.Count; j++)
+                assignment[variables[j]] = (minterm & (1 << j)) != 0;
+            Assert.Equal(onSet.Contains(minterm), TruthTable.Evaluate(result, assignment));
+        }
+    }
+
     [Fact]
     public void MinimalSop_Majority_SixLiterals()
     {
@@ -206,6 +223,18 @@ public class TruthTableMinimizerTests
             Assert.True(referenceProven, $"Trial {trial}: reference run not proven");
             var optimum = AstMetrics.CountLiterals(reference);
 
+            // Break the "reference == the same routine at a larger budget" circularity with an
+            // INDEPENDENT engine: SatTwoLevelMinimizer is a BOOM-style SAT prime-cover, a
+            // different algorithm that can never beat a true minimum. If a branch-and-bound
+            // mutant inflated the QM "proven" optimum, this SAT cover would find fewer literals.
+            var satCover = SatTwoLevelMinimizer.TryMinimize(reference,
+                PerformanceValidator.SAT_MINIMIZATION_CUBE_LIMIT,
+                PerformanceValidator.SAT_MINIMIZATION_QUERY_CONFLICTS);
+            if (satCover != null)
+                Assert.True(AstMetrics.CountLiterals(satCover) >= optimum,
+                    $"Trial {trial}: an independent SAT cover ({AstMetrics.CountLiterals(satCover)} literals) " +
+                    $"beat the QM-'proven' optimum ({optimum}) — the minimality proof is wrong");
+
             foreach (var stepLimit in new[] { 1, 5, 25, 125, 625 })
             {
                 var (expression, proven) = TruthTableMinimizer.MinimalSopWithStatus(variables, onSet,
@@ -273,10 +302,14 @@ public class TruthTableMinimizerTests
                 if (random.Next(2) == 0)
                     onSet.Add(m);
 
-            var (_, proven) = TruthTableMinimizer.MinimalSopWithStatus(variables, onSet,
+            var (expression, proven) = TruthTableMinimizer.MinimalSopWithStatus(variables, onSet,
                 coverStepLimit: PerformanceValidator.GUARANTEE_COVER_STEP_LIMIT);
 
             Assert.True(proven, $"Trial {trial}: minimality not proven for a {variableCount}-variable function");
+            // A "proven" flag is worthless unless the returned cover is actually the function:
+            // pin it against the independent brute-force on-set oracle (kills a proven=true mutant
+            // that returns garbage).
+            AssertRepresentsOnSet(expression, variables, onSet);
         }
     }
 
@@ -298,9 +331,16 @@ public class TruthTableMinimizerTests
                     (minterm & (1 << j)) != 0 ? v : "!" + v)));
             }
 
-            var result = optimizer.OptimizeExpression(string.Join(" | ", terms), options);
+            var input = string.Join(" | ", terms);
+            var result = optimizer.OptimizeExpression(input, options);
             Assert.True(MinimizationStatus.MinimalProven == result.MinimizationStatus,
                 $"Function {truthBits}: status {result.MinimizationStatus}");
+            // MinimalProven means nothing if the output is not the input function: verify
+            // equivalence against the independent brute-force truth-table oracle. (Size is not
+            // pinned here — the facade may return a cheaper multi-level/factored form than the
+            // two-level minimum, so an exact-literal pin would be both wrong and QM-circular.)
+            Assert.True(TruthTable.AreEquivalent(Parse(input), Parse(result.Optimized)),
+                $"Function {truthBits}: optimized form is not equivalent to the input");
         }
     }
 

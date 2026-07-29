@@ -205,7 +205,9 @@ public class CircuitSerializationTests
         var blob = SaveDnnf(KnowledgeCompilation.CompileToDnnf(Parse("a & (b | c)")));
         // Flip a payload byte (past the header) without fixing the trailing CRC.
         blob[blob.Length / 2] ^= 0xFF;
-        Assert.ThrowsAny<Exception>(() => DnnfCircuit.Load(new MemoryStream(blob)));
+        // Must be the typed CRC-refusal, not any stray exception (an NRE/OOB would also
+        // satisfy ThrowsAny but would mean the checksum path never actually ran).
+        Assert.Throws<CircuitSerializationException>(() => DnnfCircuit.Load(new MemoryStream(blob)));
     }
 
     // ----- Corrupted-input fuzzing ----------------------------------------------------------

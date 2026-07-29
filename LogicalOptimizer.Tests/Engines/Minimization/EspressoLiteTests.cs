@@ -73,8 +73,11 @@ public class EspressoLiteTests
         var original = RandomExpressions.Parse(expression);
         var minimized = Transformations.MinimizeDnfHeuristic(original);
 
-        Assert.True(AstMetrics.CountLiterals(minimized) < AstMetrics.CountLiterals(original),
-            "Espresso found nothing in a cover full of planted redundancy");
+        // The redundancy is planted exactly: each of the 13 groups keeps its 2-literal pair
+        // ("a & b") and its 2-literal "!a & c" while the absorbed superset ("a & b & c") and
+        // the consensus cube ("b & c") are dropped → 4 literals × 13 = 52. Pinning the exact
+        // count (not just "< original") fails if even ONE planted cube survives.
+        Assert.Equal(52, AstMetrics.CountLiterals(minimized));
         Assert.True(EquivalenceChecker.Check(original, minimized).AreEquivalent == true,
             "SAT miter refuted the espresso result");
     }

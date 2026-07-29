@@ -219,7 +219,10 @@ public class TseitinConverterTests
         var cnf = new BooleanExpressionOptimizer().ToEquisatisfiableCnf("a & b | c & d");
 
         Assert.Equal(4, cnf.InputVariables.Count);
-        Assert.True(cnf.Clauses.Count <= 3 * cnf.AuxiliaryVariableCount + 1);
+        // 3 aux gates (a&b, c&d, the OR) → exactly 10 clauses. Pin it: the `<= 3*aux+1`
+        // linear bound is also satisfied by a wastefully larger (still-linear) encoding.
+        Assert.Equal(3, cnf.AuxiliaryVariableCount);
+        Assert.Equal(10, cnf.Clauses.Count);
     }
 
     [Fact]

@@ -293,9 +293,13 @@ public class ProjectedModelCountingTests
         var result = FormulaAnalysis.CountProjectedModels(ast, vars,
             new ResourceBudget { SatConflictLimit = 0 });
 
-        // Either the instance solved with zero conflicts (trivial) -> Exact, or the budget
-        // tripped -> BudgetExhausted with no count. In neither case is a partial dressed as exact.
-        if (result.Status != ProjectedCountStatus.Exact)
+        // BOTH branches are falsifiable (the old test asserted nothing on the Exact branch, so
+        // it green-passed whenever seed 1 solved trivially): a BudgetExhausted result withholds
+        // the count; an Exact result must equal the independent brute-force projected oracle —
+        // never a partial dressed as exact.
+        if (result.Status == ProjectedCountStatus.Exact)
+            Assert.Equal(ProjectedModelCounting.BruteForceProjected(ast, vars, vars), result.Count);
+        else
         {
             Assert.Equal(ProjectedCountStatus.BudgetExhausted, result.Status);
             Assert.Null(result.Count);

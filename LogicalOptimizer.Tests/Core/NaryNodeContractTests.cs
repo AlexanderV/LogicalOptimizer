@@ -33,8 +33,10 @@ public class NaryNodeContractTests
     public void NaryCtor_FewerThanTwoOperands_Throws(string symbol,
         Func<IReadOnlyList<AstNode>, NaryNode> factory)
     {
-        Assert.NotNull(symbol);
-        Assert.Throws<ArgumentException>(() => factory(Array.Empty<AstNode>()));
+        // symbol identifies the node type in the failure message (and keeps the MemberData
+        // column used) — a bare Assert.NotNull(symbol) here would have been vacuous filler.
+        var empty = Assert.Throws<ArgumentException>(() => factory(Array.Empty<AstNode>()));
+        Assert.False(string.IsNullOrWhiteSpace(empty.Message), $"{symbol}: empty-operand validation needs a diagnostic");
         Assert.Throws<ArgumentException>(() => factory(new AstNode[] { new VariableNode("a") }));
     }
 
@@ -43,10 +45,10 @@ public class NaryNodeContractTests
     public void NaryCtor_NullListOrNullOperand_Throws(string symbol,
         Func<IReadOnlyList<AstNode>, NaryNode> factory)
     {
-        Assert.NotNull(symbol);
         Assert.Throws<ArgumentNullException>(() => factory(null!));
-        Assert.Throws<ArgumentException>(
+        var nullOperand = Assert.Throws<ArgumentException>(
             () => factory(new AstNode[] { new VariableNode("a"), null! }));
+        Assert.False(string.IsNullOrWhiteSpace(nullOperand.Message), $"{symbol}: null-operand validation needs a diagnostic");
     }
 
     [Theory]
@@ -54,7 +56,6 @@ public class NaryNodeContractTests
     public void Operands_AreDefensivelyCopied(string symbol,
         Func<IReadOnlyList<AstNode>, NaryNode> factory)
     {
-        Assert.NotNull(symbol);
         var source = new AstNode[] { new VariableNode("a"), new VariableNode("b") };
         var node = factory(source);
 
@@ -63,6 +64,7 @@ public class NaryNodeContractTests
 
         Assert.Equal("a", ((VariableNode)node.Operands[0]).Name);
         Assert.Equal("b", ((VariableNode)node.Operands[1]).Name);
+        Assert.False(node.Operands[0] == source[0], $"{symbol}: node aliased the mutated source slot");
     }
 
     [Theory]
@@ -173,13 +175,12 @@ public class NaryNodeContractTests
     public void Derived_ExposesOperandsAndEquality(string symbol,
         Func<AstNode, AstNode, BinaryNode> factory)
     {
-        Assert.NotNull(symbol);
         var a = new VariableNode("a");
         var b = new VariableNode("b");
         var node = factory(a, b);
 
         Assert.Equal(node, factory(new VariableNode("a"), new VariableNode("b")));
-        Assert.NotEqual(node, factory(b, a));
+        Assert.False(node.Equals(factory(b, a)), $"{symbol}: operand order must matter for equality");
         Assert.Equal(node.GetHashCode(), factory(a, b).GetHashCode());
     }
 

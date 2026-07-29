@@ -315,11 +315,12 @@ public class DnnfConditioningTests
         {
             var evidence = RandomEvidence(rng, variables);
             var byEvidence = circuit.CountModels(evidence);
-            var byCondition = circuit.Condition(evidence).CountModels();
-            Assert.Equal(byEvidence, byCondition);
+            var conditioned = circuit.Condition(evidence);
+            Assert.Equal(byEvidence, conditioned.CountModels());
 
-            // The shared instance is never disturbed by a query.
-            Assert.Same(circuit, circuit);
+            // Condition() must return a NEW circuit, never mutate/alias the shared source
+            // (Assert.Same(circuit, circuit) here was a no-op — it can never fail).
+            Assert.NotSame(circuit, conditioned);
             Assert.Equal(baselineCount, circuit.CountModels());
             Assert.Equal(baselineNodeCount, circuit.NodeCount);
         }

@@ -86,9 +86,11 @@ public class ConsoleInterfaceTests
         var result = optimizer.OptimizeExpression(input);
         Assert.Equal(input, result.Original);
         Assert.Equal(expectedOptimized, result.Optimized);
-        Assert.NotNull(result.CNF);
-        Assert.NotNull(result.DNF);
-        Assert.NotEmpty(result.Variables);
+        // For "!!a" every derived form collapses to the single literal — pin them exactly
+        // rather than NotNull/NotEmpty (which a garbage-but-present field would satisfy).
+        Assert.Equal("a", result.CNF);
+        Assert.Equal("a", result.DNF);
+        Assert.Equal(new[] { "a" }, result.Variables);
     }
 
     // PerformanceValidator.ValidateIterations is covered by the stronger twin

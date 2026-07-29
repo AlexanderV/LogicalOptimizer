@@ -16,7 +16,9 @@ public class IncrementalSatTests
 
         Assert.Equal(SatResult.Unsatisfiable, solver.Solve(new[] { -1, -2 }));
         Assert.NotNull(solver.UnsatCore);
-        Assert.Superset(new HashSet<int>(solver.UnsatCore!), new HashSet<int> { -1, -2 });
+        // Both assumptions are needed to refute (a | b) and nothing else is available, so the
+        // core is exactly {-1,-2}; a Superset check would tolerate a bloated, non-minimal core.
+        Assert.Equal(new HashSet<int> { -1, -2 }, new HashSet<int>(solver.UnsatCore!));
     }
 
     [Fact]

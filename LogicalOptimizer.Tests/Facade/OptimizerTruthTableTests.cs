@@ -85,16 +85,14 @@ public class OptimizerTruthTableTests
 
     [Theory]
     [InlineData("a & b | a & c", "a & (b | c)")] // Pinned factored output
-    [InlineData("(a | b) & (a | c)", null)]
-    [InlineData("x & y | x & z", null)]
-    [InlineData("(p | q) & (p | r)", null)]
-    public void Optimizer_Factorization_ShouldMaintainEquivalence(string input, string? expected)
+    [InlineData("(a | b) & (a | c)", "a | b & c")] // dual: factor across the AND-of-ORs
+    [InlineData("x & y | x & z", "x & (y | z)")]
+    [InlineData("(p | q) & (p | r)", "p | q & r")]
+    public void Optimizer_Factorization_ShouldMaintainEquivalence(string input, string expected)
     {
-        // Act & Assert
-        if (expected != null)
-            TruthTableAssert.AssertOptimizationEquivalence(input, expected, _optimizer);
-        else
-            TruthTableAssert.AssertOptimizationEquivalenceOnly(input, _optimizer);
+        // Act & Assert - the factored form is deterministic and knowable; pinning it (not just
+        // equivalence) is what catches a factorization that silently regressed to flat SOP
+        TruthTableAssert.AssertOptimizationEquivalence(input, expected, _optimizer);
     }
 
     [Theory]
@@ -121,13 +119,14 @@ public class OptimizerTruthTableTests
     }
 
     [Theory]
-    [InlineData("a & (b | c) & d")] // Complex expression with commutativity
-    [InlineData("(a & b) | (c & d) | (e & f)")] // Multiple operations
-    [InlineData("!(a & b) | (c & d)")] // Mixed operations
-    public void Optimizer_ComplexExpressions_ShouldMaintainEquivalence(string input)
+    // ("a & (b | c) & d" lives in OptimizerTests.Optimizer_SmartCommutativity — not duplicated here)
+    [InlineData("(a & b) | (c & d) | (e & f)", "a & b | c & d | e & f")] // Multiple operations
+    [InlineData("!(a & b) | (c & d)", "!a | !b | c & d")] // Mixed operations (De Morgan spread)
+    public void Optimizer_ComplexExpressions_ShouldMaintainEquivalence(string input, string expected)
     {
-        // Act & Assert - only check equivalence
-        TruthTableAssert.AssertOptimizationEquivalenceOnly(input, _optimizer);
+        // Act & Assert - the canonical optimized form is deterministic here, so pin it: an
+        // equivalence-only check would accept a worse-but-equivalent rewrite
+        TruthTableAssert.AssertOptimizationEquivalence(input, expected, _optimizer);
     }
 
     [Fact]

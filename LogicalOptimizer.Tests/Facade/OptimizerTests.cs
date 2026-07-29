@@ -12,17 +12,10 @@ public class OptimizerTests
     // NOTE: Idempotent/constant/negation/DeMorgan/factorization rows and the two
     // extended-absorption rows previously here were exact duplicates (same input →
     // same pinned output, same AssertOptimizationEquivalence strength) of
-    // OptimizerTruthTableTests, which is their single home. Only cases unique to this
-    // file are kept below.
-
-    [Theory]
-    [InlineData("a | a & b", "a")]
-    [InlineData("a & (a | b)", "a")]
-    public void Optimizer_AbsorptionRules_ShouldOptimizeCorrectly(string input, string expected)
-    {
-        // Act & Assert
-        TruthTableAssert.AssertOptimizationEquivalence(input, expected, _optimizer);
-    }
+    // OptimizerTruthTableTests, which is their single home. The absorption rows
+    // ("a | a & b", "a & (a | b)") were likewise exact dups of
+    // OptimizerTruthTableTests.Optimizer_AbsorptionLaws and were removed. Only cases
+    // unique to this file are kept below.
 
     [Fact]
     public void Optimizer_ParityStyleDnf_FactorizationBeatsFlatSop()

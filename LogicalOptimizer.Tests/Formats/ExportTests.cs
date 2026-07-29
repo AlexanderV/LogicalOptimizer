@@ -144,11 +144,10 @@ public class ExportTests
         // Act
         var result = BooleanExpressionExporter.TruthTableToCsv(expression);
 
-        // Assert
+        // Assert - pin every data row, not just the two rows AND shares with OR
+        // (0,0,0 and 1,1,1). The distinguishing rows 0,1,0 and 1,0,0 are what prove this
+        // is the AND table; a Contains-only check would pass on the OR truth table too.
         var lines = result.Trim().Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
-        Assert.Equal("a,b,Result", lines[0]);
-        Assert.Equal(5, lines.Length); // Header + 4 data rows
-        Assert.Contains("0,0,0", result);
-        Assert.Contains("1,1,1", result);
+        Assert.Equal(new[] { "a,b,Result", "0,0,0", "0,1,0", "1,0,0", "1,1,1" }, lines);
     }
 }

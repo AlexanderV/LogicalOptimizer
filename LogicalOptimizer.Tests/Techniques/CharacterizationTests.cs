@@ -115,20 +115,33 @@ public class CharacterizationTests
     [Fact]
     public void GoldenCorpus_EveryPinnedResultIsStillEquivalent()
     {
-        // The golden master pins BEHAVIOR; this guards it against pinning a WRONG result:
-        // every corpus entry's optimized form must stay semantically equivalent
+        // The golden master pins BEHAVIOR; this guards it against pinning a WRONG result.
+        // The master freezes Optimized AND CNF AND DNF, so ALL THREE must stay semantically
+        // equivalent — a guard that checked only Optimized could legitimize a wrong pinned CNF/DNF.
         foreach (var expression in Corpus)
         {
             var result = new BooleanExpressionOptimizer().OptimizeExpression(expression,
-                new OptimizationOptions { ComputeCnf = false, ComputeDnf = false, ComputeAdvancedForms = false });
+                new OptimizationOptions { ComputeCnf = true, ComputeDnf = true, ComputeAdvancedForms = false });
+
             // Heuristic-zone corpus entries exceed the truth-table range — the SAT
-            // miter carries the equivalence proof there
-            var ast = RandomExpressions.Parse(expression);
-            var equivalent = ast.GetVariables().Count <= 12
-                ? TruthTable.AreEquivalent(expression, result.Optimized)
-                : EquivalenceChecker.Check(expression, result.Optimized).AreEquivalent == true;
-            Assert.True(equivalent,
-                $"Corpus entry '{expression}' produced a non-equivalent result");
+            // miter carries the equivalence proof for the Optimized form there.
+            var varCount = RandomExpressions.Parse(expression).GetVariables().Count;
+            bool IsEquiv(string form) => varCount <= 12
+                ? TruthTable.AreEquivalent(expression, form)
+                : EquivalenceChecker.Check(expression, form).AreEquivalent == true;
+
+            Assert.True(IsEquiv(result.Optimized), $"Corpus entry '{expression}': Optimized not equivalent");
+
+            // CNF/DNF are only guarded in the truth-table zone: above it the CNF can be a
+            // Tseitin encoding (equisatisfiable with aux vars, NOT equivalent), which would
+            // wrongly fail a straight equivalence check.
+            if (varCount <= 12)
+            {
+                Assert.True(TruthTable.AreEquivalent(expression, result.CNF),
+                    $"Corpus entry '{expression}': CNF not equivalent");
+                Assert.True(TruthTable.AreEquivalent(expression, result.DNF),
+                    $"Corpus entry '{expression}': DNF not equivalent");
+            }
         }
     }
 

@@ -21,13 +21,12 @@ public class AdvancedPatternDetectorTests
     #region XOR pattern detection
 
     [Theory]
-    [InlineData("(a & !b) | (!a & b)", "XOR")]
     [InlineData("(a & !b) | (!a & b)", "a XOR b")]
-    [InlineData("a & !b | !a & b", "XOR")]
-    [InlineData("(x & !y) | (!x & y)", "XOR")]
-    [InlineData("(var1 & !var2) | (!var1 & var2)", "XOR")]
-    [InlineData("(!p & q) | (p & !q)", "XOR")]
-    public void DetectXorPattern_StandardXorPattern_ShouldDetectXor(string input, string expectedPattern)
+    [InlineData("a & !b | !a & b", "a XOR b")]
+    [InlineData("(x & !y) | (!x & y)", "x XOR y")]
+    [InlineData("(var1 & !var2) | (!var1 & var2)", "var1 XOR var2")]
+    [InlineData("(!p & q) | (p & !q)", "p XOR q")]
+    public void DetectXorPattern_StandardXorPattern_ShouldDetectXor(string input, string expected)
     {
         // Arrange
         var ast = ParseExpression(input);
@@ -35,8 +34,9 @@ public class AdvancedPatternDetectorTests
         // Act
         var result = _detector.DetectXorPattern(ast);
 
-        // Assert
-        Assert.Contains(expectedPattern, result, StringComparison.OrdinalIgnoreCase);
+        // Assert - the rendering is deterministic, so pin the exact XOR form (a bare
+        // Contains("XOR") would pass on any misrendered operands or spurious extra terms)
+        Assert.Equal(expected, result);
     }
 
     [Theory]
@@ -60,10 +60,10 @@ public class AdvancedPatternDetectorTests
     }
 
     [Theory]
-    [InlineData("(a & !b) | (!a & b) | c")]
-    [InlineData("d | (x & !y) | (!x & y)")]
-    [InlineData("(a & !b) | (!a & b) | (c & d)")]
-    public void DetectXorPattern_XorWithAdditionalTerms_ShouldDetectXorPart(string input)
+    [InlineData("(a & !b) | (!a & b) | c", "(a XOR b) | c")]
+    [InlineData("d | (x & !y) | (!x & y)", "(x XOR y) | d")]
+    [InlineData("(a & !b) | (!a & b) | (c & d)", "(a XOR b) | c & d")]
+    public void DetectXorPattern_XorWithAdditionalTerms_ShouldDetectXorPart(string input, string expected)
     {
         // Arrange
         var ast = ParseExpression(input);
@@ -71,15 +71,17 @@ public class AdvancedPatternDetectorTests
         // Act
         var result = _detector.DetectXorPattern(ast);
 
-        // Assert
-        Assert.Contains("XOR", result, StringComparison.OrdinalIgnoreCase);
+        // Assert - pin the whole rewrite: the XOR is folded AND the residual terms are
+        // rendered verbatim, so a rule that dropped/mangled the non-XOR part is caught
+        Assert.Equal(expected, result);
     }
 
     [Theory]
-    [InlineData("(a & !b) | (!a & b) | (c & !d) | (!c & d)")]
-    [InlineData("(x1 & !x2) | (!x1 & x2) | (x3 & !x4) | (!x3 & x4)")]
-    [InlineData("(v1 & !v2) | (!v1 & v2) | (v3 & !v4) | (!v3 & v4) | (v5 & !v6) | (!v5 & v6)")]
-    public void DetectXorPattern_MultipleXorPatterns_ShouldDetectAtLeastOne(string input)
+    [InlineData("(a & !b) | (!a & b) | (c & !d) | (!c & d)", "(a XOR b) | (c XOR d)")]
+    [InlineData("(x1 & !x2) | (!x1 & x2) | (x3 & !x4) | (!x3 & x4)", "(x1 XOR x2) | (x3 XOR x4)")]
+    [InlineData("(v1 & !v2) | (!v1 & v2) | (v3 & !v4) | (!v3 & v4) | (v5 & !v6) | (!v5 & v6)",
+        "(v1 XOR v2) | (v3 XOR v4) | (v5 XOR v6)")]
+    public void DetectXorPattern_MultipleXorPatterns_ShouldDetectAll(string input, string expected)
     {
         // Arrange
         var ast = ParseExpression(input);
@@ -87,8 +89,8 @@ public class AdvancedPatternDetectorTests
         // Act
         var result = _detector.DetectXorPattern(ast);
 
-        // Assert
-        Assert.Contains("XOR", result, StringComparison.OrdinalIgnoreCase);
+        // Assert - every XOR pair must be folded, not merely "at least one"
+        Assert.Equal(expected, result);
     }
 
     [Fact]
@@ -104,14 +106,14 @@ public class AdvancedPatternDetectorTests
     #region IMP pattern detection
 
     [Theory]
-    [InlineData("!a | b")]
-    [InlineData("b | !a")]
-    [InlineData("!x | y")]
-    [InlineData("y | !x")]
-    [InlineData("!var1 | var2")]
-    [InlineData("var2 | !var1")]
-    [InlineData("!p | q")]
-    public void DetectImplicationPattern_StandardImplication_ShouldDetectImplication(string input)
+    [InlineData("!a | b", "a → b")]
+    [InlineData("b | !a", "a → b")]
+    [InlineData("!x | y", "x → y")]
+    [InlineData("y | !x", "x → y")]
+    [InlineData("!var1 | var2", "var1 → var2")]
+    [InlineData("var2 | !var1", "var1 → var2")]
+    [InlineData("!p | q", "p → q")]
+    public void DetectImplicationPattern_StandardImplication_ShouldDetectImplication(string input, string expected)
     {
         // Arrange
         var ast = ParseExpression(input);
@@ -119,8 +121,9 @@ public class AdvancedPatternDetectorTests
         // Act
         var result = _detector.DetectImplicationPattern(ast);
 
-        // Assert
-        Assert.Contains("→", result);
+        // Assert - the antecedent/consequent order is deterministic; pin it exactly so a
+        // swapped arrow (b → a) cannot slip through a bare Contains("→")
+        Assert.Equal(expected, result);
     }
 
     [Theory]
@@ -143,10 +146,10 @@ public class AdvancedPatternDetectorTests
     }
 
     [Theory]
-    [InlineData("!a | b | c")] // Implication with additional terms
-    [InlineData("(!a | b) | (c & d)")] // Complex OR with implication
-    [InlineData("a | (!b | c) | d")] // Nested implication patterns
-    public void DetectImplicationPattern_ComplexImplicationPatterns_ShouldDetectCorrectly(string input)
+    [InlineData("!a | b | c", "(a → b) | c")] // Implication with additional terms
+    [InlineData("(!a | b) | (c & d)", "(a → b) | c & d")] // Complex OR with implication
+    [InlineData("a | (!b | c) | d", "(b → a) | c | d")] // Nested implication patterns
+    public void DetectImplicationPattern_ComplexImplicationPatterns_ShouldDetectCorrectly(string input, string expected)
     {
         // Arrange
         var ast = ParseExpression(input);
@@ -154,14 +157,15 @@ public class AdvancedPatternDetectorTests
         // Act
         var result = _detector.DetectImplicationPattern(ast);
 
-        // Assert
-        Assert.Contains("→", result);
+        // Assert - pin the whole rewrite including which negated literal became the arrow
+        Assert.Equal(expected, result);
     }
 
     [Theory]
-    [InlineData("(!a | b) | (!c | d)")] // Multiple implication patterns
-    [InlineData("!x | y | !z | w")] // Chain of implications
-    public void DetectImplicationPattern_MultipleImplicationPatterns_ShouldHandleMultiplePatterns(string input)
+    [InlineData("(!a | b) | (!c | d)", "(a → b) | (c → d)")] // Multiple implication patterns
+    [InlineData("!x | y | !z | w", "(x → w) | (z → y)")] // Chain of implications
+    public void DetectImplicationPattern_MultipleImplicationPatterns_ShouldHandleMultiplePatterns(string input,
+        string expected)
     {
         // Arrange
         var ast = ParseExpression(input);
@@ -169,8 +173,8 @@ public class AdvancedPatternDetectorTests
         // Act
         var result = _detector.DetectImplicationPattern(ast);
 
-        // Assert
-        Assert.Contains("→", result);
+        // Assert - both arrows must be formed with the exact pairing the detector chose
+        Assert.Equal(expected, result);
     }
 
     [Fact]
