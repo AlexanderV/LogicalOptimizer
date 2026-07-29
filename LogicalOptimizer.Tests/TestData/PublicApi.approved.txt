@@ -380,11 +380,16 @@ namespace LogicalOptimizer
         public bool IsSatisfiable { get; }
         public int NodeCount { get; }
         public System.Collections.Generic.IReadOnlyList<string> Variables { get; }
+        public LogicalOptimizer.DnnfCircuit Condition(System.Collections.Generic.IReadOnlyDictionary<string, bool> assignment, System.Threading.CancellationToken cancellationToken = default) { }
         public System.Numerics.BigInteger CountModels() { }
+        public System.Numerics.BigInteger CountModels(System.Collections.Generic.IReadOnlyDictionary<string, bool> evidence) { }
         public System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyDictionary<string, bool>> EnumerateModels(System.Threading.CancellationToken cancellationToken = default) { }
         public double WeightedModelCount([System.Runtime.CompilerServices.TupleElementNames(new string[] {
                 "positive",
                 "negative"})] System.Collections.Generic.IReadOnlyDictionary<string, System.ValueTuple<double, double>> weights) { }
+        public double WeightedModelCount([System.Runtime.CompilerServices.TupleElementNames(new string[] {
+                "positive",
+                "negative"})] System.Collections.Generic.IReadOnlyDictionary<string, System.ValueTuple<double, double>> weights, System.Collections.Generic.IReadOnlyDictionary<string, bool> evidence) { }
     }
     public static class KnowledgeCompilation
     {

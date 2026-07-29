@@ -32,6 +32,30 @@ foreach (IReadOnlyDictionary<string, bool> model in circuit.EnumerateModels())
 }
 ```
 
+### Conditioning and evidence queries
+
+Once compiled, a circuit can be queried under a **partial assignment** (evidence) without
+recompiling the formula:
+
+```csharp
+var evidence = new Dictionary<string, bool> { ["a"] = true };
+
+// #models consistent with the evidence — a single bottom-up pass, no new circuit.
+System.Numerics.BigInteger given = circuit.CountModels(evidence);
+double weightedGiven          = circuit.WeightedModelCount(weights, evidence);
+
+// Or materialize a NEW circuit with the variables pinned; the original is untouched.
+DnnfCircuit conditioned = circuit.Condition(evidence);
+// conditioned.CountModels() == circuit.CountModels(evidence)
+```
+
+`Condition` keeps the **same variable universe** — `Variables` is unchanged and each pinned
+variable stays in the model-count universe fixed to one value — so
+`Condition(evidence).CountModels()` is exactly the number of the original circuit's models
+consistent with `evidence`. Empty evidence reproduces the unconditioned query; a full
+assignment yields `0` or `1`. Every evidence/assignment key must be one of the circuit's
+`Variables`, otherwise an `ArgumentException` is thrown.
+
 `CompileToDnnf(AstNode formula, int nodeBudget = 1_000_000, CancellationToken ct = default)`
 caps the DAG size with `nodeBudget` (a `NodeBudgetExceededException` — a public
 `InvalidOperationException` subtype — is thrown when it is exceeded) and honors the

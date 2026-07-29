@@ -12,6 +12,14 @@ the public API baseline diff is additive-only.
 
 ### Added
 
+- **d-DNNF conditioning and evidence queries.** `DnnfCircuit` gains
+  `Condition(IReadOnlyDictionary<string, bool>, CancellationToken)`, returning a NEW circuit
+  with the named variables pinned (the source is never mutated and the variable universe is
+  unchanged), plus single-pass `CountModels(evidence)` and
+  `WeightedModelCount(weights, evidence)` overloads that count/weight only the models
+  consistent with the evidence. Empty evidence reproduces the unconditioned result; an
+  unknown variable name is an `ArgumentException`. Validated against the BDD oracle and
+  brute-force enumeration across many seeds.
 - **`LogicalOptimizer.Formats` package — DIMACS / WCNF / OPB import.** `DimacsParser`,
   `WcnfParser` and `OpbParser` (`Parse(TextReader, ResourceBudget?, CancellationToken)`)
   stream standard SAT / MaxSAT / pseudo-Boolean datasets into `CnfProblem` /
