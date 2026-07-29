@@ -12,6 +12,23 @@ the public API baseline diff is additive-only.
 
 ### Added
 
+- **Projected model counting (P1.4).** `FormulaAnalysis.CountProjectedModels(formula,
+  projectedVariables, ResourceBudget?, CancellationToken)` counts the number of DISTINCT
+  assignments over a chosen subset of variables that extend to some model of the formula —
+  the remaining variables are existentially forgotten. It returns
+  `ProjectedModelCountResult { BigInteger? Count; ProjectedCountStatus Status }` with `Count`
+  non-null iff `Status == Exact`. The engine is SAT blocking enumeration (one incremental
+  solve per distinct projected model, blocking over the projection literals only), which is
+  sound by construction against the overcount trap — different full models that agree on the
+  projection are counted once. Scope semantics: projection names not in the formula are free
+  (each multiplies the count by 2, never an error); an empty projection is `1` for a
+  satisfiable formula and `0` for an unsatisfiable one; projecting all of the formula's
+  variables equals `CountModels()`. The shared `ResourceBudget` maps to an enumerated-model
+  bound (`CoverStepLimit`) and a per-solve conflict bound (`SatConflictLimit`); exhausting
+  either yields `BudgetExhausted` with `Count == null` — a partial run is never reported as
+  exact — and cancellation surfaces as `OperationCanceledException`. Validated against an
+  independent brute-force projected-and-deduplicated oracle exhaustively for all functions up
+  to 4 variables and every projection subset, plus randomized (≤10-variable) and edge cases.
 - **d-DNNF marginal probabilities and model sampling.** `DnnfCircuit` gains
   `MarginalProbability(variable, weights)` — the weighted marginal
   `WeightedModelCount(weights, {variable = true}) / WeightedModelCount(weights)`, which for

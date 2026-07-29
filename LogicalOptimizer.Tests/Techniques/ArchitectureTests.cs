@@ -146,13 +146,14 @@ public class ArchitectureTests
             // Minimization (5)
             "TruthTableMinimizer", "CsvTruthTableParser", "PartialTruthTable",
             "MultiOutputTable", "MultiOutputFunction",
-            // Facade (17)
+            // Facade (19)
             "BooleanExpressionOptimizer", "OptimizationResult", "OptimizationOptions",
             "CnfMode", "MinimizationStatus", "ComputationStatus",
             "EquivalenceChecker", "EquivalenceCheckResult", "IEquivalenceChecker",
             "HybridEquivalenceChecker", "BddEquivalenceChecker",
             "FormulaAnalysis", "BackboneResult", "Transformations",
-            "BooleanExpressionExporter", "CSharpExpressionExporter", "OptimizationQualityAnalyzer"
+            "BooleanExpressionExporter", "CSharpExpressionExporter", "OptimizationQualityAnalyzer",
+            "ProjectedModelCountResult", "ProjectedCountStatus"
         };
 
         var actual = LibraryAssemblies.DistinctBy(a => a.FullName)
@@ -179,6 +180,7 @@ public class ArchitectureTests
             (typeof(TruthTableMinimizer), "MinimalPos"),
             (typeof(FormulaAnalysis), "ComputeBackbone"),
             (typeof(FormulaAnalysis), "EnumerateModels"),
+            (typeof(FormulaAnalysis), "CountProjectedModels"),
             (typeof(MaxSatSolver), "Solve"),
             (typeof(Transformations), "MinimizeDnfHeuristic"),
             (typeof(Transformations), "ToAlgebraicNormalForm"),

@@ -33,19 +33,26 @@ public sealed class ProjectedModelCountResult
     public ProjectedCountStatus Status { get; }
 }
 
-public static class ProjectedModelCounting   // extension surface over the compiled circuit / formula
+public static class FormulaAnalysis   // facade analysis surface (with ComputeBackbone / EnumerateModels)
 {
     public static ProjectedModelCountResult CountProjectedModels(
-        this DnnfCircuit circuit,
+        AstNode formula,
         IReadOnlyCollection<string> projectedVariables,
         ResourceBudget? budget = null,
         CancellationToken cancellationToken = default);
 }
 ```
 
-The exact placement (extension method vs. instance method on `DnnfCircuit`, and whether a
-formula-level convenience overload is added) is settled at implementation-time API review;
-the **shape and contract** below are fixed now.
+**Placement (settled at implementation, v3.1 working tree).** The MVP engine is SAT blocking
+enumeration over the formula's Tseitin CNF and does **not** touch the compiled d-DNNF, so the
+entry point ships as a static method on the facade's **`FormulaAnalysis`** — beside the other
+SAT-backed queries `ComputeBackbone` / `EnumerateModels` — rather than the `DnnfCircuit`
+extension sketched above. This keeps the SAT engine out of the `LogicalOptimizer.Dnnf` package
+and keeps the query discoverable next to its siblings. The public result types
+`ProjectedModelCountResult` and `ProjectedCountStatus { Exact, BudgetExhausted }` live in the
+facade (`namespace LogicalOptimizer`). The **shape and contract** below are as fixed here; only
+the host type moved from the sketch. When the exact d-DNNF/BDD path lands, it can add a
+`DnnfCircuit`-level entry or an engine parameter without disturbing this facade method.
 
 ## Resolutions
 

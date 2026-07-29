@@ -65,6 +65,7 @@ namespace LogicalOptimizer
     public static class FormulaAnalysis
     {
         public static LogicalOptimizer.BackboneResult ComputeBackbone(LogicalOptimizer.AstNode formula, int maxConflicts = 200000, System.Threading.CancellationToken cancellationToken = default) { }
+        public static LogicalOptimizer.ProjectedModelCountResult CountProjectedModels(LogicalOptimizer.AstNode formula, System.Collections.Generic.IReadOnlyCollection<string> projectedVariables, LogicalOptimizer.ResourceBudget? budget = null, System.Threading.CancellationToken cancellationToken = default) { }
         public static System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyDictionary<string, bool>> EnumerateModels(LogicalOptimizer.AstNode formula, int maxModels = 1000000, int maxConflicts = 200000, System.Threading.CancellationToken cancellationToken = default) { }
         public static LogicalOptimizer.AstNode SimplifyWithBackbone(LogicalOptimizer.AstNode formula, int maxConflicts = 200000, System.Threading.CancellationToken cancellationToken = default) { }
     }
@@ -138,6 +139,16 @@ namespace LogicalOptimizer
         public LogicalOptimizer.EquivalenceCheckResult CheckEquivalence() { }
         public bool IsEquivalent() { }
         public override string ToString() { }
+    }
+    public enum ProjectedCountStatus
+    {
+        Exact = 0,
+        BudgetExhausted = 1,
+    }
+    public sealed class ProjectedModelCountResult
+    {
+        public System.Numerics.BigInteger? Count { get; }
+        public LogicalOptimizer.ProjectedCountStatus Status { get; }
     }
     public static class Transformations
     {

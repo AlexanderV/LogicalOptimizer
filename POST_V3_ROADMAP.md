@@ -437,7 +437,8 @@ public IEnumerable<IReadOnlyDictionary<string, bool>> SampleModels(
 
 ## 9. P1.4 — Projected model counting
 
-**Статус: 🧪 design spike завершено (`9ce9ede`); production API не реалізовано.**
+**Статус: ✅ production MVP реалізовано — `FormulaAnalysis.CountProjectedModels(...)`
+(SAT blocking enumeration). Design spike завершено раніше (`9ce9ede`).**
 
 Повний звіт: [`doc/spikes/projected-model-counting.md`](doc/spikes/projected-model-counting.md).
 SAT blocking і BDD existential-abstraction prototypes збіглися з незалежним
@@ -446,10 +447,15 @@ edge cases.
 
 ### Мета
 
-Обчислювати кількість різних assignments лише за вибраною множиною змінних:
+Обчислювати кількість різних assignments лише за вибраною множиною змінних.
+**Фінальне розміщення (реалізовано):** статичний facade-метод на `FormulaAnalysis`
+(поряд із `ComputeBackbone`/`EnumerateModels`), а не extension на `DnnfCircuit` зі
+sketch у decision doc — MVP-engine є SAT blocking enumeration над CNF і не використовує
+скомпільований d-DNNF, тож тримаємо SAT-рушій поза `Dnnf`-пакетом:
 
 ```csharp
-public ProjectedModelCountResult CountProjectedModels(
+public static ProjectedModelCountResult CountProjectedModels(
+    AstNode formula,
     IReadOnlyCollection<string> projectedVariables,
     ResourceBudget? budget = null,
     CancellationToken cancellationToken = default);
@@ -502,8 +508,8 @@ public ProjectedModelCountResult CountProjectedModels(
 ```csharp
 public sealed class ProjectedModelCountResult
 {
-    public BigInteger? Count { get; }
-    public ComputationStatus Status { get; }
+    public BigInteger? Count { get; }            // non-null iff Status == Exact
+    public ProjectedCountStatus Status { get; }  // Exact | BudgetExhausted (окремий enum)
 }
 ```
 
