@@ -12,6 +12,60 @@ Environment of the published run: BenchmarkDotNet v0.14.0, Windows 11, .NET 10.0
 X64 RyuJIT AVX2, ShortRun job (3 iterations - indicative, not publication-grade;
 re-run with the default job for tighter error bars).
 
+## Performance regression gate (roadmap P0.3)
+
+The regression gate is **allocation-based, not time-based**. BenchmarkDotNet's
+`MemoryDiagnoser` reports *allocated bytes per operation* deterministically and
+machine-independently, so comparing allocations is a sound gate that does **not** flake
+on shared / loaded CI runners. Wall-clock time is captured and printed for information
+only and is **never asserted** (same policy as the SAT corpus suite and
+[doc/TESTING.md](TESTING.md) rule 4).
+
+The committed baseline is [`doc/perf-baseline.json`](perf-baseline.json): per benchmark
+id, the baseline `allocatedBytesPerOperation` plus, *for reference only*,
+`meanNanoseconds`. Its top-level `note` states that time is informational and the gate is
+allocation-based, and `environment` records the run manifest (BenchmarkDotNet, .NET
+runtime + SDK, OS, architecture). The baseline covers three classes — `OptimizationBenchmarks`,
+`NewEnginesBenchmarks` (the Espresso-lite / BDD / AIG / FormulaFactory hot paths) and
+`ExactMinimizationBenchmarks` (the exact Quine–McCluskey hot path).
+
+### Run the gate locally
+
+```powershell
+# 1. produce a fresh run (ShortRun is enough - allocations are exact even in ShortRun)
+dotnet run -c Release --project LogicalOptimizer.Benchmarks -- `
+  --filter '*OptimizationBenchmarks*' '*NewEngines*' '*ExactMinimization*' --job short
+
+# 2. compare it against the committed baseline (default threshold 10%)
+pwsh tools/compare_benchmarks.ps1 -Current BenchmarkDotNet.Artifacts/results
+```
+
+The tool prints a per-benchmark allocation table (baseline / current / delta% /
+`OK`|`REGRESSION`) and a separate informational time-delta table. It **exits 1** if any
+benchmark's allocations exceed `baseline * (1 + Threshold)` (`-Threshold`, default
+`0.10`); otherwise exit 0. New benchmarks (present in the run but not the baseline) are
+reported but never fail; missing benchmarks (in the baseline but absent from the run) are
+reported as a warning. `-Current` accepts either a single `*-report-full.json` file or a
+directory of them.
+
+### Regenerate the baseline (after an intentional hot-path change)
+
+Analogous to the golden-master regeneration convention — only after a reviewed,
+intentional change, and the updated `doc/perf-baseline.json` is committed with it:
+
+```powershell
+pwsh tools/compare_benchmarks.ps1 -Current BenchmarkDotNet.Artifacts/results -UpdateBaseline
+```
+
+### CI
+
+[`.github/workflows/perf.yml`](../.github/workflows/perf.yml) runs the ShortRun
+benchmarks and the gate **weekly** and on `workflow_dispatch` — deliberately **off the
+PR hot path** (BenchmarkDotNet runs are slow and the allocation gate gains nothing from
+per-PR cadence). A regression over threshold fails the job; machine noise does not,
+because only allocations are gated. The manual dispatch has an `update_baseline` opt-in
+that regenerates and uploads the baseline instead of gating.
+
 Cross-library comparison methodology note: numeric comparison against SymPy/PyEDA
 requires a shared corpus, one machine and one cost model. The differential
 *correctness* corpus against SymPy lives in the test suite

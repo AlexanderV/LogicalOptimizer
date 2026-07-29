@@ -1,0 +1,76 @@
+name: Performance Regression Gate (weekly)
+
+# Roadmap P0.3. Runs the BenchmarkDotNet micro-benchmarks (ShortRun) and gates a fresh
+# run against the committed allocation baseline (doc/perf-baseline.json) via
+# tools/compare_benchmarks.ps1. The gate is ALLOCATION-based (bytes/op), which
+# BenchmarkDotNet reports deterministically and machine-independently, so it does not
+# flake on shared CI runners; wall-clock time is printed for information only and is
+# never asserted.
+#
+# Deliberately OFF the PR hot path: BenchmarkDotNet runs are slow and the allocation
+# gate does not benefit from per-PR cadence. It runs weekly and on demand (mirroring the
+# nightly-only structure of sat-benchmarks.yml).
+on:
+  schedule:
+    # 04:23 UTC every Monday (off the top of the hour to dodge scheduling congestion).
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      update_baseline:
+        description: 'Rewrite doc/perf-baseline.json from this run and upload it (does NOT gate)'
+        type: boolean
+        default: false
+
+jobs:
+  perf-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore LogicalOptimizer.sln
+
+      - name: Build (Release, warnings as errors)
+        run: dotnet build LogicalOptimizer.sln --no-restore --configuration Release -warnaserror
+
+      # ShortRun keeps the run tractable; allocations are exact even in ShortRun. Covers
+      # the same three classes as the committed baseline (Optimization / NewEngines /
+      # ExactMinimization — the QM + Espresso hot paths).
+      - name: Run BenchmarkDotNet micro-benchmarks (ShortRun)
+        run: >
+          dotnet run -c Release --project LogicalOptimizer.Benchmarks --no-build --
+          --filter '*OptimizationBenchmarks*' '*NewEngines*' '*ExactMinimization*' --job short
+
+      # Optional maintenance path: regenerate the baseline from this run instead of gating.
+      - name: Update baseline (manual dispatch opt-in)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_baseline }}
+        shell: pwsh
+        run: >
+          pwsh tools/compare_benchmarks.ps1
+          -Current BenchmarkDotNet.Artifacts/results -UpdateBaseline
+
+      # Allocation regression gate: FAILS the job if any benchmark's bytes/op exceeds
+      # baseline * (1 + threshold). Skipped when regenerating the baseline above.
+      - name: Compare against committed allocation baseline (gate)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.update_baseline) }}
+        shell: pwsh
+        run: >
+          pwsh tools/compare_benchmarks.ps1
+          -Current BenchmarkDotNet.Artifacts/results
+
+      - name: Upload BenchmarkDotNet artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-benchmarkdotnet
+          path: |
+            BenchmarkDotNet.Artifacts/**
+            doc/perf-baseline.json
+          if-no-files-found: ignore

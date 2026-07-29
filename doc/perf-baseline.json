@@ -1,0 +1,47 @@
+﻿{
+    "note":  "Performance-regression baseline (roadmap P0.3). The gate is ALLOCATION-based: allocatedBytesPerOperation is compared by tools/compare_benchmarks.ps1 and a run FAILS if any benchmark exceeds baseline * (1 + threshold). meanNanoseconds is INFORMATIONAL only and is never asserted (wall-clock is noisy on shared CI runners). Regenerate with: pwsh tools/compare_benchmarks.ps1 -Current RESULTS_DIR -UpdateBaseline.",
+    "thresholdDefault":  0.1,
+    "generatedUtc":  "2026-07-29T05:35:18Z",
+    "environment":  {
+                        "benchmarkDotNetVersion":  "0.14.0",
+                        "runtimeVersion":  ".NET 10.0.9 (10.0.926.27113)",
+                        "dotnetCliVersion":  "10.0.301",
+                        "osVersion":  "Windows 11 (10.0.26200.8655)",
+                        "architecture":  "X64",
+                        "configuration":  "RELEASE"
+                    },
+    "benchmarks":  {
+                       "ExactMinimizationBenchmarks.QuineMcCluskeyTenVariables":  {
+                                                                                      "allocatedBytesPerOperation":  3426380,
+                                                                                      "meanNanoseconds":  14824829.166666666
+                                                                                  },
+                       "NewEnginesBenchmarks.Aig_FromFortyVarCover":  {
+                                                                          "allocatedBytesPerOperation":  82048,
+                                                                          "meanNanoseconds":  15402.28017171224
+                                                                      },
+                       "NewEnginesBenchmarks.BddSifting_TwelveVariablePairs":  {
+                                                                                   "allocatedBytesPerOperation":  1373248,
+                                                                                   "meanNanoseconds":  492905.95703125
+                                                                               },
+                       "NewEnginesBenchmarks.EspressoLite_FortyVariableCover":  {
+                                                                                    "allocatedBytesPerOperation":  6596502,
+                                                                                    "meanNanoseconds":  10996558.854166666
+                                                                                },
+                       "NewEnginesBenchmarks.FormulaFactory_ImportFortyVarCover":  {
+                                                                                       "allocatedBytesPerOperation":  113880,
+                                                                                       "meanNanoseconds":  25925.801595052078
+                                                                                   },
+                       "OptimizationBenchmarks.GuaranteeZoneTenVariables":  {
+                                                                                "allocatedBytesPerOperation":  6291632,
+                                                                                "meanNanoseconds":  5658483.854166667
+                                                                            },
+                       "OptimizationBenchmarks.MidRangeFourteenVariables":  {
+                                                                                "allocatedBytesPerOperation":  583472,
+                                                                                "meanNanoseconds":  324870.52408854169
+                                                                            },
+                       "OptimizationBenchmarks.SmallExpression":  {
+                                                                      "allocatedBytesPerOperation":  207816,
+                                                                      "meanNanoseconds":  61183.97216796875
+                                                                  }
+                   }
+}
