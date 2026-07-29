@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "input": "a & !b | !a & b",
+  "optimized": "a & !b | b & !a",
+  "equivalent": true,
+  "minimality": "MinimalProven",
+  "cost": {
+    "originalLiterals": 4,
+    "optimizedLiterals": 4
+  },
+  "cnf": {
+    "expression": "(a | b) & (!a | !b)",
+    "status": "Computed",
+    "minimality": "MinimalProven"
+  },
+  "dnf": {
+    "expression": "a & !b | b & !a",
+    "status": "Computed"
+  },
+  "advanced": "a XOR b",
+  "variables": [
+    "a",
+    "b"
+  ]
+}

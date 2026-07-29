@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "input": "a & & b",
+  "error": {
+    "code": "UnexpectedToken",
+    "message": "Unexpected token & at position 4",
+    "position": 4,
+    "length": 1,
+    "expected": [
+      "variable",
+      "("
+    ],
+    "snippet": "a & & b\n    ^"
+  }
+}

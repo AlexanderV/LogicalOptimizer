@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://AlexanderV.github.io/LogicalOptimizer/schema/cli-report-v1.schema.json",
+  "title": "LogicalOptimizer CLI report (schemaVersion 1)",
+  "description": "The document written by `logical-optimizer --format=json \"<expression>\"` on stdout. Exactly one document per invocation. A successful run carries `optimized`; a failed one carries `error`. Fields absent from this schema are not part of the contract and must not be relied on; see schema/README.md for the compatibility rules.",
+  "type": "object",
+  "unevaluatedProperties": false,
+  "required": ["schemaVersion", "input"],
+  "anyOf": [
+    { "required": ["optimized"], "title": "success report" },
+    { "required": ["error"], "title": "error report" }
+  ],
+  "properties": {
+    "schemaVersion": {
+      "description": "Contract version of this document. A consumer must reject a version it does not know.",
+      "const": 1
+    },
+    "input": {
+      "description": "The expression exactly as received, before any optimization. Present in every report, including error reports.",
+      "type": "string"
+    },
+    "optimized": {
+      "description": "The optimized expression. Verified equivalent to `input` whenever `equivalent` is true. Absent on an error report.",
+      "type": "string"
+    },
+    "equivalent": {
+      "description": "Whether `optimized` was PROVEN equivalent to `input` (truth table in the exhaustive range, SAT miter above it). `false` means the internal equivalence guard rejected the result and is a bug report worth filing — the optimize path is not expected to produce it.",
+      "type": "boolean"
+    },
+    "minimality": {
+      "description": "Provenance of the minimality claim, under the two-level cover cost model (total literals first, then term count). `MinimalProven` = the minimum-cover search completed. `BudgetExceeded` = the exact search ran but hit its work budget, so the result is sound but not proven optimal. `Heuristic` = outside the exact range; rule-based simplification only.",
+      "type": "string",
+      "enum": ["MinimalProven", "BudgetExceeded", "Heuristic"]
+    },
+    "cost": {
+      "description": "Literal counts before and after optimization. Absent when either side could not be counted.",
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["originalLiterals", "optimizedLiterals"],
+      "properties": {
+        "originalLiterals": { "type": "integer", "minimum": 0 },
+        "optimizedLiterals": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "cnf": {
+      "description": "Conjunctive normal form. With the default `--cnf-mode=equivalent` it is equivalent to `input`; with `--cnf-mode=tseitin` it is only EQUISATISFIABLE and introduces auxiliary `_tN` variables.",
+      "$ref": "#/$defs/form"
+    },
+    "dnf": {
+      "description": "Disjunctive normal form, equivalent to `input`. Carries no `minimality` field.",
+      "$ref": "#/$defs/form"
+    },
+    "advanced": {
+      "description": "The expression rewritten with XOR/IMP/EQV operators. Present only when a genuine such pattern was recognized — never an echo of `optimized`.",
+      "type": "string"
+    },
+    "variables": {
+      "description": "Variable names occurring in `input`, sorted.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "trace": {
+      "description": "Present only with `--trace`. DIAGNOSTIC, NOT CONTRACT: the number of entries, their order, and the wording of `message`/`step`/`data` may change in any release. Only the shape below is stable.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "unevaluatedProperties": false,
+        "required": ["category", "step", "message"],
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "EngineSelection",
+              "Budget",
+              "Candidate",
+              "Adopted",
+              "Rejected",
+              "Proof",
+              "Fallback",
+              "Status"
+            ]
+          },
+          "step": { "type": "string" },
+          "message": { "type": "string" },
+          "data": {
+            "description": "Machine-readable facts behind the message. Keys are not part of the contract.",
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          }
+        }
+      }
+    },
+    "error": {
+      "description": "Present instead of the result fields when the expression could not be processed. The process exit code is 2 in this case.",
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": {
+          "description": "Stable machine-readable cause. The named values are parse diagnostics; `processing_error` is the catch-all for a failure that carried no structured diagnostic.",
+          "type": "string",
+          "enum": [
+            "EmptyExpression",
+            "UnexpectedCharacter",
+            "InvalidConstant",
+            "VariableStartsWithDigit",
+            "UnexpectedToken",
+            "ExpectedToken",
+            "UnexpectedEndOfInput",
+            "NestingTooDeep",
+            "processing_error"
+          ]
+        },
+        "message": {
+          "description": "Human-readable explanation. Wording is NOT part of the contract — branch on `code`.",
+          "type": "string"
+        },
+        "position": {
+          "description": "0-based character offset of the error in `input`. Absent for `processing_error`.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "length": {
+          "description": "Length in characters of the offending span at `position`.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected": {
+          "description": "Token descriptions that would have been valid at `position`. Absent when the parser had no specific expectation.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "snippet": {
+          "description": "The input line with a caret under `position`. Formatting is NOT part of the contract.",
+          "type": "string"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "form": {
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["expression", "status"],
+      "properties": {
+        "expression": { "type": "string" },
+        "status": {
+          "description": "`Computed` = the form was produced. `TooLarge` = the form was skipped because it exceeded its size budget, and `expression` is a fallback, not the requested normal form. `NotRequested` = not asked for (the JSON report always asks, so it does not appear there).",
+          "type": "string",
+          "enum": ["Computed", "TooLarge", "NotRequested"]
+        },
+        "minimality": {
+          "description": "Minimality provenance of this form, under the same cost model as the top-level `minimality`. Reported for `cnf` only.",
+          "type": "string",
+          "enum": ["MinimalProven", "BudgetExceeded", "Heuristic"]
+        }
+      }
+    }
+  }
+}

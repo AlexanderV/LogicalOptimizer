@@ -37,6 +37,9 @@
     "resource": [
       {
         "files": [ "images/**" ]
+      },
+      {
+        "files": [ "schema/**/*.json" ]
       }
     ],
     "output": "_site",

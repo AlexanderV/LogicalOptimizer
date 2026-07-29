@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "input": "a & b | a & c",
+  "optimized": "a & (b | c)",
+  "equivalent": true,
+  "minimality": "MinimalProven",
+  "cost": {
+    "originalLiterals": 4,
+    "optimizedLiterals": 3
+  },
+  "cnf": {
+    "expression": "a & (b | c)",
+    "status": "Computed",
+    "minimality": "MinimalProven"
+  },
+  "dnf": {
+    "expression": "a & b | a & c",
+    "status": "Computed"
+  },
+  "variables": [
+    "a",
+    "b",
+    "c"
+  ],
+  "trace": [
+    {
+      "category": "EngineSelection",
+      "step": "RewritePipeline",
+      "message": "fixpoint loop ran 2 iteration(s)",
+      "data": {
+        "iterations": "2",
+        "maxIterations": "20",
+        "nodesBefore": "7",
+        "nodesAfter": "5"
+      }
+    },
+    {
+      "category": "Proof",
+      "step": "SoundnessGuard",
+      "message": "rewrite proven equivalent to the input by truth table",
+      "data": {
+        "method": "truth-table",
+        "variables": "3",
+        "truthTableThreshold": "12",
+        "satConflictLimit": "n/a",
+        "proven": "true"
+      }
+    },
+    {
+      "category": "EngineSelection",
+      "step": "ZoneSelection",
+      "message": "3 variable(s): exact Quine-McCluskey backend in the unbounded guarantee zone (minimality provable)",
+      "data": {
+        "variables": "3",
+        "exactGate": "12",
+        "guaranteeZone": "10",
+        "satZone": "24",
+        "engine": "exact-qm"
+      }
+    },
+    {
+      "category": "Budget",
+      "step": "ExactMinimization",
+      "message": "QM pair comparisons unbounded (guarantee zone); cover search bounded",
+      "data": {
+        "qmPairComparisonLimit": "unbounded",
+        "coverStepLimit": "2147483647"
+      }
+    },
+    {
+      "category": "Proof",
+      "step": "ExactMinimization",
+      "message": "minimum-cover search completed: the two-level cover is provably minimal",
+      "data": {
+        "minimizationStatus": "MinimalProven",
+        "onSetSize": "3"
+      }
+    },
+    {
+      "category": "Candidate",
+      "step": "ExactMinimization",
+      "message": "candidate 'rewritten' costed",
+      "data": {
+        "candidate": "rewritten",
+        "literals": "3",
+        "nodes": "5"
+      }
+    },
+    {
+      "category": "Candidate",
+      "step": "ExactMinimization",
+      "message": "candidate 'factored-min-sop' costed",
+      "data": {
+        "candidate": "factored-min-sop",
+        "literals": "3",
+        "nodes": "5"
+      }
+    },
+    {
+      "category": "Candidate",
+      "step": "ExactMinimization",
+      "message": "candidate 'min-sop' costed",
+      "data": {
+        "candidate": "min-sop",
+        "literals": "4",
+        "nodes": "7"
+      }
+    },
+    {
+      "category": "Rejected",
+      "step": "ExactMinimization",
+      "message": "no candidate beat 'rewritten' on literals, then nodes — keeping it",
+      "data": {
+        "kept": "rewritten"
+      }
+    },
+    {
+      "category": "Proof",
+      "step": "EquivalentCnf",
+      "message": "minimum POS cover search completed: the equivalent CNF is provably minimal",
+      "data": {
+        "cnfMinimizationStatus": "MinimalProven"
+      }
+    },
+    {
+      "category": "Rejected",
+      "step": "AigRewrite",
+      "message": "no structural gain (2 -> 2 AND nodes)"
+    },
+    {
+      "category": "Status",
+      "step": "Result",
+      "message": "final minimality provenance: MinimalProven",
+      "data": {
+        "minimizationStatus": "MinimalProven",
+        "cnfMinimizationStatus": "MinimalProven",
+        "cnfStatus": "Computed",
+        "dnfStatus": "Computed",
+        "literalsIn": "4",
+        "literalsOut": "3"
+      }
+    }
+  ]
+}

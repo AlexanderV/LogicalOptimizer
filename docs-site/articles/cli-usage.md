@@ -139,6 +139,21 @@ logical-optimizer --format=json "a & b | a & c"
 document carries an `error` object instead of the result fields. Fields are only added within
 a `schemaVersion`, never renamed or removed.
 
+The report is a published contract, not just a convention:
+
+- **JSON Schema** (Draft 2020-12):
+  [`cli-report-v1.schema.json`](https://AlexanderV.github.io/LogicalOptimizer/schema/cli-report-v1.schema.json)
+  — validate a report with, for example,
+  `check-jsonschema --schemafile cli-report-v1.schema.json report.json`;
+- **golden examples** for every outcome a consumer must handle — success, `BudgetExceeded`
+  minimality, a `TooLarge` normal form, a structured parse error, and a bare processing error:
+  [`schema/examples/`](https://github.com/AlexanderV/LogicalOptimizer/tree/main/schema/examples);
+- **what may change and what may not**, in
+  [`schema/README.md`](https://github.com/AlexanderV/LogicalOptimizer/blob/main/schema/README.md).
+
+The schema is closed, and CI validates both the committed examples and freshly generated output
+against it, so a field cannot appear, disappear or change type without a reviewed schema diff.
+
 ### `--trace`
 
 Explains how the result was reached — which engine ran and on what threshold, the budgets in
