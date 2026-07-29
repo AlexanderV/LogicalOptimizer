@@ -7,6 +7,15 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <LangVersion>12</LangVersion>
 
+    <!-- Native AOT / trimming contract (roadmap P0.1): the library is reflection-free,
+         so these analyzers gate every build (TreatWarningsAsErrors) and prove that the
+         public surface stays AOT- and trim-safe. IsAotCompatible requires net8.0+. -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+
     <PackageId>LogicalOptimizer.Dnnf</PackageId>
     <Version>3.0.0</Version>
     <Authors>Oleksandr Panasenko</Authors>

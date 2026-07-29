@@ -1,0 +1,50 @@
+name: Native AOT
+
+# Roadmap P0.1: prove the libraries are Native-AOT/trim compatible by actually
+# publishing the LogicalOptimizer.AotSmoke harness with PublishAot and RUNNING the
+# native binary. The trim/AOT analyzers already gate every ordinary build (ci.yml,
+# TreatWarningsAsErrors); this workflow performs the real native compile + run for the
+# two first-class targets. A non-zero exit from the smoke binary fails the job.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  aot-publish:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+            binary: LogicalOptimizer.AotSmoke
+          - os: windows-latest
+            rid: win-x64
+            binary: LogicalOptimizer.AotSmoke.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # Native AOT on Linux needs the clang toolchain and zlib headers for the link step.
+      - name: Install AOT prerequisites (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      # -warnaserror keeps the trim/AOT analyzer contract enforced through publish, so any
+      # IL2026/IL3050/IL3053 introduced in library or harness code fails here, not silently.
+      - name: Publish smoke app (Native AOT, ${{ matrix.rid }})
+        run: >
+          dotnet publish LogicalOptimizer.AotSmoke/LogicalOptimizer.AotSmoke.csproj
+          -c Release -r ${{ matrix.rid }} -warnaserror -o aot-publish
+
+      # Run the native binary; it asserts every engine and exits non-zero on any mismatch.
+      - name: Run native binary
+        run: ./aot-publish/${{ matrix.binary }}

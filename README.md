@@ -386,6 +386,28 @@ is a separate heuristic quality rating and does not, on its own, assert optimali
 - **Memory**: Minimum 512MB RAM (1GB+ recommended for large expressions)
 - **Storage**: 50MB free disk space
 
+### Native AOT
+
+All six library packages (`LogicalOptimizer.Core` / `.Sat` / `.Bdd` / `.Dnnf` /
+`.Minimization` and the `LogicalOptimizer` facade) are Native-AOT- and trim-compatible:
+they are reflection-free and mark `IsAotCompatible`/`IsTrimmable`, so the trim, single-file
+and AOT analyzers gate every build (`TreatWarningsAsErrors`). This is verified in CI — the
+[`Native AOT` workflow](.github/workflows/aot.yml) publishes the `LogicalOptimizer.AotSmoke`
+harness with Native AOT for `win-x64` and `linux-x64` and runs the native binary, which
+drives the parser, optimizer, SAT solver, BDD, d-DNNF and exact minimizer through their
+public APIs and asserts each result (exiting non-zero on any mismatch).
+
+Reproduce a native publish locally (needs the platform C/C++ toolchain — MSVC on Windows,
+`clang`/`zlib1g-dev` on Linux):
+
+```bash
+dotnet publish LogicalOptimizer.AotSmoke -c Release -r linux-x64
+dotnet publish LogicalOptimizer.AotSmoke -c Release -r win-x64
+```
+
+Framework-dependent NuGet/CLI packages remain the primary delivery channel; AOT is an
+additionally certified capability, not a per-release artifact.
+
 ## Documentation
 
 ### Capability guide (each with a runnable, verified example)

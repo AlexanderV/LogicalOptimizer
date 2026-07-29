@@ -23,6 +23,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogicalOptimizer.Dnnf", "Lo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogicalOptimizer.Full", "LogicalOptimizer.Full\LogicalOptimizer.Full.csproj", "{676AFBC9-C037-467E-9865-ADC6B6A9A9AF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogicalOptimizer.AotSmoke", "LogicalOptimizer.AotSmoke\LogicalOptimizer.AotSmoke.csproj", "{B0F4AC38-8F9B-4545-ABA2-F2611D3B4EAC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -153,6 +155,18 @@ Global
 		{676AFBC9-C037-467E-9865-ADC6B6A9A9AF}.Release|x64.Build.0 = Release|Any CPU
 		{676AFBC9-C037-467E-9865-ADC6B6A9A9AF}.Release|x86.ActiveCfg = Release|Any CPU
 		{676AFBC9-C037-467E-9865-ADC6B6A9A9AF}.Release|x86.Build.0 = Release|Any CPU
+		{B0F4AC38-8F9B-4545-ABA2-F2611D3B4EAC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B0F4AC38-8F9B-4545-ABA2-F2611D3B4EAC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B0F4AC38-8F9B-4545-ABA2-F2611D3B4EAC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B0F4AC38-8F9B-4545-ABA2-F2611D3B4EAC}.Debug|x64.Build.0 = Debug|Any CPU
+		{B0F4AC38-8F9B-4545-ABA2-F2611D3B4EAC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B0F4AC38-8F9B-4545-ABA2-F2611D3B4EAC}.Debug|x86.Build.0 = Debug|Any CPU
+		{B0F4AC38-8F9B-4545-ABA2-F2611D3B4EAC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B0F4AC38-8F9B-4545-ABA2-F2611D3B4EAC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B0F4AC38-8F9B-4545-ABA2-F2611D3B4EAC}.Release|x64.ActiveCfg = Release|Any CPU
+		{B0F4AC38-8F9B-4545-ABA2-F2611D3B4EAC}.Release|x64.Build.0 = Release|Any CPU
+		{B0F4AC38-8F9B-4545-ABA2-F2611D3B4EAC}.Release|x86.ActiveCfg = Release|Any CPU
+		{B0F4AC38-8F9B-4545-ABA2-F2611D3B4EAC}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
