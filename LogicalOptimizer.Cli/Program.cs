@@ -11,6 +11,11 @@ internal class Program
     {
         try
         {
+            // Standard-format verbs (solve/maxsat/solve-pb/count) read DIMACS/WCNF/OPB files
+            // and bypass the expression-oriented flow entirely.
+            if (args.Length > 0 && FormatCommands.IsFormatVerb(args[0]))
+                return FormatCommands.Run(args);
+
             // Parse command line arguments
             var options = CommandLineProcessor.ParseArguments(args);
 

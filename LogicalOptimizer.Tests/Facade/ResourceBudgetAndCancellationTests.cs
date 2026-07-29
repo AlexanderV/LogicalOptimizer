@@ -81,6 +81,7 @@ public class ResourceBudgetAndCancellationTests
         Assert.Equal(200_000, budget.SatConflictLimit);
         Assert.Equal(20_000, budget.SoundnessGuardConflictLimit);
         Assert.Equal(1_000_000, budget.BddNodeLimit);
+        Assert.Equal(50_000_000, budget.ParseTokenLimit);
     }
 }
 

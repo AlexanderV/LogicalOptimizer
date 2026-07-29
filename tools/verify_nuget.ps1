@@ -22,7 +22,7 @@
     The package version to look for, e.g. 2.2.0. Required.
 
 .PARAMETER Packages
-    Package IDs to verify. Defaults to the eight published LogicalOptimizer packages.
+    Package IDs to verify. Defaults to the nine published LogicalOptimizer packages.
 
 .PARAMETER MaxAttempts
     Maximum number of attempts per package before giving up. Default 30.
@@ -52,6 +52,7 @@ param(
         'LogicalOptimizer.Sat',
         'LogicalOptimizer.Bdd',
         'LogicalOptimizer.Dnnf',
+        'LogicalOptimizer.Formats',
         'LogicalOptimizer.Minimization',
         'LogicalOptimizer',
         'LogicalOptimizer.Cli',

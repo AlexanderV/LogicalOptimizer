@@ -1,6 +1,6 @@
 name: Release
 
-# Publishes all NuGet packages (Core/Sat/Bdd/Dnnf/Minimization + facade + CLI tool +
+# Publishes all NuGet packages (Core/Sat/Bdd/Dnnf/Minimization/Formats + facade + CLI tool +
 # the LogicalOptimizer.Full meta-package) when a version tag (v1.2.3) is pushed.
 # Uses nuget.org Trusted Publishing (OIDC):
 # no stored API key. One-time setup: create a trusted-publishing policy on nuget.org
@@ -39,6 +39,7 @@ jobs:
           dotnet pack LogicalOptimizer.Sat/LogicalOptimizer.Sat.csproj -c Release --no-build -o artifacts /p:Version=${{ env.VERSION }}
           dotnet pack LogicalOptimizer.Bdd/LogicalOptimizer.Bdd.csproj -c Release --no-build -o artifacts /p:Version=${{ env.VERSION }}
           dotnet pack LogicalOptimizer.Dnnf/LogicalOptimizer.Dnnf.csproj -c Release --no-build -o artifacts /p:Version=${{ env.VERSION }}
+          dotnet pack LogicalOptimizer.Formats/LogicalOptimizer.Formats.csproj -c Release --no-build -o artifacts /p:Version=${{ env.VERSION }}
           dotnet pack LogicalOptimizer.Minimization/LogicalOptimizer.Minimization.csproj -c Release --no-build -o artifacts /p:Version=${{ env.VERSION }}
           dotnet pack LogicalOptimizer/LogicalOptimizer.csproj -c Release --no-build -o artifacts /p:Version=${{ env.VERSION }}
           dotnet pack LogicalOptimizer.Cli/LogicalOptimizer.Cli.csproj -c Release --no-build -o artifacts /p:Version=${{ env.VERSION }}
@@ -55,7 +56,7 @@ jobs:
       - name: Push to NuGet
         run: dotnet nuget push "artifacts/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
 
-      # Confirm the eight packages actually surface in the nuget.org index for this version.
+      # Confirm the nine packages actually surface in the nuget.org index for this version.
       # Indexing lags behind push (commonly 10-20 min), so the script retries on a ~30-min
       # window before failing — long enough that real indexing lag never reds the release,
       # short enough to still catch a genuine publish failure.

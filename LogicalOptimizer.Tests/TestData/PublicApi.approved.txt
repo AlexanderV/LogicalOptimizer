@@ -328,6 +328,7 @@ namespace LogicalOptimizer
         public ResourceBudget() { }
         public int BddNodeLimit { get; init; }
         public int CoverStepLimit { get; init; }
+        public long ParseTokenLimit { get; init; }
         public long QmPairComparisonLimit { get; init; }
         public int SatConflictLimit { get; init; }
         public int SoundnessGuardConflictLimit { get; init; }
@@ -389,6 +390,78 @@ namespace LogicalOptimizer
     {
         public const int DefaultNodeBudget = 1000000;
         public static LogicalOptimizer.DnnfCircuit CompileToDnnf(LogicalOptimizer.AstNode formula, int nodeBudget = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+}
+
+// ===== LogicalOptimizer.Formats =====
+namespace LogicalOptimizer
+{
+    public sealed class CnfProblem
+    {
+        public System.Collections.Generic.IReadOnlyList<int[]> Clauses { get; }
+        public int VariableCount { get; }
+        public LogicalOptimizer.SatResult Solve(int maxConflicts = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
+        public LogicalOptimizer.AstNode ToFormula() { }
+        public LogicalOptimizer.SatSolver ToSolver() { }
+        public void Write(System.IO.TextWriter writer) { }
+    }
+    public static class DimacsParser
+    {
+        public static LogicalOptimizer.CnfProblem Parse(System.IO.TextReader reader, LogicalOptimizer.ResourceBudget? budget = null, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public sealed class FormatParseException : System.Exception
+    {
+        public FormatParseException(string message, int line, int column) { }
+        public int Column { get; }
+        public int Line { get; }
+    }
+    public static class OpbParser
+    {
+        public static LogicalOptimizer.PseudoBooleanProblem Parse(System.IO.TextReader reader, LogicalOptimizer.ResourceBudget? budget = null, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public enum PseudoBooleanComparison
+    {
+        GreaterOrEqual = 0,
+        LessOrEqual = 1,
+        Equal = 2,
+    }
+    public sealed class PseudoBooleanConstraint
+    {
+        public long Bound { get; }
+        public LogicalOptimizer.PseudoBooleanComparison Comparison { get; }
+        [System.Runtime.CompilerServices.TupleElementNames(new string[] {
+                "Coefficient",
+                "Literal"})]
+        public System.Collections.Generic.IReadOnlyList<System.ValueTuple<long, int>> Terms { get; }
+    }
+    public sealed class PseudoBooleanProblem
+    {
+        public System.Collections.Generic.IReadOnlyList<LogicalOptimizer.PseudoBooleanConstraint> Constraints { get; }
+        [System.Runtime.CompilerServices.TupleElementNames(new string[] {
+                "Coefficient",
+                "Literal"})]
+        public System.Collections.Generic.IReadOnlyList<System.ValueTuple<long, int>>? Objective { get; }
+        public int VariableCount { get; }
+        public LogicalOptimizer.SatResult Solve(int maxConflicts = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
+        public LogicalOptimizer.SatSolver ToSolver() { }
+        public void Write(System.IO.TextWriter writer) { }
+    }
+    public static class WcnfParser
+    {
+        public static LogicalOptimizer.WeightedCnfProblem Parse(System.IO.TextReader reader, LogicalOptimizer.ResourceBudget? budget = null, System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public sealed class WeightedCnfProblem
+    {
+        public System.Collections.Generic.IReadOnlyList<int[]> HardClauses { get; }
+        [System.Runtime.CompilerServices.TupleElementNames(new string[] {
+                "Weight",
+                "Literals"})]
+        public System.Collections.Generic.IReadOnlyList<System.ValueTuple<long, int[]>> SoftClauses { get; }
+        public long Top { get; }
+        public int VariableCount { get; }
+        public LogicalOptimizer.MaxSatResult Solve(int maxConflictsPerCall = 1000000, System.Threading.CancellationToken cancellationToken = default) { }
+        public LogicalOptimizer.MaxSatSolver ToSolver() { }
+        public void Write(System.IO.TextWriter writer) { }
     }
 }
 

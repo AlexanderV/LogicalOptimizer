@@ -14,7 +14,7 @@ namespace LogicalOptimizer.Tests;
 /// </summary>
 public class ArchitectureTests
 {
-    /// <summary>The six library assemblies (facade + Core/Sat/Bdd/Dnnf/Minimization).</summary>
+    /// <summary>The seven library assemblies (facade + Core/Sat/Bdd/Dnnf/Minimization/Formats).</summary>
     private static readonly System.Reflection.Assembly[] LibraryAssemblies =
     {
         typeof(AstNode).Assembly,
@@ -22,7 +22,8 @@ public class ArchitectureTests
         typeof(BinaryDecisionDiagram).Assembly,
         typeof(DnnfCircuit).Assembly,
         typeof(TruthTableMinimizer).Assembly,
-        typeof(BooleanExpressionOptimizer).Assembly
+        typeof(BooleanExpressionOptimizer).Assembly,
+        typeof(DimacsParser).Assembly
     };
 
     private static readonly Architecture Arch = new ArchLoader()
@@ -96,6 +97,7 @@ public class ArchitectureTests
             ["LogicalOptimizer.Sat"] = new[] { "LogicalOptimizer.Core" },
             ["LogicalOptimizer.Bdd"] = new[] { "LogicalOptimizer.Core" },
             ["LogicalOptimizer.Dnnf"] = new[] { "LogicalOptimizer.Core", "LogicalOptimizer.Sat" },
+            ["LogicalOptimizer.Formats"] = new[] { "LogicalOptimizer.Core", "LogicalOptimizer.Sat" },
             ["LogicalOptimizer.Minimization"] = new[] { "LogicalOptimizer.Core", "LogicalOptimizer.Sat" },
             ["LogicalOptimizer"] = new[]
             {
@@ -137,6 +139,10 @@ public class ArchitectureTests
             "BinaryDecisionDiagram",
             // Dnnf (2)
             "DnnfCircuit", "KnowledgeCompilation",
+            // Formats (9)
+            "DimacsParser", "WcnfParser", "OpbParser",
+            "CnfProblem", "WeightedCnfProblem", "PseudoBooleanProblem",
+            "PseudoBooleanConstraint", "PseudoBooleanComparison", "FormatParseException",
             // Minimization (5)
             "TruthTableMinimizer", "CsvTruthTableParser", "PartialTruthTable",
             "MultiOutputTable", "MultiOutputFunction",

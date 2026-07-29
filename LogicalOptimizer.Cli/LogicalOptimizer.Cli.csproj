@@ -22,6 +22,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LogicalOptimizer\LogicalOptimizer.csproj" />
+    <!-- Standard-format verbs (solve/maxsat/solve-pb) parse via .Formats; the d-DNNF
+         `count` engine lives in .Dnnf, which the facade does not pull in. -->
+    <ProjectReference Include="..\LogicalOptimizer.Formats\LogicalOptimizer.Formats.csproj" />
+    <ProjectReference Include="..\LogicalOptimizer.Dnnf\LogicalOptimizer.Dnnf.csproj" />
     <InternalsVisibleTo Include="LogicalOptimizer.Tests" />
     <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>

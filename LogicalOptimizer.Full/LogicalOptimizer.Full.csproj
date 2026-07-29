@@ -16,7 +16,7 @@
     <PackageId>LogicalOptimizer.Full</PackageId>
     <Version>3.0.0</Version>
     <Authors>Oleksandr Panasenko</Authors>
-    <Description>Convenience meta-package for the LogicalOptimizer toolkit. It contains no code: it depends on the LogicalOptimizer facade and LogicalOptimizer.Dnnf so a single `dotnet add package LogicalOptimizer.Full` pulls in every managed package (optimizer, SAT, BDD, minimization and d-DNNF knowledge compilation). Modular users can keep referencing the individual layer packages instead.</Description>
+    <Description>Convenience meta-package for the LogicalOptimizer toolkit. It contains no code: it depends on the LogicalOptimizer facade, LogicalOptimizer.Dnnf and LogicalOptimizer.Formats so a single `dotnet add package LogicalOptimizer.Full` pulls in every managed package (optimizer, SAT, BDD, minimization, d-DNNF knowledge compilation and DIMACS/WCNF/OPB import/export). Modular users can keep referencing the individual layer packages instead.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>meta;bundle;boolean;sat;bdd;dnnf</PackageTags>
@@ -28,11 +28,12 @@
   </ItemGroup>
 
   <!-- Packable ProjectReferences become NuGet <dependency> entries in the produced
-       package: the facade transitively covers Core/Sat/Bdd/Minimization, and Dnnf is
-       the only managed package the facade does not already pull in. -->
+       package: the facade transitively covers Core/Sat/Bdd/Minimization, while Dnnf and
+       Formats are the managed packages the facade does not already pull in. -->
   <ItemGroup>
     <ProjectReference Include="..\LogicalOptimizer\LogicalOptimizer.csproj" />
     <ProjectReference Include="..\LogicalOptimizer.Dnnf\LogicalOptimizer.Dnnf.csproj" />
+    <ProjectReference Include="..\LogicalOptimizer.Formats\LogicalOptimizer.Formats.csproj" />
   </ItemGroup>
 
 </Project>

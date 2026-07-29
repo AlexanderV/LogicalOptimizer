@@ -78,17 +78,18 @@ ways to install, depending on how much you want:
 
 ```bash
 # 1. Everything, one install: the LogicalOptimizer.Full meta-package. It ships no code,
-#    it just pulls in every managed package (facade + Dnnf, so all engines below).
+#    it just pulls in every managed package (facade + Dnnf + Formats, so all engines below).
 dotnet add package LogicalOptimizer.Full
 
 # 2. The facade: the four core engine packages (Core/Sat/Bdd/Minimization) without d-DNNF.
-dotnet add package LogicalOptimizer          # add LogicalOptimizer.Dnnf too if you need d-DNNF
+dotnet add package LogicalOptimizer          # add LogicalOptimizer.Dnnf/.Formats too if you need them
 
 # 3. Individual layers, for a minimal dependency set:
 dotnet add package LogicalOptimizer.Core     # n-ary AST, FormulaFactory (parse + canonicalize), AstFormatter, truth tables
 dotnet add package LogicalOptimizer.Sat      # CDCL solver, CNF encodings, MaxSAT
 dotnet add package LogicalOptimizer.Bdd      # ROBDD
 dotnet add package LogicalOptimizer.Dnnf     # d-DNNF knowledge compilation, exact/weighted model counting
+dotnet add package LogicalOptimizer.Formats  # DIMACS/WCNF/OPB import + round-trip writers
 dotnet add package LogicalOptimizer.Minimization  # QM, Espresso-lite, multi-output
 
 # CLI as a global dotnet tool
@@ -451,9 +452,10 @@ article; the examples are executed and asserted in
 
 ### Package layering
 
-Seven NuGet packages with acyclic, downward-only dependencies (enforced by an
-architecture test). The `LogicalOptimizer.Dnnf` knowledge-compilation package sits beside
-`.Bdd` on Core+Sat and is consumed directly (not pulled in by the facade):
+Eight NuGet packages with acyclic, downward-only dependencies (enforced by an
+architecture test). The `LogicalOptimizer.Dnnf` knowledge-compilation and
+`LogicalOptimizer.Formats` import/export packages sit beside `.Bdd` on Core+Sat and are
+consumed directly (not pulled in by the facade):
 
 ```mermaid
 graph TD
@@ -463,6 +465,7 @@ graph TD
     Sat["LogicalOptimizer.Sat<br/>CDCL solver · Tseitin/Plaisted–Greenbaum ·<br/>cardinality/PB · MaxSAT"]
     Bdd["LogicalOptimizer.Bdd<br/>ROBDD · quantification ·<br/>sifting · model counting"]
     Dnnf["LogicalOptimizer.Dnnf<br/>d-DNNF compiler · exact #SAT ·<br/>weighted counting · enumeration"]
+    Formats["LogicalOptimizer.Formats<br/>DIMACS/WCNF/OPB parsers ·<br/>round-trip writers · engine hand-off"]
     Core["LogicalOptimizer.Core<br/>n-ary AST · FormulaFactory<br/><i>(parse + canonicalize)</i> · AstFormatter ·<br/>TruthTable · metrics · budgets"]
 
     CLI --> Facade
@@ -476,6 +479,10 @@ graph TD
     Bdd --> Core
     Dnnf --> Sat
     Dnnf --> Core
+    Formats --> Sat
+    Formats --> Core
+    CLI --> Formats
+    CLI --> Dnnf
 ```
 
 ### Optimization flow (facade)

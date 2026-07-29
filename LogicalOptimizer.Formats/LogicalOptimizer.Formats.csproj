@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <LangVersion>12</LangVersion>
+
+    <!-- Native AOT / trimming contract (roadmap P0.1): the library is reflection-free,
+         so these analyzers gate every build (TreatWarningsAsErrors) and prove that the
+         public surface stays AOT- and trim-safe. IsAotCompatible requires net8.0+. -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+
+    <PackageId>LogicalOptimizer.Formats</PackageId>
+    <Version>3.0.0</Version>
+    <Authors>Oleksandr Panasenko</Authors>
+    <Description>Standard-format import/export layer of the LogicalOptimizer toolkit: streaming, budget-aware parsers and round-trip writers for DIMACS CNF, WCNF (weighted partial MaxSAT) and OPB (pseudo-Boolean) problems, each able to hand off directly to the in-house SAT, MaxSAT and pseudo-Boolean engines.</Description>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>dimacs;wcnf;opb;sat;maxsat;pseudo-boolean</PackageTags>
+    <PackageProjectUrl>https://AlexanderV.github.io/LogicalOptimizer/</PackageProjectUrl>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1570</NoWarn>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="LogicalOptimizer.Tests" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+    <ProjectReference Include="..\LogicalOptimizer.Core\LogicalOptimizer.Core.csproj" />
+    <ProjectReference Include="..\LogicalOptimizer.Sat\LogicalOptimizer.Sat.csproj" />
+  </ItemGroup>
+
+</Project>

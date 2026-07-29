@@ -40,5 +40,12 @@ public sealed class ResourceBudget
     /// </summary>
     public int BddNodeLimit { get; init; } = 1_000_000;
 
+    /// <summary>
+    ///     Maximum number of literals/terms a standard-format parser (<c>LogicalOptimizer.Formats</c>)
+    ///     reads before aborting with <see cref="ComputationBudgetExceededException" />. Bounds the
+    ///     memory and time an untrusted DIMACS/WCNF/OPB stream can consume.
+    /// </summary>
+    public long ParseTokenLimit { get; init; } = 50_000_000;
+
     public static ResourceBudget Default { get; } = new();
 }

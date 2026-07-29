@@ -13,13 +13,13 @@ namespace LogicalOptimizer.Tests;
 public class MetaPackageTests
 {
     /// <summary>
-    ///     The meta-package must depend on exactly the facade and Dnnf: the facade
-    ///     transitively pulls in Core/Sat/Bdd/Minimization, and Dnnf is the only managed
-    ///     package it does not already cover. A drift here (an extra or missing reference)
-    ///     silently changes what `dotnet add package LogicalOptimizer.Full` installs.
+    ///     The meta-package must depend on exactly the facade, Dnnf and Formats: the facade
+    ///     transitively pulls in Core/Sat/Bdd/Minimization, and Dnnf and Formats are the
+    ///     managed packages it does not already cover. A drift here (an extra or missing
+    ///     reference) silently changes what `dotnet add package LogicalOptimizer.Full` installs.
     /// </summary>
     [Fact]
-    public void FullMetaPackage_ReferencesExactlyFacadeAndDnnf()
+    public void FullMetaPackage_ReferencesExactlyFacadeDnnfAndFormats()
     {
         var csprojPath = Path.Combine(RepositoryRoot(), "LogicalOptimizer.Full", "LogicalOptimizer.Full.csproj");
         Assert.True(File.Exists(csprojPath), $"Meta-package project not found at {csprojPath}");
@@ -32,7 +32,8 @@ public class MetaPackageTests
             .OrderBy(n => n, StringComparer.Ordinal)
             .ToList();
 
-        Assert.Equal(new[] { "LogicalOptimizer", "LogicalOptimizer.Dnnf" }, referencedProjects);
+        Assert.Equal(new[] { "LogicalOptimizer", "LogicalOptimizer.Dnnf", "LogicalOptimizer.Formats" },
+            referencedProjects);
 
         // Pure metadata package: no assembly must be packed.
         var includeBuildOutput = project.Descendants("IncludeBuildOutput").SingleOrDefault()?.Value;
@@ -40,12 +41,12 @@ public class MetaPackageTests
     }
 
     /// <summary>
-    ///     Smoke test: exercise all four engines the bundle promises, through the very
+    ///     Smoke test: exercise every engine the bundle promises, through the very
     ///     assemblies the meta-package aggregates. If any engine stopped being reachable
-    ///     from the facade + Dnnf closure this would fail to compile or run.
+    ///     from the facade + Dnnf + Formats closure this would fail to compile or run.
     /// </summary>
     [Fact]
-    public void FullMetaPackage_SurfaceExercisesAllFourEngines()
+    public void FullMetaPackage_SurfaceExercisesEveryEngine()
     {
         var formula = "a & b | a & c";
         var ast = new FormulaFactory().Parse(formula);
@@ -66,6 +67,10 @@ public class MetaPackageTests
         BigInteger dnnfCount = KnowledgeCompilation.CompileToDnnf(ast).CountModels();
 
         Assert.Equal(bddCount, dnnfCount);
+
+        // Formats (Formats) - a DIMACS problem parses and solves through the same closure.
+        var cnf = DimacsParser.Parse(new StringReader("p cnf 1 1\n1 0\n"));
+        Assert.Equal(SatResult.Satisfiable, cnf.Solve());
     }
 
     private static string RepositoryRoot()

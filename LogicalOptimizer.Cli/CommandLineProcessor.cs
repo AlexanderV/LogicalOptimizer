@@ -194,6 +194,12 @@ internal class CommandLineProcessor
         Console.WriteLine("  LogicalOptimizer.exe --csv \"<csv_content>\"    # Parse CSV truth table");
         Console.WriteLine("  LogicalOptimizer.exe \"<csv_file.csv>\"      # Parse CSV file (auto-detected)");
         Console.WriteLine("  LogicalOptimizer.exe --help              # This help");
+        Console.WriteLine();
+        Console.WriteLine("Standard-format problem files (DIMACS/WCNF/OPB):");
+        Console.WriteLine("  logical-optimizer solve input.cnf        # DIMACS CNF satisfiability");
+        Console.WriteLine("  logical-optimizer maxsat input.wcnf      # WCNF weighted partial MaxSAT");
+        Console.WriteLine("  logical-optimizer solve-pb input.opb     # OPB pseudo-Boolean feasibility");
+        Console.WriteLine("  logical-optimizer count input.cnf --engine dnnf  # exact #SAT via d-DNNF");
         Console.WriteLine("  LogicalOptimizer.exe --demo              # Features demonstration");
         Console.WriteLine("  LogicalOptimizer.exe --benchmark         # Performance testing");
         Console.WriteLine("  LogicalOptimizer.exe --stress            # Extreme stress testing for large expressions");
