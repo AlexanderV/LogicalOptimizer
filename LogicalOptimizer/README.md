@@ -2,7 +2,8 @@
 
 **Verified Boolean expression optimizer for .NET** — the facade package. It ties the
 Core, SAT, BDD and Minimization layers together behind one entry point,
-`BooleanExpressionOptimizer`, with zero runtime dependencies.
+`BooleanExpressionOptimizer`. It references those four LogicalOptimizer packages and
+no third-party package.
 
 ```bash
 dotnet add package LogicalOptimizer

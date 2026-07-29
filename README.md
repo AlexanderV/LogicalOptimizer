@@ -8,7 +8,7 @@
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://AlexanderV.github.io/LogicalOptimizer/)
 
 > **Verified Boolean reasoning toolkit for .NET**  
-> Optimize, compare, count, and solve Boolean formulas with zero runtime dependencies.
+> Optimize, compare, count, and solve Boolean formulas with zero third-party runtime dependencies.
 
 LogicalOptimizer is a dependency-free .NET toolkit for **verified** Boolean optimization,
 equivalence checking, SAT solving, model counting, and knowledge compilation. Every
@@ -19,7 +19,11 @@ resource-limit outcomes are reported explicitly — there are no silent fallback
 
 - **Verified results** — every optimization is proven equivalent to the input before it is returned (truth table up to 12 variables, built-in SAT miter beyond).
 - **Explicit proof status** — minimality is never silently downgraded: `OptimizationResult.MinimizationStatus` reports `MinimalProven` / `BudgetExceeded` / `Heuristic`.
-- **Pure managed .NET** — zero production dependencies, Native AOT and trimming supported.
+- **Pure managed .NET** — no third-party runtime dependency in any shipped package (the
+  LogicalOptimizer packages reference each other); Native AOT and trimming verified in CI.
+
+Each of those three words is defined, and linked to the test or CI check that backs it, in
+**[doc/CLAIMS.md](doc/CLAIMS.md)** — including what they explicitly do *not* claim.
 
 ## Install
 
@@ -79,7 +83,7 @@ fallback.
 
 ## Overview
 
-LogicalOptimizer is a lightweight, dependency-free .NET library and CLI for parsing, optimizing and transforming boolean expressions. Exact minimization is attempted up to 12 variables and **optimality is reported explicitly when proven**: `OptimizationResult.MinimizationStatus` is `MinimalProven` when the exact minimum-cover search completed (the normal case for ≤10 variables — verified for every 3- and 4-variable function), `BudgetExceeded` when a work limit interrupted the proof, and `Heuristic` beyond the exact range. There are no silent fallbacks. **Every** optimization is verified equivalent to the input before being returned — by truth table up to 12 variables, by the built-in CDCL SAT solver (miter proof) beyond that.
+LogicalOptimizer is a lightweight .NET library and CLI, with no third-party runtime dependency, for parsing, optimizing and transforming boolean expressions. Exact minimization is attempted up to 12 variables and **optimality is reported explicitly when proven**: `OptimizationResult.MinimizationStatus` is `MinimalProven` when the exact minimum-cover search completed (the normal case for ≤10 variables — exhaustively verified for every 3- and 4-variable function), `BudgetExceeded` when a work limit interrupted the proof, and `Heuristic` beyond the exact range. There are no silent fallbacks. **Every** optimization is verified equivalent to the input before being returned — by truth table up to 12 variables, by the built-in CDCL SAT solver (miter proof) beyond that. What each of these terms means, what backs it, and what it does not claim: [doc/CLAIMS.md](doc/CLAIMS.md).
 
 **Cost model**: the minimal two-level cover is chosen by total literal count, then term count; the final multi-level expression is chosen by literal count, then AST node count. Since v2.0 the AST is n-ary, and one n-ary `AndNode`/`OrNode` counts as **1 node** regardless of how many operands it has. This is not the same as minimal gate count, circuit depth, or delay.
 
@@ -278,10 +282,22 @@ dotnet run --project LogicalOptimizer.Cli -- --format=json "a & b | a & c"
 ```
 
 `advanced` (an `a XOR b`-style pattern) appears only when one is detected. On an invalid
-expression the document carries an `error` object (`{ "code": "processing_error", "message": … }`)
-instead of the result fields. Fields are only added within a `schemaVersion`, never renamed or
-removed. **Exit codes:** `0` success · `1` usage error · `2` processing error (e.g. an invalid
-expression).
+expression the document carries an `error` object with a structured parse diagnostic — `code`,
+`position`, `length`, `expected`, `snippet` — instead of the result fields.
+**Exit codes:** `0` success · `1` usage error · `2` processing error (e.g. an invalid expression).
+
+This is a **published contract**, not just a documented shape:
+
+- [`schema/cli-report-v1.schema.json`](schema/cli-report-v1.schema.json) — JSON Schema
+  (Draft 2020-12), also served from the
+  [docs site](https://AlexanderV.github.io/LogicalOptimizer/schema/cli-report-v1.schema.json);
+- [`schema/examples/`](schema/examples) — a golden report for every outcome you must handle:
+  success, `BudgetExceeded` minimality, a `TooLarge` normal form, `--trace`, a parse error;
+- [`schema/README.md`](schema/README.md) — what may change within `schemaVersion: 1` (new optional
+  fields, new enum members) and what requires a new version.
+
+The schema is closed and CI validates both the committed examples and freshly generated output
+against it, so no field can appear, disappear or change type without a reviewed schema diff.
 
 ## Supported Operators
 
@@ -703,10 +719,15 @@ deliberately. The details, including the snapshot-approval and API-baseline work
 
 ## Support & security
 
-- **Questions, bug reports, feature requests** → [SUPPORT.md](SUPPORT.md) (includes the
-  versioning and compatibility policy: what is and is not a stability contract)
+- **Questions, bug reports, feature requests** → [SUPPORT.md](SUPPORT.md) — also carries the
+  lifecycle policy: what is and is not a stability contract, CLI exit-code and JSON-schema
+  stability, the 12-month support window for the previous major, and the deprecation process
 - **Security vulnerabilities** → [SECURITY.md](SECURITY.md) — report privately, never as a
   public issue
+- **What you use it for, or why you chose something else** →
+  [use-case report](https://github.com/AlexanderV/LogicalOptimizer/issues/new?template=use_case_report.yml).
+  There is no telemetry, so this is the only roadmap input; a compiled evaluator, batch APIs and
+  additional engines are deliberately gated on it ([doc/ADOPTION.md](doc/ADOPTION.md))
 
 ## Supply chain
 
@@ -714,9 +735,20 @@ Releases are published from a tagged commit by the
 [Release workflow](.github/workflows/release.yml) using nuget.org Trusted Publishing (OIDC), so
 no long-lived API key exists. Each release is built deterministically, ships SourceLink metadata
 and a separate `.snupkg` symbol package, carries SHA-256 checksums and a GitHub
-[build provenance attestation](https://docs.github.com/actions/security-guides/using-artifact-attestations),
-and is then verified twice: that every package is indexed on nuget.org, and that the *published*
-package actually works when installed into a clean project. Verify a downloaded package yourself:
+[build provenance attestation](https://docs.github.com/actions/security-guides/using-artifact-attestations).
+
+Before anything is pushed, [`tools/verify_package_contract.ps1`](tools/verify_package_contract.ps1)
+opens every `.nupkg` and audits its contents — package-specific README, distinct description, tags,
+project/repository URLs, Apache-2.0 SPDX expression, symbols with a `.pdb`, the documented target
+frameworks, and **no third-party runtime dependency anywhere**. A published package cannot be
+withdrawn, so this gates the publish rather than reporting on it afterwards. After the push the
+release verifies that every package is indexed on nuget.org, that each modular package works
+installed on its own into a clean project outside the repository, and that a **Native AOT** binary
+built against the *published* package produces the right answer.
+
+All of that lands in a single **release evidence bundle** attached to the release: the contract
+audit, the index check, the AOT result, test counts, checksums, this version's claim changes, and
+step-by-step instructions to reproduce every check yourself. Starting point:
 
 ```bash
 gh attestation verify LogicalOptimizer.3.1.0.nupkg --repo AlexanderV/LogicalOptimizer

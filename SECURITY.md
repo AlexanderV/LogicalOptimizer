@@ -33,8 +33,9 @@ minor version, and the advisory is published once a fix is available.
 
 ## Scope
 
-This is a computational library with **zero production dependencies** and no network, file
-execution, or reflection surface, so the realistic risk areas are:
+This is a computational library with **no third-party runtime dependency** — a shipped package
+references other LogicalOptimizer packages and nothing else — and no network, file execution, or
+reflection surface, so the realistic risk areas are:
 
 - **untrusted input handling** — parsers (expression, CSV, DIMACS/WCNF/OPB) that crash in an
   unexpected way rather than reporting a clean, catchable error;

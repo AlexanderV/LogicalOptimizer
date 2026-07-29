@@ -3,9 +3,12 @@ contact_links:
   - name: Documentation
     url: https://AlexanderV.github.io/LogicalOptimizer/
     about: API reference and a runnable example for every capability area.
-  - name: Questions & use-case feedback
+  - name: Questions & open-ended discussion
     url: https://github.com/AlexanderV/LogicalOptimizer/discussions
-    about: For open-ended questions and telling us how you use the toolkit.
+    about: For questions that are not a bug and not a specific feature request.
+  - name: How use-case reports shape the roadmap
+    url: https://github.com/AlexanderV/LogicalOptimizer/blob/main/doc/ADOPTION.md
+    about: The library collects no telemetry, so the "Use-case report" issue form is the only roadmap input.
   - name: Report a security vulnerability
     url: https://github.com/AlexanderV/LogicalOptimizer/security/advisories/new
     about: Please report vulnerabilities privately, never as a public issue.

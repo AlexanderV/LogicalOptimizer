@@ -2,21 +2,28 @@
 
 ## What LogicalOptimizer is
 
-LogicalOptimizer is a lightweight, **dependency-free** .NET library and CLI for parsing,
-optimizing, and transforming Boolean expressions. It is the most complete *managed*
-.NET Boolean-optimization toolkit — everything is in-house (no native or third-party
-runtime dependencies), and **every result it returns is verified equivalent to the
-input** before you get it.
+LogicalOptimizer is a lightweight .NET library and CLI for parsing, optimizing, and
+transforming Boolean expressions. Everything is in-house — no native and no third-party
+runtime dependency — and **every result it returns is verified equivalent to the input**
+before you get it.
 
 Two properties define the project and are never traded away:
 
-- **Zero production dependencies** — the shipping packages have no runtime package references.
+- **No third-party runtime dependency** — a shipped package references other
+  LogicalOptimizer packages and nothing else. Audited on every pull request and enforced as a
+  gate before publishing.
 - **Explainability + mandatory verification** — minimality is reported with an explicit
   status (never a silent downgrade), and equivalence is checked on every optimization
   (truth table up to 12 variables, built-in CDCL SAT miter proof beyond).
 
+Both terms are defined precisely, with the test or CI check that backs each one and the limits
+of each, in
+[CLAIMS.md](https://github.com/AlexanderV/LogicalOptimizer/blob/main/doc/CLAIMS.md).
+
 What it is *not*: a replacement for Z3 (full SMT), ABC (logic synthesis), CUDD
-(industrial BDD), or a complete Espresso. It is best-in-niche, not parity-across-the-board.
+(industrial BDD), or a complete Espresso. It covers propositional Boolean reasoning, not
+parity-across-the-board — see [Choosing a tool](choosing-a-tool.md) for where an alternative is
+the better answer.
 
 ## Requirements
 

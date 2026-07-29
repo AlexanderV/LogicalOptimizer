@@ -1,0 +1,129 @@
+name: Use-case report
+description: Tell us what you use LogicalOptimizer for — or why you decided against it
+title: "[use case] "
+labels: ["use-case"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This is the most useful issue you can open.** The library collects no telemetry, so
+        roadmap decisions have exactly one input: reports like this one. Several planned items —
+        a compiled evaluator, batch evaluation, reusable BDD/d-DNNF query objects, additional
+        engines — are deliberately **not** built until a real workload shows they are needed.
+        A concrete report moves them; a hypothetical one does not.
+
+        **A report where you chose something else is equally valuable.** Knowing which alternative
+        won, and on what criterion, is worth more than a compliment. See
+        [doc/ADOPTION.md](https://github.com/AlexanderV/LogicalOptimizer/blob/main/doc/ADOPTION.md)
+        for how these reports are aggregated and what they have changed so far.
+
+        Answer only what you can share. A partial report is worth far more than no report.
+
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Are you using it?
+      options:
+        - Yes, in production
+        - Yes, in a prototype or internal tool
+        - I evaluated it and chose something else
+        - I evaluated it and it could not do what I needed
+        - Still deciding
+    validations:
+      required: true
+
+  - type: textarea
+    id: workload
+    attributes:
+      label: The formulas
+      description: >
+        What kind of Boolean logic is it — feature flags, configuration or product constraints,
+        generated conditions, access rules, circuits, something else? Roughly how large: how many
+        variables and terms in a typical formula, and in your largest one?
+      placeholder: |
+        Feature-flag combinations from a product catalogue.
+        Typical: 15-40 variables, a few hundred terms. Largest so far: ~200 variables.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often do you run it?
+      description: This is what decides whether a compiled/batch API is worth building.
+      options:
+        - Once per build or deploy
+        - A handful of times per run of a batch job
+        - Thousands of formulas per batch
+        - Per request, on a hot path
+        - Interactively, a human waits for the answer
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: guarantees
+    attributes:
+      label: Which guarantees do you actually depend on?
+      description: >
+        Not which sound nice — which ones your code or your process reads. This tells us what must
+        never change.
+      options:
+        - label: Equivalence verification of every optimization result (`IsEquivalent()`)
+        - label: The explicit minimality status (`MinimalProven` / `BudgetExceeded` / `Heuristic`)
+        - label: A counterexample for non-equivalent formulas
+        - label: Exact or weighted model counts
+        - label: SAT / MaxSAT / pseudo-Boolean results
+        - label: The `--format=json` CLI report as a CI artifact
+        - label: The diagnostic trace (`--trace`) for explaining a result to a human
+        - label: Just the smaller expression — the proofs are not why I am here
+
+  - type: textarea
+    id: deployment
+    attributes:
+      label: Deployment constraints
+      description: >
+        What ruled things in or out — Native AOT, single-file, trimming, an air-gapped build,
+        a no-native-dependency policy, a licence policy, a target framework you are stuck on,
+        container size, an offline NuGet feed?
+      placeholder: "Native AOT single-file deploy; no native dependency allowed; stuck on net8.0."
+
+  - type: textarea
+    id: decision
+    attributes:
+      label: Why LogicalOptimizer — or why not
+      description: >
+        Which alternatives did you weigh (Z3, LogicNG, SymPy, PyEDA, ABC, a hand-written
+        simplifier, nothing at all)? What decided it? If you chose another tool, which one and on
+        what criterion — that answer is the most useful sentence in this form.
+    validations:
+      required: true
+
+  - type: textarea
+    id: gap
+    attributes:
+      label: What was missing or hard to find
+      description: >
+        A capability that does not exist, an API that made you write awkward code, a result you
+        could not explain to a colleague, documentation you could not find, or something that
+        behaved differently than you expected.
+
+  - type: input
+    id: version
+    attributes:
+      label: Packages and version
+      description: Which packages, which version, and which target framework.
+      placeholder: "LogicalOptimizer 3.1.0 + LogicalOptimizer.Dnnf, net10.0"
+
+  - type: dropdown
+    id: citation
+    attributes:
+      label: May we cite this?
+      description: >
+        External case studies are the trust signal this project most lacks. Nothing is ever
+        published without asking you first, whatever you answer here.
+      options:
+        - "Yes — project name and numbers may be cited"
+        - "Yes — numbers may be cited, but anonymously"
+        - "No — for your roadmap only"
+    validations:
+      required: true
