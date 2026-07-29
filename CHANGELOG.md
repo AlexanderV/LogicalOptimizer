@@ -12,6 +12,19 @@ the public API baseline diff is additive-only.
 
 ### Added
 
+- **d-DNNF marginal probabilities and model sampling.** `DnnfCircuit` gains
+  `MarginalProbability(variable, weights)` — the weighted marginal
+  `WeightedModelCount(weights, {variable = true}) / WeightedModelCount(weights)`, which for
+  uniform weights is the fraction of models with the variable true — and top-down weighted
+  samplers `SampleModel(Random, weights = null)` and
+  `SampleModels(count, seed, weights = null, CancellationToken)`. Unweighted sampling
+  (`weights == null`) is uniform over satisfying models; weighted sampling draws each model
+  proportional to its weighted-count share; every returned model assigns exactly `Variables`.
+  `SampleModels(count, seed, …)` is fully deterministic for a seed (no cryptographic claim).
+  A zero total weight (an unsatisfiable formula or all-zero weights) is an explicit
+  `InvalidOperationException` — never a fabricated model — an unknown marginal variable or a
+  negative/NaN/infinite weight is an `ArgumentException`. Validated against exhaustive
+  weighted enumeration for marginals and wide, fixed-seed statistical bands for sampling.
 - **d-DNNF conditioning and evidence queries.** `DnnfCircuit` gains
   `Condition(IReadOnlyDictionary<string, bool>, CancellationToken)`, returning a NEW circuit
   with the named variables pinned (the source is never mutated and the variable universe is

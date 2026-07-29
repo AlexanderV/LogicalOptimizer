@@ -384,6 +384,15 @@ namespace LogicalOptimizer
         public System.Numerics.BigInteger CountModels() { }
         public System.Numerics.BigInteger CountModels(System.Collections.Generic.IReadOnlyDictionary<string, bool> evidence) { }
         public System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyDictionary<string, bool>> EnumerateModels(System.Threading.CancellationToken cancellationToken = default) { }
+        public double MarginalProbability(string variable, [System.Runtime.CompilerServices.TupleElementNames(new string[] {
+                "positive",
+                "negative"})] System.Collections.Generic.IReadOnlyDictionary<string, System.ValueTuple<double, double>> weights) { }
+        public System.Collections.Generic.IReadOnlyDictionary<string, bool> SampleModel(System.Random random, [System.Runtime.CompilerServices.TupleElementNames(new string[] {
+                "positive",
+                "negative"})] System.Collections.Generic.IReadOnlyDictionary<string, System.ValueTuple<double, double>>? weights = null) { }
+        public System.Collections.Generic.IEnumerable<System.Collections.Generic.IReadOnlyDictionary<string, bool>> SampleModels(int count, int seed, [System.Runtime.CompilerServices.TupleElementNames(new string[] {
+                "positive",
+                "negative"})] System.Collections.Generic.IReadOnlyDictionary<string, System.ValueTuple<double, double>>? weights = null, System.Threading.CancellationToken cancellationToken = default) { }
         public double WeightedModelCount([System.Runtime.CompilerServices.TupleElementNames(new string[] {
                 "positive",
                 "negative"})] System.Collections.Generic.IReadOnlyDictionary<string, System.ValueTuple<double, double>> weights) { }

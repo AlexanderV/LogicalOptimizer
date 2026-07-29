@@ -515,6 +515,250 @@ public sealed class DnnfCircuit
     }
 
     /// <summary>
+    ///     The weighted marginal probability that <paramref name="variable" /> is <c>true</c>: the
+    ///     weighted model count restricted to models in which the variable is true, divided by the
+    ///     unrestricted weighted model count —
+    ///     <c>WeightedModelCount(weights, {variable = true}) / WeightedModelCount(weights)</c>,
+    ///     both computed with the evidence overload. The result lies in <c>[0, 1]</c>.
+    ///     <para>
+    ///         With uniform weights — every entry <c>(1, 1)</c>, or a variable simply omitted from
+    ///         <paramref name="weights" /> (which defaults to <c>(1, 1)</c>) — this is exactly the
+    ///         fraction of the formula's models in which <paramref name="variable" /> is true.
+    ///     </para>
+    ///     <para>
+    ///         Floating-point: computed in <see cref="double" /> as the ratio of two weighted
+    ///         counts (see
+    ///         <see cref="WeightedModelCount(IReadOnlyDictionary{string, ValueTuple{double, double}})" />),
+    ///         so it inherits that overload's IEEE-754 accumulation behaviour — exact when the
+    ///         weights and intermediate sums are representable, otherwise carrying the usual
+    ///         rounding.
+    ///     </para>
+    /// </summary>
+    /// <param name="variable">One of the circuit's <see cref="Variables" />.</param>
+    /// <param name="weights">
+    ///     Per-variable (positive, negative) literal weights; a variable absent from the map
+    ///     defaults to (1, 1). Every weight must be finite and non-negative.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    ///     <paramref name="variable" /> is not one of the circuit's variables, or a weight is
+    ///     negative, NaN or infinite.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    ///     The total weighted model count is zero (an unsatisfiable formula or all-zero weights),
+    ///     so the marginal is undefined — never a fabricated value.
+    /// </exception>
+    public double MarginalProbability(string variable,
+        IReadOnlyDictionary<string, (double positive, double negative)> weights)
+    {
+        ArgumentNullException.ThrowIfNull(variable);
+        ArgumentNullException.ThrowIfNull(weights);
+        EnsureKnownVariable(variable);
+        ValidateWeights(weights);
+
+        var total = WeightedModelCount(weights);
+        if (!(total > 0.0))
+            throw new InvalidOperationException(
+                "MarginalProbability is undefined: the total weighted model count is zero " +
+                "(an unsatisfiable formula or all-zero weights).");
+
+        var withTrue = WeightedModelCount(weights, new Dictionary<string, bool>(1) { [variable] = true });
+        return withTrue / total;
+    }
+
+    /// <summary>
+    ///     Draw one model at random, projected onto the circuit's <see cref="Variables" /> — every
+    ///     variable is assigned exactly one value. Standard top-down d-DNNF sampling and the mirror
+    ///     of the bottom-up weighted pass: at a deterministic decision a branch is taken with
+    ///     probability proportional to its (weighted) share of the model count, at a decomposable
+    ///     conjunction every child is sampled independently, and a literal fixes its variable. With
+    ///     <paramref name="weights" /> <c>null</c> the draw is uniform over the formula's satisfying
+    ///     assignments; otherwise each model is drawn with probability proportional to the product
+    ///     of its per-literal weights (its weighted-model-count share).
+    ///     <para>
+    ///         Randomness comes solely from <paramref name="random" />: the distribution is only as
+    ///         good as that source, and the method makes NO cryptographic guarantee. Branch
+    ///         probabilities are evaluated in <see cref="double" /> and inherit the weighted pass's
+    ///         IEEE-754 behaviour.
+    ///     </para>
+    /// </summary>
+    /// <param name="random">The random source consumed by the draw.</param>
+    /// <param name="weights">
+    ///     Optional per-variable (positive, negative) literal weights; a variable absent from the
+    ///     map defaults to (1, 1) and every weight must be finite and non-negative. <c>null</c>
+    ///     samples uniformly.
+    /// </param>
+    /// <exception cref="ArgumentException">A weight is negative, NaN or infinite.</exception>
+    /// <exception cref="InvalidOperationException">
+    ///     The circuit has zero total weight (an unsatisfiable formula or all-zero weights): there
+    ///     is no model to draw, and none is fabricated.
+    /// </exception>
+    public IReadOnlyDictionary<string, bool> SampleModel(Random random,
+        IReadOnlyDictionary<string, (double positive, double negative)>? weights = null)
+    {
+        ArgumentNullException.ThrowIfNull(random);
+        var (positive, negative, memo) = PrepareSampling(weights);
+        return SampleOnce(random, positive, negative, memo);
+    }
+
+    /// <summary>
+    ///     Draw <paramref name="count" /> models deterministically from <paramref name="seed" />:
+    ///     the same seed produces the exact same sequence on every run and platform (a fresh
+    ///     <see cref="Random" /> seeded with <paramref name="seed" /> drives the draws). Each model
+    ///     is produced exactly as by <see cref="SampleModel" /> — uniform when
+    ///     <paramref name="weights" /> is <c>null</c>, weighted otherwise, and every model assigns
+    ///     the full set of <see cref="Variables" />. The sequence is lazy; combine with LINQ
+    ///     (Take/Where/…) as needed.
+    ///     <para>No cryptographic guarantee is made about the distribution.</para>
+    /// </summary>
+    /// <param name="count">Number of models to draw (non-negative).</param>
+    /// <param name="seed">Seed for the deterministic pseudo-random sequence.</param>
+    /// <param name="weights">
+    ///     Optional per-variable (positive, negative) literal weights (see
+    ///     <see cref="SampleModel" />); <c>null</c> samples uniformly.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the (potentially long) enumeration between draws.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="count" /> is negative.</exception>
+    /// <exception cref="ArgumentException">A weight is negative, NaN or infinite.</exception>
+    /// <exception cref="InvalidOperationException">
+    ///     The circuit has zero total weight (unsatisfiable or all-zero weights); no model is
+    ///     fabricated.
+    /// </exception>
+    public IEnumerable<IReadOnlyDictionary<string, bool>> SampleModels(int count, int seed,
+        IReadOnlyDictionary<string, (double positive, double negative)>? weights = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        // Validate the weights and the zero-weight/UNSAT contract eagerly (before the first draw)
+        // and compute the weighted node values once; every draw reuses that single bottom-up pass.
+        var (positive, negative, memo) = PrepareSampling(weights);
+        return Draw(count, seed, positive, negative, memo, cancellationToken);
+    }
+
+    private IEnumerable<IReadOnlyDictionary<string, bool>> Draw(int count, int seed,
+        double[] positive, double[] negative, double[] memo, CancellationToken cancellationToken)
+    {
+        var random = new Random(seed);
+        for (var i = 0; i < count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            yield return SampleOnce(random, positive, negative, memo);
+        }
+    }
+
+    // Build the (positive, negative) weight tables and the memoized weighted node values used for
+    // sampling, validating the weights and enforcing the zero-weight/UNSAT contract. A null weight
+    // map (or a variable absent from it) means uniform weight (1, 1).
+    private (double[] positive, double[] negative, double[] memo) PrepareSampling(
+        IReadOnlyDictionary<string, (double positive, double negative)>? weights)
+    {
+        var positive = new double[_inputVariableCount + 1];
+        var negative = new double[_inputVariableCount + 1];
+        for (var v = 1; v <= _inputVariableCount; v++)
+            if (weights is not null && weights.TryGetValue(_inputVariables[v - 1], out var w))
+            {
+                CheckWeight(w.positive, _inputVariables[v - 1]);
+                CheckWeight(w.negative, _inputVariables[v - 1]);
+                positive[v] = w.positive;
+                negative[v] = w.negative;
+            }
+            else
+            {
+                positive[v] = 1.0;
+                negative[v] = 1.0;
+            }
+
+        var memo = new double[_nodes.Length];
+        var done = new bool[_nodes.Length];
+        var total = Weighted(_root, positive, negative, memo, done);
+        if (!(total > 0.0))
+            throw new InvalidOperationException(
+                "Cannot sample: the circuit has zero total weight (an unsatisfiable formula or " +
+                "all-zero weights), so there is no model to draw.");
+        return (positive, negative, memo);
+    }
+
+    private IReadOnlyDictionary<string, bool> SampleOnce(Random random, double[] positive,
+        double[] negative, double[] memo)
+    {
+        var assignment = new Dictionary<int, bool>(_inputVariableCount);
+        SampleNode(_root, random, positive, negative, memo, assignment);
+        // Smoothness guarantees the sampled path assigns every variable in the root's scope, which
+        // is exactly the input variables plus the functionally-determined auxiliaries; project the
+        // auxiliaries away so the result assigns precisely the circuit's Variables.
+        var projected = new Dictionary<string, bool>(_inputVariableCount);
+        foreach (var (variable, value) in assignment)
+            if (variable <= _inputVariableCount)
+                projected[_inputVariables[variable - 1]] = value;
+        return projected;
+    }
+
+    // Top-down mirror of the bottom-up weighted pass: descend from the root, at each decision
+    // choosing a branch with probability proportional to its share of the node's weighted count.
+    private void SampleNode(int id, Random random, double[] positive, double[] negative,
+        double[] memo, Dictionary<int, bool> assignment)
+    {
+        var node = _nodes[id];
+        switch (node.Kind)
+        {
+            case DnnfKind.True:
+                break; // empty scope: nothing to assign
+            case DnnfKind.Literal:
+                assignment[Math.Abs(node.Value)] = node.Value > 0;
+                break;
+            case DnnfKind.Or:
+            {
+                var v = node.Value;
+                var high = VariableWeight(v, positive) * memo[node.Children[1]];
+                var low = VariableWeight(v, negative) * memo[node.Children[0]];
+                // high + low == memo[id] > 0 on every reachable node, so the draw is well defined.
+                // A zero-value branch is never taken: if high == 0 the strict inequality fails and
+                // the low branch is chosen; if low == 0 then NextDouble() * high < high always holds.
+                var takeHigh = random.NextDouble() * (low + high) < high;
+                assignment[v] = takeHigh;
+                SampleNode(node.Children[takeHigh ? 1 : 0], random, positive, negative, memo, assignment);
+                break;
+            }
+            case DnnfKind.And:
+                foreach (var child in node.Children)
+                    SampleNode(child, random, positive, negative, memo, assignment);
+                break;
+            default:
+                // False is unreachable here: the root is checked for positive weight and no chosen
+                // decision branch ever points at a zero-weight (False) child.
+                throw new InvalidOperationException($"Cannot sample node kind: {node.Kind}");
+        }
+    }
+
+    // Every key of a weight map that names an input variable must be finite and non-negative;
+    // unknown keys are ignored, exactly as the weighted-count overloads treat them.
+    private void ValidateWeights(IReadOnlyDictionary<string, (double positive, double negative)> weights)
+    {
+        for (var v = 1; v <= _inputVariableCount; v++)
+            if (weights.TryGetValue(_inputVariables[v - 1], out var w))
+            {
+                CheckWeight(w.positive, _inputVariables[v - 1]);
+                CheckWeight(w.negative, _inputVariables[v - 1]);
+            }
+    }
+
+    private static void CheckWeight(double weight, string variable)
+    {
+        if (double.IsNaN(weight) || double.IsInfinity(weight) || weight < 0.0)
+            throw new ArgumentException(
+                $"Weight for variable '{variable}' must be finite and non-negative, but was {weight}.",
+                "weights");
+    }
+
+    private void EnsureKnownVariable(string variable)
+    {
+        for (var v = 1; v <= _inputVariableCount; v++)
+            if (_inputVariables[v - 1] == variable)
+                return;
+        throw new ArgumentException(
+            $"Variable '{variable}' is not one of the circuit's variables.", nameof(variable));
+    }
+
+    /// <summary>
     ///     Lazily enumerate every model, projected onto the original input variables. Free
     ///     variables (unconstrained in a subtree) expand to both polarities. The count can be
     ///     exponential — combine with Take/TakeWhile or call <see cref="CountModels()" /> first.

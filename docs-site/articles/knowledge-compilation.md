@@ -56,6 +56,35 @@ consistent with `evidence`. Empty evidence reproduces the unconditioned query; a
 assignment yields `0` or `1`. Every evidence/assignment key must be one of the circuit's
 `Variables`, otherwise an `ArgumentException` is thrown.
 
+### Marginals and model sampling
+
+The weighted count also powers probabilistic and configuration queries:
+
+```csharp
+// Weighted marginal probability that a is true:
+//   WeightedModelCount(weights, {a = true}) / WeightedModelCount(weights).
+// With uniform weights this is just the fraction of models in which a is true.
+double pA = circuit.MarginalProbability("a", weights);
+
+// Draw models by standard top-down weighted d-DNNF sampling. weights == null => uniform over
+// the satisfying models; otherwise proportional to each model's weighted-count share. Every
+// sampled model assigns exactly the circuit's Variables.
+IReadOnlyDictionary<string, bool> one = circuit.SampleModel(new Random(), weights);
+
+// Deterministic for a given seed — the same seed yields the same sequence on every run.
+foreach (IReadOnlyDictionary<string, bool> model in circuit.SampleModels(1000, seed: 42))
+{
+    // ...
+}
+```
+
+A zero total weight — an unsatisfiable formula or all-zero weights — has no model to draw, so
+`MarginalProbability`/`SampleModel`/`SampleModels` throw an `InvalidOperationException` rather
+than fabricate one; an unknown marginal variable, or a negative, NaN or infinite weight, is an
+`ArgumentException`. Sampling is pseudo-random with **no cryptographic guarantee**; branch
+probabilities are evaluated in `double` and share the weighted count's floating-point
+behaviour.
+
 `CompileToDnnf(AstNode formula, int nodeBudget = 1_000_000, CancellationToken ct = default)`
 caps the DAG size with `nodeBudget` (a `NodeBudgetExceededException` — a public
 `InvalidOperationException` subtype — is thrown when it is exceeded) and honors the
