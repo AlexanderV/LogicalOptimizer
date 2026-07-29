@@ -372,9 +372,11 @@ internal static class CrossLibraryComparisonHarness
         sb.AppendLine();
         sb.AppendLine("This is the **detailed LogicalOptimizer (\"OUR\") side** of the P0.2 comparison — each");
         sb.AppendLine("engine's own sizes, statuses, exact model counts and (indicative) timings on the shared");
-        sb.AppendLine("corpus. For the **head-to-head against other libraries** (SymPy, PyEDA, CaDiCaL, Kissat,");
-        sb.AppendLine("Z3, d4, LogicNG), read the digested [`merged.md`](merged.md); this file has **no**");
-        sb.AppendLine("competitor columns.");
+        sb.AppendLine("corpus. This file has **no competitor columns**; the head-to-head against other libraries");
+        sb.AppendLine("lives in the digested [`merged.md`](merged.md), where each tool is compared **only where");
+        sb.AppendLine("it applies** (they are different kinds of tools): SymPy / PyEDA on result size");
+        sb.AppendLine("(Tables 1–2), CaDiCaL / Kissat / Z3 on SAT (Table 3), and d4 / LogicNG on model counting");
+        sb.AppendLine("(Table 4).");
         sb.AppendLine();
         sb.AppendLine($"Corpus: `{r.corpus.path}` (`sha256 {r.corpus.sha256[..16]}…`, {r.corpus.functionCount} functions). ");
         sb.AppendLine($"Environment: {m.runtimeIdentifier}, {m.osDescription}, {m.architecture}.");

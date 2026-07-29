@@ -190,6 +190,10 @@ def main(argv=None):
                "literal count (Table 2).\n")
 
     out.append("## How to read the tables\n")
+    out.append("- **Different competitors appear in different tables** — each external tool is compared "
+               "only where it applies (they are different kinds of tools): **SymPy / PyEDA** on result "
+               "size (Tables 1–2), **CaDiCaL / Kissat / Z3** on SAT (Table 3), **d4 / LogicNG** on model "
+               "counting (Table 4). No single table lists all seven.")
     out.append("- Each **row is a corpus function**. The families: `maj*` = majority, `xor*` = parity, "
                "`mux*` = multiplexer, `eq*`/`consensus*` = equality/consensus, "
                "`pairs*`/`chain*`/`collapse*`/`pos*` = structured scaling families (the trailing number "

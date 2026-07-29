@@ -13,6 +13,7 @@ Corpus fingerprint: `sha256 5964fdf799e9c4b4…` (17 functions).
 
 ## How to read the tables
 
+- **Different competitors appear in different tables** — each external tool is compared only where it applies (they are different kinds of tools): **SymPy / PyEDA** on result size (Tables 1–2), **CaDiCaL / Kissat / Z3** on SAT (Table 3), **d4 / LogicNG** on model counting (Table 4). No single table lists all seven.
 - Each **row is a corpus function**. The families: `maj*` = majority, `xor*` = parity, `mux*` = multiplexer, `eq*`/`consensus*` = equality/consensus, `pairs*`/`chain*`/`collapse*`/`pos*` = structured scaling families (the trailing number is roughly the variable count).
 - **OUR** columns are from the committed `our-results.json`; competitor columns are each tool's own output.
 - Cell legend: **`pending`** = tool not run · **`timeout`** = exceeded the shared per-function budget · **`skipped(max-vars)`** = beyond a truth-table tool's 2ⁿ budget (OUR still handles it).

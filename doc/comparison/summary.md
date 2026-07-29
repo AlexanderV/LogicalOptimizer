@@ -2,9 +2,11 @@
 
 This is the **detailed LogicalOptimizer ("OUR") side** of the P0.2 comparison — each
 engine's own sizes, statuses, exact model counts and (indicative) timings on the shared
-corpus. For the **head-to-head against other libraries** (SymPy, PyEDA, CaDiCaL, Kissat,
-Z3, d4, LogicNG), read the digested [`merged.md`](merged.md); this file has **no**
-competitor columns.
+corpus. This file has **no competitor columns**; the head-to-head against other libraries
+lives in the digested [`merged.md`](merged.md), where each tool is compared **only where
+it applies** (they are different kinds of tools): SymPy / PyEDA on result size
+(Tables 1–2), CaDiCaL / Kissat / Z3 on SAT (Table 3), and d4 / LogicNG on model counting
+(Table 4).
 
 Corpus: `tools/comparison_corpus.txt` (`sha256 5964fdf799e9c4b4…`, 17 functions). 
 Environment: .NET 10.0.10, Ubuntu 24.04.4 LTS, X64.
