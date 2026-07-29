@@ -4,11 +4,13 @@
 
 ### 1. **Multi-format Export System**
 
-#### Supported Formats:
+#### Supported Formats (6):
 - **DIMACS CNF** - standard for SAT solvers
 - **BLIF** - Berkeley Logic Interchange Format  
 - **Verilog** - logic circuit description
 - **CSV** - truth tables for analysis
+- **Mathematical notation** - Unicode `∧ ∨ ¬` (see section 6)
+- **LaTeX** - `\land \lor \lnot` for papers
 
 #### Code Usage:
 ```csharp
@@ -25,6 +27,12 @@ string verilog = BooleanExpressionExporter.ToVerilog("!(a & b)", "logic_gate");
 
 // Export truth table to CSV
 string csv = BooleanExpressionExporter.TruthTableToCsv("a & b | c");
+
+// Export to Unicode mathematical notation
+string math = BooleanExpressionExporter.ToMathematicalNotation("a & (b | c)"); // a ∧ (b ∨ c)
+
+// Export to LaTeX
+string latex = BooleanExpressionExporter.ToLatex("a & b | c");                 // a \land b \lor c
 ```
 
 ### 2. **Optimization Quality Analysis System**
@@ -80,7 +88,10 @@ var impNode = new ImpNode(varA, varB);
 
 #### Console command:
 ```bash
-LogicalOptimizer.exe --benchmark
+# installed CLI tool
+logical-optimizer --benchmark
+# or from source
+dotnet run --project LogicalOptimizer.Cli -- --benchmark
 ```
 
 #### Capabilities:
@@ -156,12 +167,12 @@ string mathNotation = BooleanExpressionExporter.ToMathematicalNotation("a & (b |
 ## 📊 Achieved Results
 
 ### ✅ Full specification compliance (100%)
-- All requirements implemented and tested (1000+ CI tests, all passing)
+- All requirements implemented and tested (1150+ CI tests, all passing)
 - Console interface fully complies with specification
 - All constraints correctly applied
 
 ### 🚀 Extended functionality
-- **4 export formats** for integration with external tools
+- **6 export formats** for integration with external tools (DIMACS, BLIF, Verilog, CSV, Mathematical, LaTeX)
 - **Quality analysis system** with 8 different metrics
 - **3 additional operators** with optimization rules
 - **Comprehensive benchmarking system**
@@ -174,7 +185,7 @@ string mathNotation = BooleanExpressionExporter.ToMathematicalNotation("a & (b |
 - All performance constraints met
 
 ### 🔬 Code quality
-- **1000+ automated CI tests** cover the public API across ten techniques
+- **1150+ automated CI tests** cover the public API across ten techniques
 - **Comprehensive documentation** for all components
 - **Modular architecture** for easy extension
 - **Error handling** at all levels

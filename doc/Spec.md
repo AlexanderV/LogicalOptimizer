@@ -457,14 +457,18 @@ Multi-pass optimization until reaching fixed point
 ### 6.1 Console Application
 
 #### 6.1.1 Command Line Format
+The CLI ships as the `logical-optimizer` dotnet tool; from a source checkout use
+`dotnet run --project LogicalOptimizer.Cli -- <args>`.
 ```bash
-LogicalOptimizer.exe "<expression>"
-LogicalOptimizer.exe --test                    # run all tests
-LogicalOptimizer.exe --help                    # show help
-LogicalOptimizer.exe --verbose "<expression>"   # detailed output with metrics
-LogicalOptimizer.exe --demo                    # run comprehensive demo
-LogicalOptimizer.exe --benchmark               # run performance benchmarks
+logical-optimizer "<expression>"
+logical-optimizer --help                     # show help (also -h)
+logical-optimizer --verbose "<expression>"   # detailed output with metrics + minimality status
+logical-optimizer --cnf "<expression>"       # CNF only (also --dnf, --anf, --advanced, --truth-table)
+logical-optimizer --outputs=Sum,Carry "<csv>"  # multi-output CSV minimization
+logical-optimizer --demo                     # run the feature demonstration
+logical-optimizer --benchmark                # run performance benchmarks
 ```
+The full test suite runs via `dotnet test` (there is no `--test` CLI flag).
 
 #### 6.1.2 Output Format
 ```

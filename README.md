@@ -47,7 +47,7 @@ LogicalOptimizer is a lightweight, dependency-free .NET library and CLI for pars
 - ✅ **Truth Table Generation**: up to 20 variables; equivalence checking itself scales beyond that via the SAT miter (`EquivalenceChecker`, and `OptimizationResult.IsEquivalent()` / three-valued `CheckEquivalence()`)
 - ✅ **Multiple Export Formats**: DIMACS, BLIF, Verilog, CSV, Mathematical notation, LaTeX
 - ✅ **Performance Analytics**: Detailed metrics and benchmarking
-- ✅ **Comprehensive Testing**: 1035 audited CI tests (repeatedly audited for representativeness, logical correctness, strength and non-duplication) across ten systematic techniques — property-based (CsCheck), metamorphic, algebraic, differential (with SymPy and Z3 as external oracles), fuzzing, characterization golden master, snapshot approval (Verify), architecture rules (ArchUnitNET), pairwise option coverage, and Stryker.NET mutation testing with per-module survivor triage (see [doc/TESTING.md](doc/TESTING.md))
+- ✅ **Comprehensive Testing**: 1152 audited CI tests (repeatedly audited for representativeness, logical correctness, strength and non-duplication — most recently 2026-07-29) across ten systematic techniques — property-based (CsCheck), metamorphic, algebraic, differential (with SymPy and Z3 as external oracles), fuzzing, characterization golden master, snapshot approval (Verify), architecture rules (ArchUnitNET), pairwise option coverage, and Stryker.NET mutation testing with per-module survivor triage (see [doc/TESTING.md](doc/TESTING.md))
 - ✅ **Error Protection**: Input validation and infinite loop prevention
 
 ## Result quality vs SymPy / PyEDA
@@ -308,13 +308,15 @@ string blif = BooleanExpressionExporter.ToBlif(expression, "my_circuit");
 // Export to Verilog format (for hardware description)
 string verilog = BooleanExpressionExporter.ToVerilog(expression, "my_module");
 
-// Export to mathematical notation (Unicode symbols)
+// Export to mathematical notation (Unicode symbols).
+// NOTE: exporters parse through FormulaFactory, so the output is CANONICALLY ordered
+// (the single literal c sorts before the a & b term) — the semantics are unchanged.
 string math = BooleanExpressionExporter.ToMathematicalNotation(expression);
-// Result: "a ∧ b ∨ c"
+// Result: "c ∨ a ∧ b"
 
 // Export to LaTeX format (for academic papers and documents)
 string latex = BooleanExpressionExporter.ToLatex(expression);
-// Result: "a \\land b \\lor c"
+// Result: "c \\lor a \\land b"
 
 // Export truth table to CSV
 string csv = BooleanExpressionExporter.TruthTableToCsv(expression);
@@ -573,7 +575,7 @@ graph LR
 
 ## Project Statistics
 
-- **Total tests**: 1035 CI cases (all passing; performance and exhaustive-sweep categories run outside CI via --filter; count is a snapshot, not a contract; suite fully audited 2026-07 — see doc/TESTING.md Part 4)
+- **Total tests**: 1152 CI cases (all passing; performance and exhaustive-sweep categories run outside CI via --filter; count is a snapshot, not a contract; suite fully audited 2026-07-29 — see doc/TESTING.md Part 4)
 - **Code coverage**: ~89% line coverage (CI enforces an 80% floor)
 - **Mutation scores** (Stryker.NET, per module): Transformations 100%, TruthTableMinimizer 82.6%, EspressoLite 72.5%, SatSolver 52.5% — every survivor killed or classified equivalent (doc/TESTING.md Part 5)
 - **Minimization engines**: 4 zones — exact QM (≤12 vars, proven ≤10), SAT prime cover (13–24), Espresso-lite cube lists (beyond), plus the precomputed 3-input subcircuit library
