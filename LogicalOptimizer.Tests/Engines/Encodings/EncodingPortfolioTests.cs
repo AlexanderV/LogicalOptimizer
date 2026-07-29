@@ -61,13 +61,13 @@ public class EncodingPortfolioTests
     {
         long checks = 0;
         for (var n = minN; n <= maxN; n++)
-        for (var k = 0; k <= n + 1; k++)
-        foreach (var encoding in CardinalityEncodings)
-        {
-            checks += AssertCardinality(n, k, encoding, "AM", c => c <= k);
-            checks += AssertCardinality(n, k, encoding, "AL", c => c >= k);
-            checks += AssertCardinality(n, k, encoding, "EX", c => c == k);
-        }
+            for (var k = 0; k <= n + 1; k++)
+                foreach (var encoding in CardinalityEncodings)
+                {
+                    checks += AssertCardinality(n, k, encoding, "AM", c => c <= k);
+                    checks += AssertCardinality(n, k, encoding, "AL", c => c >= k);
+                    checks += AssertCardinality(n, k, encoding, "EX", c => c == k);
+                }
 
         return checks;
     }
@@ -203,15 +203,15 @@ public class EncodingPortfolioTests
     public void ExplicitDefaultEncodings_MatchTheParameterlessMethods()
     {
         for (var n = 1; n <= 10; n++)
-        for (var k = 0; k <= n + 1; k++)
-        {
-            var reference = new CnfBuilder(n);
-            CardinalityEncoder.AtMostK(reference, Enumerable.Range(1, n).ToList(), k);
-            var explicitly = new CnfBuilder(n);
-            CardinalityEncoder.AtMostK(explicitly, Enumerable.Range(1, n).ToList(), k,
-                CardinalityEncoding.SequentialCounter);
-            AssertSameCnf(reference, explicitly, $"AtMostK n={n} k={k}");
-        }
+            for (var k = 0; k <= n + 1; k++)
+            {
+                var reference = new CnfBuilder(n);
+                CardinalityEncoder.AtMostK(reference, Enumerable.Range(1, n).ToList(), k);
+                var explicitly = new CnfBuilder(n);
+                CardinalityEncoder.AtMostK(explicitly, Enumerable.Range(1, n).ToList(), k,
+                    CardinalityEncoding.SequentialCounter);
+                AssertSameCnf(reference, explicitly, $"AtMostK n={n} k={k}");
+            }
 
         var random = new Random(7);
         for (var i = 0; i < 100; i++)

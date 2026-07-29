@@ -249,72 +249,72 @@ public sealed partial class DnnfCircuit
                     result = trueId;
                     break;
                 case DnnfKind.Literal:
-                {
-                    var variable = Math.Abs(node.Value);
-                    var pinned = variable <= _inputVariableCount ? evidence[variable] : null;
-                    if (pinned is null)
-                        result = Add(new DnnfNode(DnnfKind.Literal, node.Value, Array.Empty<int>()));
-                    else
-                        result = node.Value > 0 == pinned.Value ? trueId : falseId;
-                    break;
-                }
-                case DnnfKind.Or:
-                {
-                    var variable = node.Value;
-                    var pinned = variable <= _inputVariableCount ? evidence[variable] : null;
-                    if (pinned is null)
                     {
-                        var low = Rewrite(node.Children[0]);
-                        var high = Rewrite(node.Children[1]);
-                        // Keep the decision even if one branch is False; the variable stays in
-                        // scope (smoothness), and a False branch contributes zero to the count.
-                        result = low == falseId && high == falseId
-                            ? falseId
-                            : Add(new DnnfNode(DnnfKind.Or, variable, new[] { low, high }));
+                        var variable = Math.Abs(node.Value);
+                        var pinned = variable <= _inputVariableCount ? evidence[variable] : null;
+                        if (pinned is null)
+                            result = Add(new DnnfNode(DnnfKind.Literal, node.Value, Array.Empty<int>()));
+                        else
+                            result = node.Value > 0 == pinned.Value ? trueId : falseId;
+                        break;
                     }
-                    else
+                case DnnfKind.Or:
                     {
-                        // Pin the decision variable and keep only the consistent branch, but keep
-                        // the variable represented: Lit(v = pinned) AND the restricted branch. The
-                        // literal's scope {v} is disjoint from the branch's, so the AND stays
-                        // decomposable and the circuit stays smooth.
-                        var branch = Rewrite(pinned.Value ? node.Children[1] : node.Children[0]);
-                        if (branch == falseId)
+                        var variable = node.Value;
+                        var pinned = variable <= _inputVariableCount ? evidence[variable] : null;
+                        if (pinned is null)
                         {
-                            result = falseId;
+                            var low = Rewrite(node.Children[0]);
+                            var high = Rewrite(node.Children[1]);
+                            // Keep the decision even if one branch is False; the variable stays in
+                            // scope (smoothness), and a False branch contributes zero to the count.
+                            result = low == falseId && high == falseId
+                                ? falseId
+                                : Add(new DnnfNode(DnnfKind.Or, variable, new[] { low, high }));
                         }
                         else
                         {
-                            var literal = Add(new DnnfNode(DnnfKind.Literal,
-                                pinned.Value ? variable : -variable, Array.Empty<int>()));
-                            result = branch == trueId
-                                ? literal
-                                : MakeAnd(new List<int> { literal, branch });
+                            // Pin the decision variable and keep only the consistent branch, but keep
+                            // the variable represented: Lit(v = pinned) AND the restricted branch. The
+                            // literal's scope {v} is disjoint from the branch's, so the AND stays
+                            // decomposable and the circuit stays smooth.
+                            var branch = Rewrite(pinned.Value ? node.Children[1] : node.Children[0]);
+                            if (branch == falseId)
+                            {
+                                result = falseId;
+                            }
+                            else
+                            {
+                                var literal = Add(new DnnfNode(DnnfKind.Literal,
+                                    pinned.Value ? variable : -variable, Array.Empty<int>()));
+                                result = branch == trueId
+                                    ? literal
+                                    : MakeAnd(new List<int> { literal, branch });
+                            }
                         }
-                    }
 
-                    break;
-                }
+                        break;
+                    }
                 case DnnfKind.And:
-                {
-                    var operands = new List<int>(node.Children.Length);
-                    var conflict = false;
-                    foreach (var child in node.Children)
                     {
-                        var rewritten = Rewrite(child);
-                        if (rewritten == falseId)
+                        var operands = new List<int>(node.Children.Length);
+                        var conflict = false;
+                        foreach (var child in node.Children)
                         {
-                            conflict = true;
-                            break;
+                            var rewritten = Rewrite(child);
+                            if (rewritten == falseId)
+                            {
+                                conflict = true;
+                                break;
+                            }
+
+                            if (rewritten == trueId) continue; // True has empty scope; drop it
+                            operands.Add(rewritten);
                         }
 
-                        if (rewritten == trueId) continue; // True has empty scope; drop it
-                        operands.Add(rewritten);
+                        result = conflict ? falseId : MakeAnd(operands);
+                        break;
                     }
-
-                    result = conflict ? falseId : MakeAnd(operands);
-                    break;
-                }
                 default:
                     throw new InvalidOperationException($"Unknown node kind: {node.Kind}");
             }
@@ -366,16 +366,16 @@ public sealed partial class DnnfCircuit
                 result = LiteralConsistent(node.Value, evidence) ? BigInteger.One : BigInteger.Zero;
                 break;
             case DnnfKind.Or:
-            {
-                var pinned = node.Value <= _inputVariableCount ? evidence[node.Value] : null;
-                if (pinned is null)
-                    result = CountWithEvidence(node.Children[0], evidence, memo, done)
-                             + CountWithEvidence(node.Children[1], evidence, memo, done);
-                else
-                    // Only the branch consistent with the evidence contributes.
-                    result = CountWithEvidence(node.Children[pinned.Value ? 1 : 0], evidence, memo, done);
-                break;
-            }
+                {
+                    var pinned = node.Value <= _inputVariableCount ? evidence[node.Value] : null;
+                    if (pinned is null)
+                        result = CountWithEvidence(node.Children[0], evidence, memo, done)
+                                 + CountWithEvidence(node.Children[1], evidence, memo, done);
+                    else
+                        // Only the branch consistent with the evidence contributes.
+                        result = CountWithEvidence(node.Children[pinned.Value ? 1 : 0], evidence, memo, done);
+                    break;
+                }
             case DnnfKind.And:
                 result = BigInteger.One;
                 foreach (var child in node.Children)
@@ -453,21 +453,21 @@ public sealed partial class DnnfCircuit
                     : 0.0;
                 break;
             case DnnfKind.Or:
-            {
-                var v = node.Value;
-                var pinned = v <= _inputVariableCount ? evidence[v] : null;
-                if (pinned is null)
-                    result = VariableWeight(v, negative)
-                             * WeightedWithEvidence(node.Children[0], positive, negative, evidence, memo, done)
-                             + VariableWeight(v, positive)
-                             * WeightedWithEvidence(node.Children[1], positive, negative, evidence, memo, done);
-                else
-                    // Only the consistent branch survives, weighted by the pinned literal.
-                    result = VariableWeight(v, pinned.Value ? positive : negative)
-                             * WeightedWithEvidence(node.Children[pinned.Value ? 1 : 0], positive, negative,
-                                 evidence, memo, done);
-                break;
-            }
+                {
+                    var v = node.Value;
+                    var pinned = v <= _inputVariableCount ? evidence[v] : null;
+                    if (pinned is null)
+                        result = VariableWeight(v, negative)
+                                 * WeightedWithEvidence(node.Children[0], positive, negative, evidence, memo, done)
+                                 + VariableWeight(v, positive)
+                                 * WeightedWithEvidence(node.Children[1], positive, negative, evidence, memo, done);
+                    else
+                        // Only the consistent branch survives, weighted by the pinned literal.
+                        result = VariableWeight(v, pinned.Value ? positive : negative)
+                                 * WeightedWithEvidence(node.Children[pinned.Value ? 1 : 0], positive, negative,
+                                     evidence, memo, done);
+                    break;
+                }
             case DnnfKind.And:
                 result = 1.0;
                 foreach (var child in node.Children)
@@ -706,18 +706,18 @@ public sealed partial class DnnfCircuit
                 assignment[Math.Abs(node.Value)] = node.Value > 0;
                 break;
             case DnnfKind.Or:
-            {
-                var v = node.Value;
-                var high = VariableWeight(v, positive) * memo[node.Children[1]];
-                var low = VariableWeight(v, negative) * memo[node.Children[0]];
-                // high + low == memo[id] > 0 on every reachable node, so the draw is well defined.
-                // A zero-value branch is never taken: if high == 0 the strict inequality fails and
-                // the low branch is chosen; if low == 0 then NextDouble() * high < high always holds.
-                var takeHigh = random.NextDouble() * (low + high) < high;
-                assignment[v] = takeHigh;
-                SampleNode(node.Children[takeHigh ? 1 : 0], random, positive, negative, memo, assignment);
-                break;
-            }
+                {
+                    var v = node.Value;
+                    var high = VariableWeight(v, positive) * memo[node.Children[1]];
+                    var low = VariableWeight(v, negative) * memo[node.Children[0]];
+                    // high + low == memo[id] > 0 on every reachable node, so the draw is well defined.
+                    // A zero-value branch is never taken: if high == 0 the strict inequality fails and
+                    // the low branch is chosen; if low == 0 then NextDouble() * high < high always holds.
+                    var takeHigh = random.NextDouble() * (low + high) < high;
+                    assignment[v] = takeHigh;
+                    SampleNode(node.Children[takeHigh ? 1 : 0], random, positive, negative, memo, assignment);
+                    break;
+                }
             case DnnfKind.And:
                 foreach (var child in node.Children)
                     SampleNode(child, random, positive, negative, memo, assignment);

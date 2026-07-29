@@ -311,13 +311,13 @@ public sealed class MaxSatSolver
             switch (solver.Solve(assumptions, maxConflictsPerCall, cancellationToken))
             {
                 case SatResult.Satisfiable:
-                {
-                    var model = new bool[_variableCount + 1];
-                    for (var v = 1; v <= _variableCount; v++) model[v] = solver.GetValue(v);
-                    // The model falsifies at most `lowerBound` of weight and optimum ≥ lowerBound,
-                    // so its cost is the proven optimum.
-                    return new MaxSatResult(MaxSatStatus.Optimal, CostOf(model), model);
-                }
+                    {
+                        var model = new bool[_variableCount + 1];
+                        for (var v = 1; v <= _variableCount; v++) model[v] = solver.GetValue(v);
+                        // The model falsifies at most `lowerBound` of weight and optimum ≥ lowerBound,
+                        // so its cost is the proven optimum.
+                        return new MaxSatResult(MaxSatStatus.Optimal, CostOf(model), model);
+                    }
 
                 case SatResult.Unknown:
                     // Budget spent: return the sound incumbent with its bracketing bounds.

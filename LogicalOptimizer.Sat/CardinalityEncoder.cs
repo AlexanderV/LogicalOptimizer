@@ -444,18 +444,18 @@ public static class CardinalityEncoder
         for (var i = 0; i < m; i++) outputs.Add(builder.NewVariable());
 
         for (var alpha = 0; alpha <= left.Count; alpha++)
-        for (var beta = 0; beta <= right.Count; beta++)
-        {
-            var sigma = alpha + beta;
-            if (sigma < 1 || sigma > m) continue;
+            for (var beta = 0; beta <= right.Count; beta++)
+            {
+                var sigma = alpha + beta;
+                if (sigma < 1 || sigma > m) continue;
 
-            // left ≥ alpha AND right ≥ beta ⟹ parent ≥ alpha+beta
-            var clause = new List<int>(3);
-            if (alpha > 0) clause.Add(-left[alpha - 1]);
-            if (beta > 0) clause.Add(-right[beta - 1]);
-            clause.Add(outputs[sigma - 1]);
-            builder.AddClause(clause.ToArray());
-        }
+                // left ≥ alpha AND right ≥ beta ⟹ parent ≥ alpha+beta
+                var clause = new List<int>(3);
+                if (alpha > 0) clause.Add(-left[alpha - 1]);
+                if (beta > 0) clause.Add(-right[beta - 1]);
+                clause.Add(outputs[sigma - 1]);
+                builder.AddClause(clause.ToArray());
+            }
 
         return outputs;
     }
@@ -711,23 +711,23 @@ public static class PseudoBooleanEncoder
         rightEntries.AddRange(right.Select(kv => (kv.Key, kv.Value)));
 
         foreach (var (lv, la) in leftEntries)
-        foreach (var (rv, rb) in rightEntries)
-        {
-            if (lv == 0 && rv == 0) continue;
-            var sum = Math.Min(lv + rv, mu);
-            if (!parent.TryGetValue(sum, out var ov))
+            foreach (var (rv, rb) in rightEntries)
             {
-                ov = builder.NewVariable();
-                parent[sum] = ov;
-            }
+                if (lv == 0 && rv == 0) continue;
+                var sum = Math.Min(lv + rv, mu);
+                if (!parent.TryGetValue(sum, out var ov))
+                {
+                    ov = builder.NewVariable();
+                    parent[sum] = ov;
+                }
 
-            // left ≥ lv AND right ≥ rv ⟹ parent ≥ sum
-            var clause = new List<int>(3);
-            if (la != 0) clause.Add(-la);
-            if (rb != 0) clause.Add(-rb);
-            clause.Add(ov);
-            builder.AddClause(clause.ToArray());
-        }
+                // left ≥ lv AND right ≥ rv ⟹ parent ≥ sum
+                var clause = new List<int>(3);
+                if (la != 0) clause.Add(-la);
+                if (rb != 0) clause.Add(-rb);
+                clause.Add(ov);
+                builder.AddClause(clause.ToArray());
+            }
 
         return parent;
     }

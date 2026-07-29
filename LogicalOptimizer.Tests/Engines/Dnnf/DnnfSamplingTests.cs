@@ -168,7 +168,7 @@ public class DnnfSamplingTests
         // Marginal(a) = (TT + TF) / 39 = (10 + 14) / 39; Marginal(b) = (TT + FT) / 39 = (10 + 15) / 39.
         var circuit = KnowledgeCompilation.CompileToDnnf(Parse("a | b"));
         var weights = new Dictionary<string, (double positive, double negative)>
-            { ["a"] = (2, 3), ["b"] = (5, 7) };
+        { ["a"] = (2, 3), ["b"] = (5, 7) };
         Assert.Equal(24.0 / 39.0, circuit.MarginalProbability("a", weights), 9);
         Assert.Equal(25.0 / 39.0, circuit.MarginalProbability("b", weights), 9);
     }
@@ -249,7 +249,7 @@ public class DnnfSamplingTests
         var ast = Parse("a | b | c");
         var variables = ast.GetVariables().OrderBy(v => v).ToList();
         var weights = new Dictionary<string, (double positive, double negative)>
-            { ["a"] = (3, 1), ["b"] = (2, 1), ["c"] = (1, 2) };
+        { ["a"] = (3, 1), ["b"] = (2, 1), ["c"] = (1, 2) };
 
         var circuit = KnowledgeCompilation.CompileToDnnf(ast);
         var models = AllModels(ast, variables);
@@ -351,7 +351,7 @@ public class DnnfSamplingTests
     {
         var circuit = KnowledgeCompilation.CompileToDnnf(Parse("a | b"));
         var zero = new Dictionary<string, (double positive, double negative)>
-            { ["a"] = (0, 0), ["b"] = (0, 0) };
+        { ["a"] = (0, 0), ["b"] = (0, 0) };
 
         Assert.Throws<InvalidOperationException>(() => circuit.SampleModel(new Random(1), zero));
         Assert.Throws<InvalidOperationException>(() => circuit.SampleModels(3, seed: 1, zero));
@@ -373,7 +373,7 @@ public class DnnfSamplingTests
         var negative = new Dictionary<string, (double positive, double negative)> { ["a"] = (-1, 1) };
         var nan = new Dictionary<string, (double positive, double negative)> { ["b"] = (double.NaN, 1) };
         var infinity = new Dictionary<string, (double positive, double negative)>
-            { ["a"] = (double.PositiveInfinity, 1) };
+        { ["a"] = (double.PositiveInfinity, 1) };
 
         Assert.Throws<ArgumentException>(() => circuit.MarginalProbability("a", negative));
         Assert.Throws<ArgumentException>(() => circuit.SampleModel(new Random(1), nan));
