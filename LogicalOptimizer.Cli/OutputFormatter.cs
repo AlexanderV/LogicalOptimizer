@@ -48,6 +48,9 @@ internal class OutputFormatter
         {
             DisplayStandardOutput(result);
         }
+
+        // --trace is orthogonal to the output mode: append it to whatever was rendered.
+        DisplayTraceIfRequested(result);
     }
 
     private void DisplayTruthTableOnly(string expression)
@@ -119,6 +122,17 @@ internal class OutputFormatter
         }
 
         DisplayTruthTableIfSmall(result);
+    }
+
+    /// <summary>Opt-in diagnostic trace: why this result, engine by engine.</summary>
+    private static void DisplayTraceIfRequested(OptimizationResult result)
+    {
+        if (result.Trace == null) return;
+
+        Console.WriteLine();
+        Console.WriteLine("Trace:");
+        foreach (var entry in result.Trace.Entries)
+            Console.WriteLine($"  {entry}");
     }
 
     /// <summary>Friendly rendering of the minimality provenance for the standard proof report.</summary>

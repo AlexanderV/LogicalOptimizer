@@ -56,7 +56,16 @@ internal static class JsonReportWriter
             Advanced = !string.IsNullOrEmpty(result.Advanced) && result.Advanced != result.Optimized
                 ? result.Advanced
                 : null,
-            Variables = result.Variables
+            Variables = result.Variables,
+            // Present only with --trace. Diagnostic: entry wording/order is not part of the
+            // schema contract, unlike the fields above.
+            Trace = result.Trace?.Entries.Select(e => new JsonTraceEntry
+            {
+                Category = e.Category.ToString(),
+                Step = e.Step,
+                Message = e.Message,
+                Data = e.Data.Count > 0 ? e.Data : null
+            }).ToList()
         };
 
         writer.WriteLine(JsonSerializer.Serialize(report, Options));
@@ -92,7 +101,16 @@ internal static class JsonReportWriter
         public JsonForm? Dnf { get; init; }
         public string? Advanced { get; init; }
         public IReadOnlyList<string>? Variables { get; init; }
+        public IReadOnlyList<JsonTraceEntry>? Trace { get; init; }
         public JsonError? Error { get; init; }
+    }
+
+    private sealed class JsonTraceEntry
+    {
+        public string Category { get; init; } = "";
+        public string Step { get; init; } = "";
+        public string Message { get; init; } = "";
+        public IReadOnlyDictionary<string, string>? Data { get; init; }
     }
 
     private sealed class JsonCost

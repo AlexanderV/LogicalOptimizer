@@ -37,6 +37,7 @@ only when a pattern (XOR / implication / equivalence) is recognized.
 | `--advanced` | Include advanced logical forms (XOR / `→` / `↔`) |
 | `--truth-table` | Output only the truth table |
 | `--format=json` (alias `--json`) | Machine-readable JSON report on stdout (stable `schemaVersion`); diagnostics stay on stderr |
+| `--trace` | Append the [diagnostic trace](diagnostic-trace.md): engine chosen and why, budgets, candidate costs, proof paths, fallbacks |
 | `--cnf-mode=tseitin` | Equisatisfiable linear-size CNF (Tseitin) instead of the distributive CNF |
 | `--cnf-mode=equivalent` | Distributive (logically equivalent) CNF — the default |
 | `--outputs=Name1,Name2 <csv>` | Multi-output CSV minimization with shared cubes |
@@ -137,6 +138,20 @@ logical-optimizer --format=json "a & b | a & c"
 `advanced` appears only when an XOR/`→`/`↔` pattern is detected. On an invalid expression the
 document carries an `error` object instead of the result fields. Fields are only added within
 a `schemaVersion`, never renamed or removed.
+
+### `--trace`
+
+Explains how the result was reached — which engine ran and on what threshold, the budgets in
+force, every candidate's cost, which one was adopted or rejected, how equivalence and
+minimality were discharged, and any fallback. Works with both output formats:
+
+```bash
+logical-optimizer --trace "a & b | a & c"               # under a "Trace:" heading
+logical-optimizer --format=json --trace "a & b | a & c" # as a "trace" array
+```
+
+The trace is diagnostic: unlike the JSON report's fields, its wording and ordering are not a
+stability contract. See [Diagnostic Trace](diagnostic-trace.md).
 
 ## Exit codes
 

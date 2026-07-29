@@ -8,6 +8,8 @@
   href: contracts-and-statuses.md
 - name: Resource Budgets & the Zone Model
   href: budgets-and-zones.md
+- name: Diagnostic Trace
+  href: diagnostic-trace.md
 - name: Normal Forms & Transformations
   href: normal-forms.md
 - name: Two-Level Minimization
@@ -30,5 +32,9 @@
   href: migration-v2.md
 - name: Benchmarks & Comparison
   href: benchmarks.md
+- name: Choosing a Tool
+  href: choosing-a-tool.md
+- name: Case Studies
+  href: case-studies.md
 - name: Testing Overview
   href: testing-overview.md

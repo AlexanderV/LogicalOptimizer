@@ -16,6 +16,14 @@ public sealed class OptimizationOptions
     public bool IncludeDebugInfo { get; init; }
 
     /// <summary>
+    ///     Record how the result was reached — engine choice and its threshold, budgets in force,
+    ///     candidates and their costs, what was adopted or rejected and why, how equivalence and
+    ///     minimality were discharged — into <see cref="OptimizationResult.Trace" />. Off by
+    ///     default; enabling it adds bookkeeping only, never changes the result.
+    /// </summary>
+    public bool IncludeTrace { get; init; }
+
+    /// <summary>
     ///     Multi-level, DAG-aware structural rewriting of the optimized expression via the
     ///     internal And-Inverter Graph (cut-based ABC-style rewrite). The optimizer produces
     ///     one extra candidate — the AIG-rewritten form — and adopts it only if it is verified

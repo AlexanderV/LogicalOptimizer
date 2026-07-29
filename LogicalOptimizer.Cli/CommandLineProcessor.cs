@@ -21,6 +21,7 @@ internal class CommandLineProcessor
         public string Expression { get; set; } = string.Empty;
         public CliOutputFormat Format { get; set; } = CliOutputFormat.Text;
         public bool Verbose { get; set; }
+        public bool Trace { get; set; }
         public bool CnfOnly { get; set; }
         public bool DnfOnly { get; set; }
         public bool AnfOnly { get; set; }
@@ -88,6 +89,9 @@ internal class CommandLineProcessor
                     return options;
                 case "--verbose":
                     options.Verbose = true;
+                    break;
+                case "--trace":
+                    options.Trace = true;
                     break;
                 case "--cnf":
                     options.CnfOnly = true;
@@ -241,6 +245,7 @@ internal class CommandLineProcessor
         Console.WriteLine("  LogicalOptimizer.exe --advanced \"<expression>\" # Include advanced logical forms");
         Console.WriteLine("  LogicalOptimizer.exe --truth-table \"<expression>\" # Output only truth table");
         Console.WriteLine("  LogicalOptimizer.exe --format=json \"<expression>\" # Machine-readable JSON report");
+        Console.WriteLine("  LogicalOptimizer.exe --trace \"<expression>\"   # Explain how the result was reached");
         Console.WriteLine(
             "  LogicalOptimizer.exe --cnf-mode=tseitin \"<expression>\" # Equisatisfiable linear-size CNF");
         Console.WriteLine(

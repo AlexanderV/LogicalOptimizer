@@ -157,6 +157,19 @@ public class DocExamplesTests
     }
 
     [Fact]
+    public void OptimizationTrace_ExplainsEngineChoiceAndProofPath()
+    {
+        var result = new BooleanExpressionOptimizer()
+            .OptimizeExpression("a & b | a & c", new OptimizationOptions { IncludeTrace = true });
+
+        var zone = result.Trace!.Entries.Single(e => e.Step == "ZoneSelection");
+        Assert.Equal("exact-qm", zone.Data["engine"]);
+
+        var guard = result.Trace.Entries.Single(e => e.Step == "SoundnessGuard");
+        Assert.Equal("truth-table", guard.Data["method"]);
+    }
+
+    [Fact]
     public void OptimizationQualityAnalyzer_ProducesReportAndMetrics()
     {
         var result = new BooleanExpressionOptimizer()
@@ -539,6 +552,7 @@ public class DocExamplesTests
             CommandLineProcessor.ParseArguments(new[] { "--format=json", "a & b" }).Format);
         Assert.Equal(CliOutputFormat.Json,
             CommandLineProcessor.ParseArguments(new[] { "--json", "a & b" }).Format);
+        Assert.True(CommandLineProcessor.ParseArguments(new[] { "--trace", "a & b" }).Trace);
 
         var multi = CommandLineProcessor.ParseArguments(new[] { "--outputs=Sum,Carry", "a,b,Sum,Carry" });
         Assert.Equal(new[] { "Sum", "Carry" }, multi.OutputColumns);

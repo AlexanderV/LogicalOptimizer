@@ -35,6 +35,13 @@ public class OptimizationResult
 
     public List<string> Variables { get; set; } = new();
     public OptimizationMetrics? Metrics { get; set; }
+
+    /// <summary>
+    ///     Diagnostic record of how this result was reached (engine choice, budgets, candidates,
+    ///     proofs, fallbacks). Non-null only when <see cref="OptimizationOptions.IncludeTrace" />
+    ///     was set. See <see cref="OptimizationTrace" /> for the stability caveat.
+    /// </summary>
+    public OptimizationTrace? Trace { get; set; }
     public TruthTable? OriginalTruthTable { get; set; }
     public TruthTable? OptimizedTruthTable { get; set; }
 

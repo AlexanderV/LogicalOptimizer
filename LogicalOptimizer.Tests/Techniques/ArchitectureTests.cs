@@ -148,9 +148,10 @@ public class ArchitectureTests
             // Minimization (5)
             "TruthTableMinimizer", "CsvTruthTableParser", "PartialTruthTable",
             "MultiOutputTable", "MultiOutputFunction",
-            // Facade (19)
+            // Facade (22)
             "BooleanExpressionOptimizer", "OptimizationResult", "OptimizationOptions",
             "CnfMode", "MinimizationStatus", "ComputationStatus",
+            "OptimizationTrace", "OptimizationTraceEntry", "OptimizationTraceCategory",
             "EquivalenceChecker", "EquivalenceCheckResult", "IEquivalenceChecker",
             "HybridEquivalenceChecker", "BddEquivalenceChecker",
             "FormulaAnalysis", "BackboneResult", "Transformations",

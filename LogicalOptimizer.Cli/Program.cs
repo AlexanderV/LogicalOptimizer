@@ -103,7 +103,8 @@ internal class Program
                 ComputeAdvancedForms = json || (!options.CnfOnly && !options.DnfOnly && !options.AnfOnly),
                 IncludeMetrics = options.Verbose,
                 IncludeTruthTables = options.Verbose,
-                IncludeDebugInfo = options.Verbose
+                IncludeDebugInfo = options.Verbose,
+                IncludeTrace = options.Trace
             };
 
             var result = optimizer.OptimizeExpression(expression, optimizationOptions);
