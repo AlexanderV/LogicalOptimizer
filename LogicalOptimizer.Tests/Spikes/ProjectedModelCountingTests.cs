@@ -62,12 +62,15 @@ public class ProjectedModelCountingTests
     }
 
     [Fact]
-    [Trait("Category", "SpikeExhaustive")]
+    [Trait("Category", "Exhaustive")]
     public void ExhaustiveAgreement_AllFourVariableFunctions()
     {
         // 2^(2^4) = 65 536 functions x 16 projection subsets = ~1.05M independent agreements.
         // Heavier than a typical unit test but still well under a minute; the roadmap acceptance
         // criterion demands exhaustive verification for all functions up to 4 variables.
+        // Category=Exhaustive (the repo's convention, matched by the CI gate's
+        // Category!=Exhaustive filter) keeps this ~1-minute proof out of the fast PR gate
+        // while it still runs in the full/nightly suite.
         var (checks, satTotal, bddTotal) = RunExhaustive(4);
         _output.WriteLine(
             $"n=4: {checks} (function, projection) checks passed; " +
