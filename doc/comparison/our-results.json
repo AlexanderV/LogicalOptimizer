@@ -16,8 +16,8 @@
       "outputNodes": 9,
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
-      "timeMsMedian": 1.094,
-      "allocatedBytes": 223224
+      "timeMsMedian": 1.0733,
+      "allocatedBytes": 223272
     },
     {
       "zone": "small",
@@ -29,7 +29,7 @@
       "outputNodes": 8,
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
-      "timeMsMedian": 0.766,
+      "timeMsMedian": 0.7618,
       "allocatedBytes": 164848
     },
     {
@@ -42,7 +42,7 @@
       "outputNodes": 9,
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
-      "timeMsMedian": 0.744,
+      "timeMsMedian": 0.2056,
       "allocatedBytes": 93904
     },
     {
@@ -55,8 +55,8 @@
       "outputNodes": 21,
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
-      "timeMsMedian": 3.3181,
-      "allocatedBytes": 750440
+      "timeMsMedian": 3.738,
+      "allocatedBytes": 750488
     },
     {
       "zone": "small",
@@ -68,8 +68,8 @@
       "outputNodes": 13,
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
-      "timeMsMedian": 6.6518,
-      "allocatedBytes": 730048
+      "timeMsMedian": 15.8679,
+      "allocatedBytes": 734008
     },
     {
       "zone": "small",
@@ -81,7 +81,7 @@
       "outputNodes": 8,
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
-      "timeMsMedian": 0.3333,
+      "timeMsMedian": 1.1597,
       "allocatedBytes": 116976
     },
     {
@@ -94,8 +94,8 @@
       "outputNodes": 10,
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
-      "timeMsMedian": 3.8656,
-      "allocatedBytes": 757520
+      "timeMsMedian": 2.4373,
+      "allocatedBytes": 757136
     },
     {
       "zone": "small",
@@ -107,7 +107,7 @@
       "outputNodes": 18,
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
-      "timeMsMedian": 2.7815,
+      "timeMsMedian": 1.0026,
       "allocatedBytes": 319344
     },
     {
@@ -120,8 +120,8 @@
       "outputNodes": 13,
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
-      "timeMsMedian": 3.9715,
-      "allocatedBytes": 1160216
+      "timeMsMedian": 5.2322,
+      "allocatedBytes": 1159928
     },
     {
       "zone": "small",
@@ -133,8 +133,8 @@
       "outputNodes": 16,
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
-      "timeMsMedian": 16.2262,
-      "allocatedBytes": 6303624
+      "timeMsMedian": 17.6339,
+      "allocatedBytes": 6303144
     },
     {
       "zone": "mid",
@@ -146,8 +146,8 @@
       "outputNodes": 19,
       "minimizationStatus": "BudgetExceeded",
       "equivalence": "equivalent",
-      "timeMsMedian": 30.6397,
-      "allocatedBytes": 16896936
+      "timeMsMedian": 51.8145,
+      "allocatedBytes": 16892448
     },
     {
       "zone": "mid",
@@ -159,8 +159,8 @@
       "outputNodes": 8,
       "minimizationStatus": "Heuristic",
       "equivalence": "equivalent",
-      "timeMsMedian": 2.5283,
-      "allocatedBytes": 635744
+      "timeMsMedian": 1.7026,
+      "allocatedBytes": 631592
     },
     {
       "zone": "mid",
@@ -172,8 +172,8 @@
       "outputNodes": 25,
       "minimizationStatus": "Heuristic",
       "equivalence": "equivalent",
-      "timeMsMedian": 9.0291,
-      "allocatedBytes": 1857712
+      "timeMsMedian": 5.6742,
+      "allocatedBytes": 1858336
     },
     {
       "zone": "mid",
@@ -185,8 +185,8 @@
       "outputNodes": 10,
       "minimizationStatus": "Heuristic",
       "equivalence": "equivalent",
-      "timeMsMedian": 4.3599,
-      "allocatedBytes": 1058760
+      "timeMsMedian": 2.6465,
+      "allocatedBytes": 1051680
     },
     {
       "zone": "mid",
@@ -198,8 +198,8 @@
       "outputNodes": 31,
       "minimizationStatus": "Heuristic",
       "equivalence": "equivalent",
-      "timeMsMedian": 12.4793,
-      "allocatedBytes": 2898712
+      "timeMsMedian": 6.0357,
+      "allocatedBytes": 2900056
     },
     {
       "zone": "mid",
@@ -211,8 +211,8 @@
       "outputNodes": 73,
       "minimizationStatus": "Heuristic",
       "equivalence": "equivalent",
-      "timeMsMedian": 58.2894,
-      "allocatedBytes": 27766960
+      "timeMsMedian": 58.346,
+      "allocatedBytes": 26888768
     },
     {
       "zone": "mid",
@@ -224,8 +224,8 @@
       "outputNodes": 37,
       "minimizationStatus": "Heuristic",
       "equivalence": "equivalent",
-      "timeMsMedian": 2.9073,
-      "allocatedBytes": 3450928
+      "timeMsMedian": 3.4622,
+      "allocatedBytes": 3456736
     }
   ],
   "twoLevelMinimization": [
@@ -238,7 +238,7 @@
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
       "abandoned": false,
-      "timeMsMedian": 1.1534
+      "timeMsMedian": 1.842
     },
     {
       "zone": "small",
@@ -249,7 +249,7 @@
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
       "abandoned": false,
-      "timeMsMedian": 0.4311
+      "timeMsMedian": 0.3902
     },
     {
       "zone": "small",
@@ -260,7 +260,7 @@
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
       "abandoned": false,
-      "timeMsMedian": 0.4551
+      "timeMsMedian": 0.1816
     },
     {
       "zone": "small",
@@ -271,7 +271,7 @@
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
       "abandoned": false,
-      "timeMsMedian": 4.171
+      "timeMsMedian": 4.2511
     },
     {
       "zone": "small",
@@ -282,7 +282,7 @@
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
       "abandoned": false,
-      "timeMsMedian": 6.3633
+      "timeMsMedian": 11.8903
     },
     {
       "zone": "small",
@@ -293,7 +293,7 @@
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
       "abandoned": false,
-      "timeMsMedian": 0.4551
+      "timeMsMedian": 0.2789
     },
     {
       "zone": "small",
@@ -304,7 +304,7 @@
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
       "abandoned": false,
-      "timeMsMedian": 3.4508
+      "timeMsMedian": 2.4089
     },
     {
       "zone": "small",
@@ -315,7 +315,7 @@
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
       "abandoned": false,
-      "timeMsMedian": 3.4406
+      "timeMsMedian": 1.2154
     },
     {
       "zone": "small",
@@ -326,7 +326,7 @@
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
       "abandoned": false,
-      "timeMsMedian": 4.3508
+      "timeMsMedian": 3.0127
     },
     {
       "zone": "small",
@@ -337,7 +337,7 @@
       "minimizationStatus": "MinimalProven",
       "equivalence": "equivalent",
       "abandoned": false,
-      "timeMsMedian": 13.5816
+      "timeMsMedian": 14.8526
     },
     {
       "zone": "mid",
@@ -348,7 +348,7 @@
       "minimizationStatus": "BudgetExceeded",
       "equivalence": "equivalent",
       "abandoned": false,
-      "timeMsMedian": 29.4227
+      "timeMsMedian": 44.4188
     },
     {
       "zone": "mid",
@@ -359,7 +359,7 @@
       "minimizationStatus": "Heuristic",
       "equivalence": "equivalent",
       "abandoned": false,
-      "timeMsMedian": 2.6874
+      "timeMsMedian": 1.7827
     },
     {
       "zone": "mid",
@@ -370,7 +370,7 @@
       "minimizationStatus": "Heuristic",
       "equivalence": "equivalent",
       "abandoned": false,
-      "timeMsMedian": 8.6614
+      "timeMsMedian": 5.0679
     },
     {
       "zone": "mid",
@@ -381,7 +381,7 @@
       "minimizationStatus": "Heuristic",
       "equivalence": "equivalent",
       "abandoned": false,
-      "timeMsMedian": 4.1218
+      "timeMsMedian": 2.5358
     },
     {
       "zone": "mid",
@@ -392,7 +392,7 @@
       "minimizationStatus": "Heuristic",
       "equivalence": "equivalent",
       "abandoned": false,
-      "timeMsMedian": 10.3334
+      "timeMsMedian": 5.8472
     },
     {
       "zone": "mid",
@@ -403,7 +403,7 @@
       "minimizationStatus": "Heuristic",
       "equivalence": "equivalent",
       "abandoned": false,
-      "timeMsMedian": 20.343
+      "timeMsMedian": 26.3947
     },
     {
       "zone": "mid",
@@ -414,7 +414,7 @@
       "minimizationStatus": "Heuristic",
       "equivalence": "equivalent",
       "abandoned": false,
-      "timeMsMedian": 3.0121
+      "timeMsMedian": 3.5509
     }
   ],
   "sat": [
@@ -428,7 +428,7 @@
       "conflicts": 5,
       "proofAvailable": true,
       "proofLines": 9,
-      "satSolveMsMedian": 0.116
+      "satSolveMsMedian": 0.0692
     },
     {
       "zone": "small",
@@ -440,7 +440,7 @@
       "conflicts": 4,
       "proofAvailable": true,
       "proofLines": 8,
-      "satSolveMsMedian": 0.0341
+      "satSolveMsMedian": 0.0358
     },
     {
       "zone": "small",
@@ -452,7 +452,7 @@
       "conflicts": 0,
       "proofAvailable": true,
       "proofLines": 1,
-      "satSolveMsMedian": 0.0002
+      "satSolveMsMedian": 0.0001
     },
     {
       "zone": "small",
@@ -464,7 +464,7 @@
       "conflicts": 9,
       "proofAvailable": true,
       "proofLines": 13,
-      "satSolveMsMedian": 0.103
+      "satSolveMsMedian": 0.1164
     },
     {
       "zone": "small",
@@ -476,7 +476,7 @@
       "conflicts": 7,
       "proofAvailable": true,
       "proofLines": 11,
-      "satSolveMsMedian": 0.1026
+      "satSolveMsMedian": 0.119
     },
     {
       "zone": "small",
@@ -488,7 +488,7 @@
       "conflicts": 0,
       "proofAvailable": true,
       "proofLines": 1,
-      "satSolveMsMedian": 0.0002
+      "satSolveMsMedian": 0.0001
     },
     {
       "zone": "small",
@@ -500,7 +500,7 @@
       "conflicts": 1,
       "proofAvailable": true,
       "proofLines": 10,
-      "satSolveMsMedian": 0.0222
+      "satSolveMsMedian": 0.0231
     },
     {
       "zone": "small",
@@ -512,7 +512,7 @@
       "conflicts": 0,
       "proofAvailable": true,
       "proofLines": 1,
-      "satSolveMsMedian": 0.0002
+      "satSolveMsMedian": 0.0001
     },
     {
       "zone": "small",
@@ -524,7 +524,7 @@
       "conflicts": 0,
       "proofAvailable": true,
       "proofLines": 1,
-      "satSolveMsMedian": 0.0002
+      "satSolveMsMedian": 0.0001
     },
     {
       "zone": "small",
@@ -548,7 +548,7 @@
       "conflicts": 0,
       "proofAvailable": true,
       "proofLines": 1,
-      "satSolveMsMedian": 0.0002
+      "satSolveMsMedian": 0.0003
     },
     {
       "zone": "mid",
@@ -560,7 +560,7 @@
       "conflicts": 8,
       "proofAvailable": true,
       "proofLines": 12,
-      "satSolveMsMedian": 0.211
+      "satSolveMsMedian": 0.2018
     },
     {
       "zone": "mid",
@@ -584,7 +584,7 @@
       "conflicts": 10,
       "proofAvailable": true,
       "proofLines": 14,
-      "satSolveMsMedian": 0.252
+      "satSolveMsMedian": 0.2348
     },
     {
       "zone": "mid",
@@ -596,7 +596,7 @@
       "conflicts": 0,
       "proofAvailable": true,
       "proofLines": 1,
-      "satSolveMsMedian": 0.0004
+      "satSolveMsMedian": 0.0002
     },
     {
       "zone": "mid",
@@ -608,7 +608,7 @@
       "conflicts": 66,
       "proofAvailable": true,
       "proofLines": 70,
-      "satSolveMsMedian": 0.2947
+      "satSolveMsMedian": 0.5592
     },
     {
       "zone": "mid",
@@ -620,7 +620,7 @@
       "conflicts": 0,
       "proofAvailable": true,
       "proofLines": 1,
-      "satSolveMsMedian": 0.0001
+      "satSolveMsMedian": 0.0002
     }
   ],
   "bddDnnf": [
@@ -634,8 +634,8 @@
       "dnnfNodes": 20,
       "modelCount": "4",
       "modelCountsAgree": true,
-      "bddCompileMsMedian": 0.0128,
-      "dnnfCompileMsMedian": 0.1308,
+      "bddCompileMsMedian": 0.0111,
+      "dnnfCompileMsMedian": 0.101,
       "bddQueryMsMedian": 0.0009,
       "dnnfQueryMsMedian": 0.0009
     },
@@ -649,10 +649,10 @@
       "dnnfNodes": 19,
       "modelCount": "4",
       "modelCountsAgree": true,
-      "bddCompileMsMedian": 0.0108,
-      "dnnfCompileMsMedian": 0.0468,
-      "bddQueryMsMedian": 0.0004,
-      "dnnfQueryMsMedian": 0.0007
+      "bddCompileMsMedian": 0.0082,
+      "dnnfCompileMsMedian": 0.0566,
+      "bddQueryMsMedian": 0.0005,
+      "dnnfQueryMsMedian": 0.0008
     },
     {
       "zone": "small",
@@ -664,8 +664,8 @@
       "dnnfNodes": 13,
       "modelCount": "2",
       "modelCountsAgree": true,
-      "bddCompileMsMedian": 0.0051,
-      "dnnfCompileMsMedian": 0.0172,
+      "bddCompileMsMedian": 0.0047,
+      "dnnfCompileMsMedian": 0.0165,
       "bddQueryMsMedian": 0.0007,
       "dnnfQueryMsMedian": 0.0004
     },
@@ -679,10 +679,10 @@
       "dnnfNodes": 23,
       "modelCount": "4",
       "modelCountsAgree": true,
-      "bddCompileMsMedian": 0.0154,
-      "dnnfCompileMsMedian": 0.0563,
-      "bddQueryMsMedian": 0.0007,
-      "dnnfQueryMsMedian": 0.0009
+      "bddCompileMsMedian": 0.0146,
+      "dnnfCompileMsMedian": 0.0516,
+      "bddQueryMsMedian": 0.0009,
+      "dnnfQueryMsMedian": 0.0011
     },
     {
       "zone": "small",
@@ -694,9 +694,9 @@
       "dnnfNodes": 25,
       "modelCount": "5",
       "modelCountsAgree": true,
-      "bddCompileMsMedian": 0.0184,
-      "dnnfCompileMsMedian": 0.0895,
-      "bddQueryMsMedian": 0.0023,
+      "bddCompileMsMedian": 0.0173,
+      "dnnfCompileMsMedian": 0.0887,
+      "bddQueryMsMedian": 0.0025,
       "dnnfQueryMsMedian": 0.0015
     },
     {
@@ -709,9 +709,9 @@
       "dnnfNodes": 15,
       "modelCount": "4",
       "modelCountsAgree": true,
-      "bddCompileMsMedian": 0.0078,
-      "dnnfCompileMsMedian": 0.0259,
-      "bddQueryMsMedian": 0.0015,
+      "bddCompileMsMedian": 0.0086,
+      "dnnfCompileMsMedian": 0.0389,
+      "bddQueryMsMedian": 0.0013,
       "dnnfQueryMsMedian": 0.0007
     },
     {
@@ -724,9 +724,9 @@
       "dnnfNodes": 16,
       "modelCount": "27",
       "modelCountsAgree": true,
-      "bddCompileMsMedian": 0.0112,
-      "dnnfCompileMsMedian": 0.0402,
-      "bddQueryMsMedian": 0.0019,
+      "bddCompileMsMedian": 0.0123,
+      "dnnfCompileMsMedian": 0.1734,
+      "bddQueryMsMedian": 0.0029,
       "dnnfQueryMsMedian": 0.0006
     },
     {
@@ -739,9 +739,9 @@
       "dnnfNodes": 19,
       "modelCount": "2",
       "modelCountsAgree": true,
-      "bddCompileMsMedian": 0.1232,
-      "dnnfCompileMsMedian": 0.057,
-      "bddQueryMsMedian": 0.0031,
+      "bddCompileMsMedian": 0.0195,
+      "dnnfCompileMsMedian": 0.0517,
+      "bddQueryMsMedian": 0.0029,
       "dnnfQueryMsMedian": 0.0008
     },
     {
@@ -754,10 +754,10 @@
       "dnnfNodes": 40,
       "modelCount": "175",
       "modelCountsAgree": true,
-      "bddCompileMsMedian": 0.0182,
-      "dnnfCompileMsMedian": 0.12,
-      "bddQueryMsMedian": 0.0022,
-      "dnnfQueryMsMedian": 0.002
+      "bddCompileMsMedian": 0.0619,
+      "dnnfCompileMsMedian": 0.3029,
+      "bddQueryMsMedian": 0.0025,
+      "dnnfQueryMsMedian": 0.0022
     },
     {
       "zone": "small",
@@ -769,10 +769,10 @@
       "dnnfNodes": 50,
       "modelCount": "781",
       "modelCountsAgree": true,
-      "bddCompileMsMedian": 0.0212,
-      "dnnfCompileMsMedian": 0.1423,
+      "bddCompileMsMedian": 0.0248,
+      "dnnfCompileMsMedian": 0.3604,
       "bddQueryMsMedian": 0.0032,
-      "dnnfQueryMsMedian": 0.0026
+      "dnnfQueryMsMedian": 0.0022
     },
     {
       "zone": "mid",
@@ -784,10 +784,10 @@
       "dnnfNodes": 60,
       "modelCount": "3367",
       "modelCountsAgree": true,
-      "bddCompileMsMedian": 0.0341,
-      "dnnfCompileMsMedian": 0.301,
-      "bddQueryMsMedian": 0.0057,
-      "dnnfQueryMsMedian": 0.004
+      "bddCompileMsMedian": 0.036,
+      "dnnfCompileMsMedian": 0.3864,
+      "bddQueryMsMedian": 0.0077,
+      "dnnfQueryMsMedian": 0.0044
     },
     {
       "zone": "mid",
@@ -799,10 +799,10 @@
       "dnnfNodes": 673,
       "modelCount": "16256",
       "modelCountsAgree": true,
-      "bddCompileMsMedian": 0.3593,
-      "dnnfCompileMsMedian": 21.7958,
-      "bddQueryMsMedian": 0.0054,
-      "dnnfQueryMsMedian": 0.1012
+      "bddCompileMsMedian": 0.339,
+      "dnnfCompileMsMedian": 11.3311,
+      "bddQueryMsMedian": 0.0094,
+      "dnnfQueryMsMedian": 0.1087
     },
     {
       "zone": "mid",
@@ -814,10 +814,10 @@
       "dnnfNodes": 80,
       "modelCount": "58975",
       "modelCountsAgree": true,
-      "bddCompileMsMedian": 0.0874,
-      "dnnfCompileMsMedian": 0.4597,
-      "bddQueryMsMedian": 0.0073,
-      "dnnfQueryMsMedian": 0.0067
+      "bddCompileMsMedian": 0.0569,
+      "dnnfCompileMsMedian": 0.3431,
+      "bddQueryMsMedian": 0.0104,
+      "dnnfQueryMsMedian": 0.0063
     },
     {
       "zone": "mid",
@@ -829,10 +829,10 @@
       "dnnfNodes": 2603,
       "modelCount": "261632",
       "modelCountsAgree": true,
-      "bddCompileMsMedian": 1.65,
-      "dnnfCompileMsMedian": 67.3753,
-      "bddQueryMsMedian": 0.0099,
-      "dnnfQueryMsMedian": 0.3159
+      "bddCompileMsMedian": 1.3896,
+      "dnnfCompileMsMedian": 49.9116,
+      "bddQueryMsMedian": 0.012,
+      "dnnfQueryMsMedian": 0.3288
     },
     {
       "zone": "mid",
@@ -844,8 +844,8 @@
       "dnnfNodes": 100,
       "modelCount": "989527",
       "modelCountsAgree": true,
-      "bddCompileMsMedian": 0.1,
-      "dnnfCompileMsMedian": 0.5781,
+      "bddCompileMsMedian": 0.0666,
+      "dnnfCompileMsMedian": 0.3991,
       "bddQueryMsMedian": 0.0122,
       "dnnfQueryMsMedian": 0.0061
     },
@@ -859,10 +859,10 @@
       "dnnfNodes": 2572,
       "modelCount": "3438828",
       "modelCountsAgree": true,
-      "bddCompileMsMedian": 0.3139,
-      "dnnfCompileMsMedian": 27.8065,
-      "bddQueryMsMedian": 0.0322,
-      "dnnfQueryMsMedian": 0.2354
+      "bddCompileMsMedian": 0.3584,
+      "dnnfCompileMsMedian": 31.2741,
+      "bddQueryMsMedian": 0.0317,
+      "dnnfQueryMsMedian": 0.2514
     },
     {
       "zone": "mid",
@@ -874,10 +874,10 @@
       "dnnfNodes": 120,
       "modelCount": "16245775",
       "modelCountsAgree": true,
-      "bddCompileMsMedian": 0.0211,
-      "dnnfCompileMsMedian": 0.4903,
-      "bddQueryMsMedian": 0.0076,
-      "dnnfQueryMsMedian": 0.0056
+      "bddCompileMsMedian": 0.0835,
+      "dnnfCompileMsMedian": 0.4396,
+      "bddQueryMsMedian": 0.0149,
+      "dnnfQueryMsMedian": 0.007
     }
   ]
 }
