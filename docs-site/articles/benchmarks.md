@@ -23,7 +23,7 @@ strictly smaller. Competitor numbers are from the Linux CI run
 | consensus3 | 3 | 4 | 4 | 4 |
 | xor2 | 2 | 4 | 4 | 4 |
 | xor3 | 3 | **10** | 12 | 12 |
-| maj4 | 4 | **9** | 12 | 12 |
+| maj4 | 4 | **8** | 12 | 12 |
 | mux2 | 3 | 4 | 4 | 4 |
 | pos6 | 6 | **6** | 24 | 24 |
 | eq5 | 5 | 10 | 10 | 10 |
@@ -36,7 +36,7 @@ strictly smaller. Competitor numbers are from the Linux CI run
 
 **Result size — never larger, often smaller.** On every function LogicalOptimizer
 matches or beats the two-level minimizers: `maj3` 5 vs 6, `xor3` 10 vs 12, `maj4`
-9 vs 12, and `pos6` **6 vs 24**. The reason is a genuine capability difference —
+8 vs 12, and `pos6` **6 vs 24**. The reason is a genuine capability difference —
 `OptimizeExpression` returns a **multi-level (factored)** form, while SymPy and
 PyEDA return a **two-level SOP**. `pos6` is the clearest case: a 6-literal
 product-of-sums stays 6 literals for us but expands to a 24-literal DNF for a

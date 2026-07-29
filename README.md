@@ -64,7 +64,16 @@ Cost: 4 -> 3 literals
 | Industrial logic synthesis | Berkeley ABC |
 | Mature JVM propositional ecosystem | LogicNG |
 
-The table maps needs to tools honestly; it is not a claim of universal superiority.
+The table maps needs to tools honestly; it is not a claim of universal superiority — the full
+scenario-by-scenario breakdown, including where the project is weakest (adoption history), is in
+**[Choosing a Tool](docs-site/articles/choosing-a-tool.md)**, with measured examples in
+**[Case Studies](docs-site/articles/case-studies.md)**.
+
+Need to know *why* a result came out the way it did? Turn on the
+**[diagnostic trace](docs-site/articles/diagnostic-trace.md)** (`IncludeTrace`, or `--trace` on
+the CLI): it records the engine chosen and the threshold behind it, the budgets in force, every
+candidate's cost, what was adopted or rejected, which proof path discharged equivalence, and any
+fallback.
 
 📚 **Full documentation:** [AlexanderV.github.io/LogicalOptimizer](https://AlexanderV.github.io/LogicalOptimizer/) — API reference plus a runnable example for every capability area. **Every code example in the docs and this README is mirrored by an executed, asserted test** in `LogicalOptimizer.Tests/Documentation/DocExamplesTests.cs`, so the shown outputs are real and cannot silently drift. Built by the [`Docs` workflow](.github/workflows/docs.yml) and deployed to GitHub Pages on every push to `main`.
 
@@ -114,7 +123,7 @@ because the default output is **multi-level (factored)**, not two-level SOP:
 
 | Function | Vars | LogicalOptimizer | SymPy | PyEDA |
 |----------|-----:|:----------------:|:-----:|:-----:|
-| maj4 | 4 | **9** | 12 | 12 |
+| maj4 | 4 | **8** | 12 | 12 |
 | xor3 | 3 | **10** | 12 | 12 |
 | pos6 | 6 | **6** | 24 | 24 |
 | collapse14 | 14 | **7** | `timeout` | 7 |
@@ -524,6 +533,7 @@ article; the examples are executed and asserted in
 | Equivalence & backbones | `FormulaAnalysis`, `EquivalenceChecker`, `Bdd`/`HybridEquivalenceChecker` | [Equivalence & backbones](docs-site/articles/equivalence-and-backbones.md) |
 | Exporters & code generation | `BooleanExpressionExporter`, `CSharpExpressionExporter` | [Exporters](docs-site/articles/exporters.md) |
 | Contracts, statuses & budgets | `MinimizationStatus`, `CnfMinimizationStatus`, `ComputationStatus`, `ResourceBudget` | [Contracts & statuses](docs-site/articles/contracts-and-statuses.md), [Budgets & zones](docs-site/articles/budgets-and-zones.md) |
+| Diagnostics: why this result | `OptimizationTrace`, `OptimizationTraceEntry`, `OptimizationTraceCategory` | [Diagnostic trace](docs-site/articles/diagnostic-trace.md) |
 | CLI (all flags incl. `--anf`) | `logical-optimizer` | [CLI usage](docs-site/articles/cli-usage.md) |
 
 - 🔀 **[Migration Guide v1 → v2](MIGRATION-v2.md)** - Breaking changes in 2.0.0 and how to adapt
