@@ -144,7 +144,7 @@ public class OptimizationQualityAnalyzerTests
         };
 
         // Act & Assert: garbage input must not silently produce a quality report
-        Assert.Throws<ArgumentException>(() => OptimizationQualityAnalyzer.AnalyzeOptimization(result));
+        Assert.ThrowsAny<ArgumentException>(() => OptimizationQualityAnalyzer.AnalyzeOptimization(result));
     }
 
     [Fact]

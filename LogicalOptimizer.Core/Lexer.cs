@@ -31,8 +31,10 @@ internal class Lexer
                 case '1':
                     // Constants are exactly one digit; "10", "0a" etc. are errors
                     if (_position + 1 < _input.Length && IsIdentifierChar(_input[_position + 1]))
-                        throw new ArgumentException(
-                            $"Invalid token starting with '{current}' at position {_position}: constants are single digits 0 or 1");
+                        throw new FormulaParseException(new ParseDiagnostic(
+                            ParseErrorCode.InvalidConstant,
+                            $"Invalid token starting with '{current}' at position {_position}: constants are single digits 0 or 1",
+                            _position, 1, _input));
                     tokens.Add(new Token { Type = TokenType.Variable, Value = current.ToString(), Position = _position });
                     _position++;
                     break;
@@ -65,12 +67,17 @@ internal class Lexer
                     }
                     else if (char.IsDigit(current))
                     {
-                        throw new ArgumentException(
-                            $"Invalid token at position {_position}: variables cannot start with a digit");
+                        throw new FormulaParseException(new ParseDiagnostic(
+                            ParseErrorCode.VariableStartsWithDigit,
+                            $"Invalid token at position {_position}: variables cannot start with a digit",
+                            _position, 1, _input));
                     }
                     else
                     {
-                        throw new ArgumentException($"Unexpected character '{current}' at position {_position}");
+                        throw new FormulaParseException(new ParseDiagnostic(
+                            ParseErrorCode.UnexpectedCharacter,
+                            $"Unexpected character '{current}' at position {_position}",
+                            _position, 1, _input));
                     }
 
                     break;

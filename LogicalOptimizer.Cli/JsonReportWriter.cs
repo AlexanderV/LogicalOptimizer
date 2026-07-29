@@ -62,15 +62,21 @@ internal static class JsonReportWriter
         writer.WriteLine(JsonSerializer.Serialize(report, Options));
     }
 
-    public static void WriteError(TextWriter writer, string input, string message)
+    public static void WriteError(TextWriter writer, string input, string message, ParseDiagnostic? diagnostic = null)
     {
-        var report = new JsonReport
-        {
-            SchemaVersion = SchemaVersion,
-            Input = input,
-            Error = new JsonError { Code = "processing_error", Message = message }
-        };
+        var error = diagnostic is null
+            ? new JsonError { Code = "processing_error", Message = message }
+            : new JsonError
+            {
+                Code = diagnostic.Code.ToString(),
+                Message = diagnostic.Message,
+                Position = diagnostic.Position,
+                Length = diagnostic.Length,
+                Expected = diagnostic.Expected.Count > 0 ? diagnostic.Expected : null,
+                Snippet = diagnostic.Snippet
+            };
 
+        var report = new JsonReport { SchemaVersion = SchemaVersion, Input = input, Error = error };
         writer.WriteLine(JsonSerializer.Serialize(report, Options));
     }
 
@@ -106,5 +112,9 @@ internal static class JsonReportWriter
     {
         public string Code { get; init; } = "";
         public string Message { get; init; } = "";
+        public int? Position { get; init; }
+        public int? Length { get; init; }
+        public IReadOnlyList<string>? Expected { get; init; }
+        public string? Snippet { get; init; }
     }
 }

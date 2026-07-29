@@ -118,9 +118,16 @@ internal class Program
         }
         catch (Exception ex)
         {
+            // The facade wraps a parse failure, so the structured diagnostic may be the inner one.
+            var diagnostic = (ex as FormulaParseException ?? ex.InnerException as FormulaParseException)?.Diagnostic;
+
             if (options.Format == CliOutputFormat.Json)
-                JsonReportWriter.WriteError(Console.Out, options.Expression, ex.Message);
-            Console.Error.WriteLine($"Error processing expression: {ex.Message}");
+                JsonReportWriter.WriteError(Console.Out, options.Expression, ex.Message, diagnostic);
+
+            // Prefer the clean structured message over the facade's wrapped one.
+            Console.Error.WriteLine($"Error processing expression: {diagnostic?.Message ?? ex.Message}");
+            if (diagnostic is not null)
+                Console.Error.WriteLine(diagnostic.Snippet);
             return 2;
         }
     }

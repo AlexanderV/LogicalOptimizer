@@ -58,6 +58,19 @@ public class DocExamplesTests
         Assert.Equal(3, AstMetrics.GetDepth(ast));
     }
 
+    [Fact]
+    public void FormulaFactory_TryParse_ReportsStructuredDiagnostics()
+    {
+        var f = new FormulaFactory();
+
+        Assert.True(f.TryParse("a & b", out var formula, out _));
+        Assert.Equal("a & b", formula!.ToString());
+
+        Assert.False(f.TryParse("a & & b", out _, out var diagnostic));
+        Assert.Equal(ParseErrorCode.UnexpectedToken, diagnostic!.Code);
+        Assert.Equal(4, diagnostic.Position);
+    }
+
     // ----- Optimizer, options, result, quality analyzer -----
 
     [Fact]

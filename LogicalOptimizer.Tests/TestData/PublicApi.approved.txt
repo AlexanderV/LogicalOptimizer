@@ -269,8 +269,13 @@ namespace LogicalOptimizer
         public LogicalOptimizer.AstNode Or(params LogicalOptimizer.AstNode[] operands) { }
         public LogicalOptimizer.AstNode Or(System.Collections.Generic.IEnumerable<LogicalOptimizer.AstNode> operands) { }
         public LogicalOptimizer.AstNode Parse(string expression) { }
+        public bool TryParse(string expression, out LogicalOptimizer.AstNode? formula, out LogicalOptimizer.ParseDiagnostic? diagnostic) { }
         public LogicalOptimizer.AstNode Variable(string name) { }
         public LogicalOptimizer.AstNode Xor(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right) { }
+    }
+    public sealed class FormulaParseException : System.ArgumentException
+    {
+        public LogicalOptimizer.ParseDiagnostic Diagnostic { get; }
     }
     public sealed class ImpNode : LogicalOptimizer.BinaryNode
     {
@@ -339,6 +344,28 @@ namespace LogicalOptimizer
         public OrNode(System.Collections.Generic.IReadOnlyList<LogicalOptimizer.AstNode> operands) { }
         public OrNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right) { }
         public override string Operator { get; }
+    }
+    public sealed class ParseDiagnostic
+    {
+        public LogicalOptimizer.ParseErrorCode Code { get; }
+        public System.Collections.Generic.IReadOnlyList<string> Expected { get; }
+        public int Length { get; }
+        public string Message { get; }
+        public int Position { get; }
+        public string Snippet { get; }
+        public string Source { get; }
+        public override string ToString() { }
+    }
+    public enum ParseErrorCode
+    {
+        EmptyExpression = 0,
+        UnexpectedCharacter = 1,
+        InvalidConstant = 2,
+        VariableStartsWithDigit = 3,
+        UnexpectedToken = 4,
+        ExpectedToken = 5,
+        UnexpectedEndOfInput = 6,
+        NestingTooDeep = 7,
     }
     public sealed class ResourceBudget
     {

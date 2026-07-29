@@ -28,8 +28,8 @@ public class ParserTests
         var tokens = lexer.Tokenize();
         var parser = new Parser(tokens);
 
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() => parser.Parse());
+        // Act & Assert (FormulaParseException is an ArgumentException)
+        Assert.ThrowsAny<ArgumentException>(() => parser.Parse());
     }
 
     [Fact]

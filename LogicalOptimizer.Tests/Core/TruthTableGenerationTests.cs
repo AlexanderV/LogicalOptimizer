@@ -243,8 +243,8 @@ public class TruthTableGenerationTests
         ];
 
         foreach (var invalidExpression in invalidExpressions)
-            // Assert
-            Assert.Throws<ArgumentException>(() => TruthTable.Generate(invalidExpression));
+            // Assert (FormulaParseException is an ArgumentException)
+            Assert.ThrowsAny<ArgumentException>(() => TruthTable.Generate(invalidExpression));
     }
 
     [Fact]

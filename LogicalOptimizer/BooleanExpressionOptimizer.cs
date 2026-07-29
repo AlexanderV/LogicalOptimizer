@@ -46,7 +46,7 @@ public class BooleanExpressionOptimizer
             var lexer = new Lexer(expression);
             var tokens = lexer.Tokenize();
 
-            var parser = new Parser(tokens, factory);
+            var parser = new Parser(tokens, factory, expression);
             var ast = parser.Parse();
 
             var metrics = options.IncludeMetrics ? new OptimizationMetrics() : null;

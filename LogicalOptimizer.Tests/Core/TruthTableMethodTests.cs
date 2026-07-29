@@ -149,9 +149,9 @@ public class TruthTableMethodTests
     public void TruthTable_AreEquivalent_WithInvalidExpression_ShouldThrow()
     {
         // A parse error must surface as an exception, not read as "not equivalent"
-        Assert.Throws<ArgumentException>(() => TruthTable.AreEquivalent("a &", "a"));
-        Assert.Throws<ArgumentException>(() => TruthTable.AreEquivalent("a", "b &"));
-        Assert.Throws<ArgumentException>(() => TruthTable.AreEquivalent("invalid @#", "also invalid @#"));
+        Assert.ThrowsAny<ArgumentException>(() => TruthTable.AreEquivalent("a &", "a"));
+        Assert.ThrowsAny<ArgumentException>(() => TruthTable.AreEquivalent("a", "b &"));
+        Assert.ThrowsAny<ArgumentException>(() => TruthTable.AreEquivalent("invalid @#", "also invalid @#"));
     }
 
     [Fact]
