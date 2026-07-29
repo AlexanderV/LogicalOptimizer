@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://AlexanderV.github.io/LogicalOptimizer/
+    about: API reference and a runnable example for every capability area.
+  - name: Questions & use-case feedback
+    url: https://github.com/AlexanderV/LogicalOptimizer/discussions
+    about: For open-ended questions and telling us how you use the toolkit.
+  - name: Report a security vulnerability
+    url: https://github.com/AlexanderV/LogicalOptimizer/security/advisories/new
+    about: Please report vulnerabilities privately, never as a public issue.

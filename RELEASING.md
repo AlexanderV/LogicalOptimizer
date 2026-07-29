@@ -47,8 +47,27 @@ git push origin v2.1.0
 ```
 
 `release.yml`: setup .NET 10 → `dotnet build -warnaserror` → `dotnet test` (CI-фільтр) →
-`dotnet pack` 7 пакетів → `dotnet nuget push --skip-duplicate` → **верифікація присутності в
-реєстрі**. Якщо тести впадуть — публікації не буде.
+`dotnet pack` 9 пакетів → **checksums + provenance attestation** → `dotnet nuget push
+--skip-duplicate` → **верифікація присутності в реєстрі** → **installation smoke test**.
+Якщо тести впадуть — публікації не буде.
+
+**Supply-chain гарантії кожного релізу:**
+
+- **детермінований build** — `ContinuousIntegrationBuild=true` автоматично на CI (див.
+  [`Directory.Build.props`](Directory.Build.props)), тому той самий коміт дає ідентичний вихід;
+- **symbol-пакети** — `.snupkg` поруч із кожним `.nupkg` (`dotnet nuget push` вантажить їх
+  автоматично) + SourceLink, тож споживач може зайти дебагером у код;
+- **package validation** — статичні перевірки SDK під час `pack`;
+- **SHA-256 checksums** — `artifacts/SHA256SUMS.txt`, разом із пакетами прикріплюється до run;
+- **build provenance attestation** — підписане твердження, що ці байти зібрані цим workflow із
+  цього коміту. Перевірити опублікований пакет:
+  ```bash
+  gh attestation verify LogicalOptimizer.3.1.0.nupkg --repo AlexanderV/LogicalOptimizer
+  ```
+- **Trusted Publishing (OIDC)** — довготривалого API-ключа не існує взагалі.
+
+Підпис самих NuGet-пакетів author-сертификатом не робимо: для цього потрібен code-signing
+сертифікат. Provenance attestation + checksums дають публічно перевірюване походження без нього.
 
 **Автоматична перевірка присутності:** після push крок «Verify packages on nuget.org» запускає
 [`tools/verify_nuget.ps1`](tools/verify_nuget.ps1), який опитує flat-container-індекс
@@ -61,15 +80,21 @@ pwsh tools/verify_nuget.ps1 -Version 2.1.0
 # швидкий разовий чек без очікування: -MaxAttempts 1
 ```
 
-**Перевірка:** вкладка **Actions** → run «Release»; за ~5–15 хв пакети на nuget.org.
-Smoke-тест:
+**Автоматичний installation smoke test:** останній крок workflow запускає
+[`tools/smoke_install.ps1`](tools/smoke_install.ps1) — він створює тимчасовий проєкт **поза
+репозиторієм** (щоб `Directory.Build.props` і project-references не впливали), ставить
+опублікований пакет саме з nuget.org, проганяє оптимізацію через публічний API з перевіркою
+`IsEquivalent()`/`MinimizationStatus`, тоді ставить CLI як global tool і перевіряє його
+`--format=json` звіт. Присутність в індексі ще не означає придатність — цей крок доводить її.
 
 ```bash
-dotnet new console -n Probe && cd Probe
-dotnet add package LogicalOptimizer
-dotnet tool install --global logical-optimizer
-logical-optimizer "a & b | a & c"
+# локально проти вже опублікованої версії:
+pwsh tools/smoke_install.ps1 -Version 3.1.0
+# без частини з global tool:
+pwsh tools/smoke_install.ps1 -Version 3.1.0 -SkipTool
 ```
+
+**Перевірка:** вкладка **Actions** → run «Release»; за ~5–15 хв пакети на nuget.org.
 
 ## Версіювання та порядок тегів
 

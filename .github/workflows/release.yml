@@ -14,8 +14,9 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write   # OIDC token issuance for Trusted Publishing
-      contents: read    # checkout
+      id-token: write      # OIDC token issuance for Trusted Publishing + provenance signing
+      contents: read       # checkout
+      attestations: write  # build provenance attestations for the published packages
     steps:
       - uses: actions/checkout@v4
 
@@ -45,6 +46,31 @@ jobs:
           dotnet pack LogicalOptimizer.Cli/LogicalOptimizer.Cli.csproj -c Release --no-build -o artifacts /p:Version=${{ env.VERSION }}
           dotnet pack LogicalOptimizer.Full/LogicalOptimizer.Full.csproj -c Release --no-build -o artifacts /p:Version=${{ env.VERSION }}
 
+      # Supply-chain evidence for exactly the bytes about to be published.
+      # SHA-256 checksums make the artifacts independently comparable; the attestation is a
+      # signed, publicly verifiable statement that these packages were built by this workflow
+      # from this commit (verify with: gh attestation verify <file> --repo <owner>/<repo>).
+      - name: Checksums
+        run: |
+          cd artifacts
+          sha256sum *.nupkg *.snupkg > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'artifacts/*.nupkg'
+
+      - name: Upload packages as run artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg-${{ env.VERSION }}
+          path: |
+            artifacts/*.nupkg
+            artifacts/*.snupkg
+            artifacts/SHA256SUMS.txt
+          if-no-files-found: error
+
       # Exchange the GitHub OIDC token for a short-lived nuget.org API key (valid ~1 h);
       # requested right before the push so it cannot expire mid-run.
       - name: NuGet login (OIDC → temporary API key)
@@ -63,3 +89,9 @@ jobs:
       - name: Verify packages on nuget.org
         shell: pwsh
         run: pwsh tools/verify_nuget.ps1 -Version ${{ env.VERSION }}
+
+      # Presence in the index does not prove usability, so install the PUBLISHED package into a
+      # throwaway project outside the repo and assert the library and the CLI tool really work.
+      - name: Installation smoke test (published packages)
+        shell: pwsh
+        run: pwsh tools/smoke_install.ps1 -Version ${{ env.VERSION }}

@@ -1,5 +1,12 @@
 # LogicalOptimizer
 
+[![CI](https://github.com/AlexanderV/LogicalOptimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/AlexanderV/LogicalOptimizer/actions/workflows/ci.yml)
+[![Native AOT](https://github.com/AlexanderV/LogicalOptimizer/actions/workflows/aot.yml/badge.svg)](https://github.com/AlexanderV/LogicalOptimizer/actions/workflows/aot.yml)
+[![NuGet](https://img.shields.io/nuget/v/LogicalOptimizer.svg)](https://www.nuget.org/packages/LogicalOptimizer/)
+[![Downloads](https://img.shields.io/nuget/dt/LogicalOptimizer.svg)](https://www.nuget.org/packages/LogicalOptimizer/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://AlexanderV.github.io/LogicalOptimizer/)
+
 > **Verified Boolean reasoning toolkit for .NET**  
 > Optimize, compare, count, and solve Boolean formulas with zero runtime dependencies.
 
@@ -95,7 +102,7 @@ LogicalOptimizer is a lightweight, dependency-free .NET library and CLI for pars
 - ✅ **Truth Table Generation**: up to 20 variables; equivalence checking itself scales beyond that via the SAT miter (`EquivalenceChecker`, and `OptimizationResult.IsEquivalent()` / three-valued `CheckEquivalence()`)
 - ✅ **Multiple Export Formats**: DIMACS, BLIF, Verilog, CSV, Mathematical notation, LaTeX
 - ✅ **Performance Analytics**: Detailed metrics and benchmarking
-- ✅ **Comprehensive Testing**: 1152 audited CI tests (repeatedly audited for representativeness, logical correctness, strength and non-duplication — most recently 2026-07-29) across ten systematic techniques — property-based (CsCheck), metamorphic, algebraic, differential (with SymPy and Z3 as external oracles), fuzzing, characterization golden master, snapshot approval (Verify), architecture rules (ArchUnitNET), pairwise option coverage, and Stryker.NET mutation testing with per-module survivor triage (see [doc/TESTING.md](doc/TESTING.md))
+- ✅ **Comprehensive Testing**: 1175 audited CI tests (repeatedly audited for representativeness, logical correctness, strength and non-duplication — most recently 2026-07-29) across ten systematic techniques — property-based (CsCheck), metamorphic, algebraic, differential (with SymPy and Z3 as external oracles), fuzzing, characterization golden master, snapshot approval (Verify), architecture rules (ArchUnitNET), pairwise option coverage, and Stryker.NET mutation testing with per-module survivor triage (see [doc/TESTING.md](doc/TESTING.md))
 - ✅ **Error Protection**: Input validation and infinite loop prevention
 
 ## Result quality vs SymPy / PyEDA
@@ -661,7 +668,7 @@ graph LR
 
 ## Project Statistics
 
-- **Total tests**: 1152 CI cases (all passing; performance and exhaustive-sweep categories run outside CI via --filter; count is a snapshot, not a contract; suite fully audited 2026-07-29 — see doc/TESTING.md Part 4)
+- **Total tests**: 1175 CI cases (all passing; performance and exhaustive-sweep categories run outside CI via --filter; count is a snapshot, not a contract; suite fully audited 2026-07-29 — see doc/TESTING.md Part 4)
 - **Code coverage**: ~89% line coverage (CI enforces an 80% floor)
 - **Mutation scores** (Stryker.NET, per module): Transformations 100%, TruthTableMinimizer 82.6%, EspressoLite 72.5%, SatSolver 52.5% — every survivor killed or classified equivalent (doc/TESTING.md Part 5)
 - **Minimization engines**: 4 zones — exact QM (≤12 vars, proven ≤10), SAT prime cover (13–24), Espresso-lite cube lists (beyond), plus the precomputed 3-input subcircuit library
@@ -678,11 +685,32 @@ This project was developed with extensive assistance from large language models 
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+Fork, branch, and open a pull request. Before you do, reproduce the CI gate locally
+(`dotnet format --verify-no-changes`, `dotnet build -warnaserror`, the filtered `dotnet test`) —
+and note that the public API surface is pinned by tests, so an API change has to be regenerated
+deliberately. The details, including the snapshot-approval and API-baseline workflows, are in
+**[CONTRIBUTING.md](CONTRIBUTING.md)**.
+
+## Support & security
+
+- **Questions, bug reports, feature requests** → [SUPPORT.md](SUPPORT.md) (includes the
+  versioning and compatibility policy: what is and is not a stability contract)
+- **Security vulnerabilities** → [SECURITY.md](SECURITY.md) — report privately, never as a
+  public issue
+
+## Supply chain
+
+Releases are published from a tagged commit by the
+[Release workflow](.github/workflows/release.yml) using nuget.org Trusted Publishing (OIDC), so
+no long-lived API key exists. Each release is built deterministically, ships SourceLink metadata
+and a separate `.snupkg` symbol package, carries SHA-256 checksums and a GitHub
+[build provenance attestation](https://docs.github.com/actions/security-guides/using-artifact-attestations),
+and is then verified twice: that every package is indexed on nuget.org, and that the *published*
+package actually works when installed into a clean project. Verify a downloaded package yourself:
+
+```bash
+gh attestation verify LogicalOptimizer.3.1.0.nupkg --repo AlexanderV/LogicalOptimizer
+```
 
 ## License
 
