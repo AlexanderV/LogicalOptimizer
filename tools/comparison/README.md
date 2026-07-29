@@ -14,10 +14,12 @@ the OUR column the competitor columns merge into.
 ## One controlled environment (recommended): the container
 
 The methodology requires a **single Linux runner** for every tool. [`Dockerfile`](Dockerfile)
-bundles the OUR side (.NET SDK) with every competitor — SymPy, PyEDA, CaDiCaL, Kissat, d4
+bundles the OUR side (.NET SDK) with every competitor — SymPy, PyEDA, CaDiCaL, Kissat, Z3, d4
 and LogicNG — and [`run_all_in_container.sh`](run_all_in_container.sh) runs the whole
 comparison from the one committed corpus and writes the artifacts back under
-`doc/comparison/` (including the merged [`merged.md`](../../doc/comparison/merged.md)):
+`doc/comparison/` (including the merged [`merged.md`](../../doc/comparison/merged.md)). Every
+competitor is **version-pinned** for reproducibility (base image by digest, Python tools by
+exact version, SAT/#SAT solvers by commit hash, LogicNG by release):
 
 ```bash
 docker build -t logicopt-p0p2 tools/comparison
@@ -55,7 +57,8 @@ given tool is already installed.
 |-------|---------|---------------|-------|
 | 1 & 2 | [`../compare_sympy_pyeda.py`](../compare_sympy_pyeda.py) | SymPy, PyEDA (`pip`) | `SymPy lits`, `PyEDA lits` |
 | 3 | [`run_sat_competitors.sh`](run_sat_competitors.sh) | CaDiCaL / Kissat (`PATH`) | `CaDiCaL`, `Kissat` |
-| 4 (#SAT) | [`run_modelcount_competitors.sh`](run_modelcount_competitors.sh) | d4 / c2d (`PATH`) | `c2d/d4 #SAT` |
+| 3 | [`run_z3_competitor.py`](run_z3_competitor.py) | Z3 (`pip z3-solver`) | `Z3` |
+| 4 (#SAT) | [`run_modelcount_competitors.sh`](run_modelcount_competitors.sh) | d4 / c2d (`PATH`) | `d4 #SAT` |
 | 4 (BDD) | [`logicng/`](logicng/) (Maven/Java, LogicNG 2.4.1) | JDK + Maven | `LogicNG #SAT`, `LogicNG nodes` |
 
 ### 1 & 2 — SymPy / PyEDA (already present)
@@ -80,6 +83,17 @@ parses the `s SATISFIABLE` / `s UNSATISFIABLE` line, and prints verdict + time p
 function. Every miter is expected UNSAT (⇒ equivalence-preserving); a `sat` here would
 signal a real bug, not just a competitor difference. A run that exceeds the timeout is
 recorded `timeout`.
+
+### 3 — Z3 (SAT)
+
+```bash
+python tools/comparison/run_z3_competitor.py doc/comparison/sat-cnf 20
+```
+
+Solves each `*.miter.cnf` with Z3's Python bindings under the shared timeout and prints a
+`Z3 verdict` + `Z3 ms` column. Same expectation as CaDiCaL / Kissat: every miter is UNSAT
+(⇒ equivalence-preserving). Self-skips when the `z3` module is absent; a solve past the
+budget is `timeout` (Z3 `unknown`), never a failure.
 
 ### 4 — c2d / d4 (#SAT model counting)
 
@@ -119,7 +133,7 @@ come only from `doc/comparison/our-results.json`. A tiny merge helper is provide
 
 ```bash
 python tools/comparison/merge_results.py doc/comparison/our-results.json \
-  --sympy sympy_out.md --sat sat_out.md \
+  --sympy sympy_out.md --sat sat_out.md --z3 z3_out.md \
   --modelcount mc_out.md --logicng logicng_out.md   # any subset; missing inputs stay `pending`
 ```
 

@@ -43,15 +43,19 @@ echo "== 2/6 SymPy / PyEDA =="
 python3 tools/compare_sympy_pyeda.py --timeout "$TIMEOUT_SYMPY" --max-vars "$MAX_VARS_TRUTHTABLE" \
     > "$OUT/sympy_out.md" 2> "$OUT/sympy_out.log" || true
 
-echo "== 3/6 CaDiCaL / Kissat (equivalence miters) =="
+echo "== 3/7 CaDiCaL / Kissat (equivalence miters) =="
 bash tools/comparison/run_sat_competitors.sh "$SATDIR" "$TIMEOUT_SAT" \
     > "$OUT/sat_out.md" 2> "$OUT/sat_out.log" || true
 
-echo "== 4/6 d4 / c2d (#SAT on count-preserving function CNF) =="
+echo "== 4/7 Z3 (equivalence miters) =="
+python3 tools/comparison/run_z3_competitor.py "$SATDIR" "$TIMEOUT_SAT" \
+    > "$OUT/z3_out.md" 2> "$OUT/z3_out.log" || true
+
+echo "== 5/7 d4 / c2d (#SAT on count-preserving function CNF) =="
 bash tools/comparison/run_modelcount_competitors.sh "$FUNCDIR" "$TIMEOUT_MC" \
     > "$OUT/mc_out.md" 2> "$OUT/mc_out.log" || true
 
-echo "== 5/6 LogicNG BDD =="
+echo "== 6/7 LogicNG BDD =="
 if [[ -f /opt/logicng-adapter.jar ]]; then
     java -jar /opt/logicng-adapter.jar tools/comparison_corpus.txt "$TIMEOUT_LOGICNG" \
         > "$OUT/logicng_out.md" 2> "$OUT/logicng_out.log" || true
@@ -59,9 +63,9 @@ else
     echo "# LogicNG jar not built in this image; column stays pending." > "$OUT/logicng_out.md"
 fi
 
-echo "== 6/6 merge into merged.md =="
+echo "== 7/7 merge into merged.md =="
 python3 tools/comparison/merge_results.py "$OUT/our-results.json" \
-    --sympy "$OUT/sympy_out.md" --sat "$OUT/sat_out.md" \
+    --sympy "$OUT/sympy_out.md" --sat "$OUT/sat_out.md" --z3 "$OUT/z3_out.md" \
     --modelcount "$OUT/mc_out.md" --logicng "$OUT/logicng_out.md" \
     > "$OUT/merged.md" 2> "$OUT/merged.log" || true
 
@@ -69,7 +73,7 @@ echo "== copy artifacts back to $SRC/$OUT_REL =="
 DEST="$SRC/$OUT_REL"
 mkdir -p "$DEST"
 for f in our-results.json summary.md manifest.json \
-         sympy_out.md sat_out.md mc_out.md logicng_out.md merged.md; do
+         sympy_out.md sat_out.md z3_out.md mc_out.md logicng_out.md merged.md; do
     if [[ -f "$OUT/$f" ]]; then cp "$OUT/$f" "$DEST/$f"; fi
 done
 

@@ -220,6 +220,11 @@ def main(argv=None):
     for zone, name, expression in functions:
         nvars = var_count(expression)
         if args.max_vars is not None and nvars > args.max_vars:
+            # Both tools build a 2^n truth table; past the ceiling that is out of their
+            # budget. Emit an explicit skipped row so the merge shows a reason, not a bare
+            # `pending` that reads like "not run".
+            skip = "skipped(max-vars)"
+            print(f"| {zone} | {name} | {nvars} | {skip} | - | {skip} | - |")
             continue
 
         sym_lits = sym_ms = "—"

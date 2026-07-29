@@ -11,7 +11,10 @@
 #
 # Build (context = tools/comparison):   docker build -t logicopt-p0p2 tools/comparison
 # Run   (repo mounted at /work):        docker run --rm -v <repo>:/work logicopt-p0p2
-FROM mcr.microsoft.com/dotnet/sdk:10.0
+#
+# All competitor versions are PINNED for reproducibility: the base image by digest, the
+# Python tools by exact version, and the SAT/# SAT solvers by commit hash.
+FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:ed034a8bf0b24ded0cbbac07e17825d8e9ebfe21e308191d0f7421eaf5ad4664
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -24,19 +27,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # --- Python competitors (isolated venv; Debian's system python is externally-managed) ---
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
-RUN pip install --no-cache-dir sympy || echo "WARN: sympy install failed (column self-skips)"
-RUN pip install --no-cache-dir pyeda || echo "WARN: pyeda install failed (column self-skips)"
+RUN pip install --no-cache-dir sympy==1.14.0 || echo "WARN: sympy install failed (column self-skips)"
+RUN pip install --no-cache-dir pyeda==0.29.0 || echo "WARN: pyeda install failed (column self-skips)"
+RUN pip install --no-cache-dir 'z3-solver==4.16.0.0' || echo "WARN: z3-solver install failed (column self-skips)"
 
-# --- CaDiCaL (SAT) ---
-RUN git clone --depth 1 https://github.com/arminbiere/cadical /tmp/cadical \
-        && cd /tmp/cadical && ./configure && make -j"$(nproc)" \
+# --- CaDiCaL (SAT), pinned commit ---
+RUN git clone https://github.com/arminbiere/cadical /tmp/cadical \
+        && cd /tmp/cadical && git checkout c60730422e758ef1cebe7aeddf2dda31c996bf04 \
+        && ./configure && make -j"$(nproc)" \
         && cp build/cadical /usr/local/bin/ \
         && rm -rf /tmp/cadical \
         || echo "WARN: cadical build failed (column self-skips)"
 
-# --- Kissat (SAT) ---
-RUN git clone --depth 1 https://github.com/arminbiere/kissat /tmp/kissat \
-        && cd /tmp/kissat && ./configure && make -j"$(nproc)" \
+# --- Kissat (SAT), pinned commit ---
+RUN git clone https://github.com/arminbiere/kissat /tmp/kissat \
+        && cd /tmp/kissat && git checkout 8af8e56f174b778aef3aa45af9f739b2a5f492c2 \
+        && ./configure && make -j"$(nproc)" \
         && cp build/kissat /usr/local/bin/ \
         && rm -rf /tmp/kissat \
         || echo "WARN: kissat build failed (column self-skips)"
@@ -47,8 +53,9 @@ RUN git clone --depth 1 https://github.com/arminbiere/kissat /tmp/kissat \
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libboost-all-dev libmpfr-dev \
     && rm -rf /var/lib/apt/lists/*
-RUN git clone --depth 1 https://github.com/crillab/d4 /tmp/d4 \
-        && cd /tmp/d4 && make -j"$(nproc)" \
+RUN git clone https://github.com/crillab/d4 /tmp/d4 \
+        && cd /tmp/d4 && git checkout 333370cc1e843dd0749c1efe88516e72b5239174 \
+        && make -j"$(nproc)" \
         && cp d4 /usr/local/bin/ \
         && rm -rf /tmp/d4 \
         || echo "WARN: d4 build failed (#SAT competitor column self-skips)"

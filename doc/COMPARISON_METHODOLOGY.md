@@ -14,15 +14,20 @@ one. Read it together with:
 
 ## Scope and honesty boundary
 
-Only the **LogicalOptimizer ("OUR") column** is produced here and committed. The
-competitor tools (LogicNG on the JVM, Z3, SymPy, PyEDA, CaDiCaL / Kissat, c2d / d4)
-are **not** run as part of this deliverable and **no competitor numbers are
-fabricated**. Every competitor cell in the summary is `pending (run <command>)`; the
-exact command that fills it is documented below and in `tools/comparison/`.
+The **LogicalOptimizer ("OUR") column** is produced by the harness and committed, and
+**no competitor number is ever fabricated** — an absent tool self-skips and its cell
+stays `pending`, a tool over the budget records `timeout`. The competitor side is now
+executed in one controlled Linux container ([`tools/comparison/Dockerfile`](../tools/comparison/Dockerfile),
+driven by [`run_all_in_container.sh`](../tools/comparison/run_all_in_container.sh)) that
+bundles the OUR harness with SymPy, PyEDA, CaDiCaL, Kissat, Z3, d4 and LogicNG, all
+version-pinned, and the real numbers are merged into
+[`doc/comparison/merged.md`](comparison/merged.md). The generated `summary.md` still ships
+with competitor cells `pending` — it is the pure OUR-side artifact; `merged.md` is where
+the competitor columns are filled from the same committed corpus.
 
-This is deliberate: OUR side is locally verifiable and reproducible; the competitor
-side must be produced on a machine where the external tool is installed (e.g. CI),
-against the *same committed corpus*, and merged back under the same controls.
+The container is the reproducible **manual / periodic** path; CI stays OUR-only (a fast
+gate) rather than building the solver toolchain on every run. `c2d` is proprietary and not
+in the container, so its #SAT column self-skips (only `d4` runs).
 
 ## Participants
 
@@ -131,17 +136,27 @@ dotnet run -c Release --project LogicalOptimizer.Benchmarks -- comparison-suite
 # add --emit-sat-dimacs doc/comparison/sat-cnf to also write the miter DIMACS
 ```
 
-### Competitor side (pending — run where the tool is installed)
+### Competitor side (one container, or a single adapter where the tool is installed)
+
+The whole competitor side runs from one command:
+
+```bash
+docker build -t logicopt-p0p2 tools/comparison
+docker run --rm -v "$PWD:/work" logicopt-p0p2   # writes doc/comparison/merged.md
+```
+
+Or run one adapter standalone where its tool is installed:
 
 | Table | Command | Requires |
 |-------|---------|----------|
-| 1 & 2 (SymPy / PyEDA) | `python tools/compare_sympy_pyeda.py --max-vars 14 --timeout 10` | `pip install sympy pyeda` (POSIX for the timeout) |
+| 1 & 2 (SymPy / PyEDA) | `python tools/compare_sympy_pyeda.py --max-vars 16 --timeout 20` | `pip install sympy pyeda` (POSIX for the timeout) |
 | 3 (CaDiCaL / Kissat) | `tools/comparison/run_sat_competitors.sh <dimacs-dir>` | `cadical` / `kissat` on `PATH` |
-| 4 (c2d / d4 #SAT) | `tools/comparison/run_modelcount_competitors.sh <dimacs-dir>` | `d4` / `c2d` on `PATH` |
-| 4 (LogicNG BDD) | see `tools/comparison/README.md` | JVM + LogicNG |
+| 3 (Z3) | `python tools/comparison/run_z3_competitor.py <dimacs-dir>` | `pip install z3-solver` |
+| 4 (d4 #SAT) | `tools/comparison/run_modelcount_competitors.sh <func-dimacs-dir>` | `d4` on `PATH` |
+| 4 (LogicNG BDD) | `java -jar logicng-adapter.jar tools/comparison_corpus.txt` | JVM + `tools/comparison/logicng` |
 
 Each competitor adapter reads the **same** `tools/comparison_corpus.txt` (or the
 DIMACS the OUR harness emits from it), applies the identical per-function timeout,
 prints a Markdown column, and **self-skips** cleanly if the tool is absent — never
-fabricating a number. Merging the competitor column into `summary.md` replaces the
-matching `pending` cell; nothing else in the row changes.
+fabricating a number. The merge fills the competitor columns of `merged.md`; `summary.md`
+keeps its `pending` competitor cells as the pure OUR-side artifact.
