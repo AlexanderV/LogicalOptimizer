@@ -97,8 +97,8 @@ internal class OutputFormatter
         // report WHAT was proven about the smaller expression, not just the expression.
         Console.WriteLine($"Equivalent: {(result.IsEquivalent() ? "proven" : "unverified")}");
         Console.WriteLine($"Minimality: {DescribeMinimality(result.MinimizationStatus)}");
-        var originalLiterals = TryCountLiterals(result.Original);
-        var optimizedLiterals = TryCountLiterals(result.Optimized);
+        var originalLiterals = CliExpressionMetrics.TryCountLiterals(result.Original);
+        var optimizedLiterals = CliExpressionMetrics.TryCountLiterals(result.Optimized);
         if (originalLiterals is { } before && optimizedLiterals is { } after)
             Console.WriteLine($"Cost: {before} -> {after} literals");
 
@@ -130,23 +130,6 @@ internal class OutputFormatter
             MinimizationStatus.BudgetExceeded => "unproven (budget exceeded)",
             _ => "heuristic"
         };
-    }
-
-    /// <summary>
-    ///     Literal count of an expression for the cost line, or <c>null</c> when the string
-    ///     cannot be parsed (never let a display helper fail the whole run).
-    /// </summary>
-    private static int? TryCountLiterals(string expression)
-    {
-        try
-        {
-            var ast = new Parser(new Lexer(expression).Tokenize()).Parse();
-            return AstMetrics.CountLiterals(ast);
-        }
-        catch (Exception)
-        {
-            return null;
-        }
     }
 
     private void DisplayTruthTableIfSmall(OptimizationResult result)

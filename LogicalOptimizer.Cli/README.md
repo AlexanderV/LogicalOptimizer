@@ -21,7 +21,8 @@ logical-optimizer "a & b | a & c"
 # Variables: [a, b, c]
 ```
 
-Other flags: `--cnf` / `--dnf` / `--anf` for a single normal form, `--advanced` for
+Other flags: `--format=json` for a stable machine-readable report (CI-friendly; exit codes
+`0`/`1`/`2`), `--cnf` / `--dnf` / `--anf` for a single normal form, `--advanced` for
 XOR/IMP/EQV patterns, `--truth-table`, `--verbose` for metrics, and `--outputs=A,B` for
 multi-output CSV minimization. Run `logical-optimizer --help` for the full list.
 

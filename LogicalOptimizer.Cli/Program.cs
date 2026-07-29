@@ -91,14 +91,16 @@ internal class Program
                 expression = CsvProcessor.ProcessCsvInput(expression);
             }
 
-            // Optimize expression, computing only the artifacts the chosen mode displays
+            // Optimize expression, computing only the artifacts the chosen mode displays.
+            // JSON is a full report, so it always computes CNF/DNF/advanced.
+            var json = options.Format == CliOutputFormat.Json;
             var optimizer = new BooleanExpressionOptimizer();
             var optimizationOptions = new OptimizationOptions
             {
-                ComputeCnf = !options.DnfOnly && !options.Advanced && !options.AnfOnly,
-                ComputeDnf = !options.CnfOnly && !options.Advanced && !options.AnfOnly,
+                ComputeCnf = json || (!options.DnfOnly && !options.Advanced && !options.AnfOnly),
+                ComputeDnf = json || (!options.CnfOnly && !options.Advanced && !options.AnfOnly),
                 CnfMode = options.CnfMode,
-                ComputeAdvancedForms = !options.CnfOnly && !options.DnfOnly && !options.AnfOnly,
+                ComputeAdvancedForms = json || (!options.CnfOnly && !options.DnfOnly && !options.AnfOnly),
                 IncludeMetrics = options.Verbose,
                 IncludeTruthTables = options.Verbose,
                 IncludeDebugInfo = options.Verbose
@@ -107,15 +109,19 @@ internal class Program
             var result = optimizer.OptimizeExpression(expression, optimizationOptions);
 
             // Display results
-            var outputFormatter = new OutputFormatter();
-            outputFormatter.DisplayResult(result, options);
+            if (json)
+                JsonReportWriter.Write(Console.Out, result);
+            else
+                new OutputFormatter().DisplayResult(result, options);
 
             return 0;
         }
         catch (Exception ex)
         {
+            if (options.Format == CliOutputFormat.Json)
+                JsonReportWriter.WriteError(Console.Out, options.Expression, ex.Message);
             Console.Error.WriteLine($"Error processing expression: {ex.Message}");
-            return 1;
+            return 2;
         }
     }
 }

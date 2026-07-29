@@ -238,6 +238,35 @@ dotnet run --project LogicalOptimizer.Cli -- --benchmark
 dotnet run --project LogicalOptimizer.Cli -- --help
 ```
 
+### Machine-readable output (`--format=json`)
+
+For CI and tooling, `--format=json` (alias `--json`, spaced `--format json` also works) emits
+a stable, versioned report to stdout — human diagnostics stay on stderr:
+
+```bash
+dotnet run --project LogicalOptimizer.Cli -- --format=json "a & b | a & c"
+```
+
+```json
+{
+  "schemaVersion": 1,
+  "input": "a & b | a & c",
+  "optimized": "a & (b | c)",
+  "equivalent": true,
+  "minimality": "MinimalProven",
+  "cost": { "originalLiterals": 4, "optimizedLiterals": 3 },
+  "cnf": { "expression": "a & (b | c)", "status": "Computed", "minimality": "MinimalProven" },
+  "dnf": { "expression": "a & b | a & c", "status": "Computed" },
+  "variables": ["a", "b", "c"]
+}
+```
+
+`advanced` (an `a XOR b`-style pattern) appears only when one is detected. On an invalid
+expression the document carries an `error` object (`{ "code": "processing_error", "message": … }`)
+instead of the result fields. Fields are only added within a `schemaVersion`, never renamed or
+removed. **Exit codes:** `0` success · `1` usage error · `2` processing error (e.g. an invalid
+expression).
+
 ## Supported Operators
 
 ### Core Operators

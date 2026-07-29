@@ -522,6 +522,10 @@ public class DocExamplesTests
         Assert.True(CommandLineProcessor.ParseArguments(new[] { "--verbose", "a & b" }).Verbose);
         Assert.Equal(CnfMode.Tseitin,
             CommandLineProcessor.ParseArguments(new[] { "--cnf-mode=tseitin", "a & b" }).CnfMode);
+        Assert.Equal(CliOutputFormat.Json,
+            CommandLineProcessor.ParseArguments(new[] { "--format=json", "a & b" }).Format);
+        Assert.Equal(CliOutputFormat.Json,
+            CommandLineProcessor.ParseArguments(new[] { "--json", "a & b" }).Format);
 
         var multi = CommandLineProcessor.ParseArguments(new[] { "--outputs=Sum,Carry", "a,b,Sum,Carry" });
         Assert.Equal(new[] { "Sum", "Carry" }, multi.OutputColumns);

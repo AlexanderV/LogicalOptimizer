@@ -4,6 +4,13 @@ using System.IO;
 
 namespace LogicalOptimizer;
 
+/// <summary>Rendering mode for the standard expression flow.</summary>
+internal enum CliOutputFormat
+{
+    Text,
+    Json
+}
+
 /// <summary>
 /// Handles command line argument parsing and validation
 /// </summary>
@@ -12,6 +19,7 @@ internal class CommandLineProcessor
     public class CommandLineOptions
     {
         public string Expression { get; set; } = string.Empty;
+        public CliOutputFormat Format { get; set; } = CliOutputFormat.Text;
         public bool Verbose { get; set; }
         public bool CnfOnly { get; set; }
         public bool DnfOnly { get; set; }
@@ -41,11 +49,27 @@ internal class CommandLineProcessor
             return options;
         }
 
+        // Normalize the spaced value form "--format json" into "--format=json" so both work.
+        var normalized = new List<string>(args.Length);
+        for (var i = 0; i < args.Length; i++)
+            if ((args[i] == "--format" || args[i] == "-f") && i + 1 < args.Length)
+            {
+                normalized.Add("--format=" + args[i + 1]);
+                i++;
+            }
+            else
+            {
+                normalized.Add(args[i]);
+            }
+
         var positional = new List<string>();
 
-        foreach (var arg in args)
+        foreach (var arg in normalized)
             switch (arg)
             {
+                case "--json":
+                    options.Format = CliOutputFormat.Json;
+                    break;
                 case "--help":
                 case "-h":
                     options.ShowHelp = true;
@@ -99,6 +123,27 @@ internal class CommandLineProcessor
                         break;
                     }
 
+                    if (arg.StartsWith("--format=", StringComparison.Ordinal))
+                    {
+                        var format = arg["--format=".Length..];
+                        if (format.Equals("json", StringComparison.OrdinalIgnoreCase))
+                        {
+                            options.Format = CliOutputFormat.Json;
+                        }
+                        else if (format.Equals("text", StringComparison.OrdinalIgnoreCase))
+                        {
+                            options.Format = CliOutputFormat.Text;
+                        }
+                        else
+                        {
+                            options.IsValid = false;
+                            options.ErrorMessage = $"Unknown format '{format}'. Supported: text, json.";
+                            return options;
+                        }
+
+                        break;
+                    }
+
                     if (arg.StartsWith("--cnf-mode=", StringComparison.Ordinal))
                     {
                         var mode = arg["--cnf-mode=".Length..];
@@ -142,6 +187,14 @@ internal class CommandLineProcessor
         }
 
         options.Expression = positional[0];
+
+        // JSON is a single-expression report; the multi-output path emits several expressions.
+        if (options.Format == CliOutputFormat.Json && options.OutputColumns.Count > 0)
+        {
+            options.IsValid = false;
+            options.ErrorMessage = "--format=json is not supported together with --outputs.";
+            return options;
+        }
 
         // Auto-detect CSV input
         if (!options.CsvInput) options.CsvInput = DetectCsvInput(options.Expression);
@@ -187,6 +240,7 @@ internal class CommandLineProcessor
         Console.WriteLine("  LogicalOptimizer.exe --anf \"<expression>\"     # Output only ANF (Zhegalkin polynomial)");
         Console.WriteLine("  LogicalOptimizer.exe --advanced \"<expression>\" # Include advanced logical forms");
         Console.WriteLine("  LogicalOptimizer.exe --truth-table \"<expression>\" # Output only truth table");
+        Console.WriteLine("  LogicalOptimizer.exe --format=json \"<expression>\" # Machine-readable JSON report");
         Console.WriteLine(
             "  LogicalOptimizer.exe --cnf-mode=tseitin \"<expression>\" # Equisatisfiable linear-size CNF");
         Console.WriteLine(
@@ -230,6 +284,11 @@ internal class CommandLineProcessor
         Console.WriteLine("  - Maximum expression length: 10,000 characters");
         Console.WriteLine("  - Maximum number of variables: 100");
         Console.WriteLine("  - Maximum nesting depth: 50 levels");
+        Console.WriteLine();
+        Console.WriteLine("Exit codes:");
+        Console.WriteLine("  0  success");
+        Console.WriteLine("  1  usage error (invalid arguments)");
+        Console.WriteLine("  2  processing error (e.g. an invalid expression)");
     }
 
     public static void ShowCsvExample()

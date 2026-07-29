@@ -228,6 +228,52 @@ namespace LogicalOptimizer.Tests
             Assert.False(invalid.IsValid);
         }
 
+        [Theory]
+        [InlineData("--format=json")]
+        [InlineData("--json")]
+        public void ParseArguments_JsonFormat_ShouldSetJsonFormat(string flag)
+        {
+            var result = CommandLineProcessor.ParseArguments(new[] { flag, "a & b" });
+            Assert.True(result.IsValid);
+            Assert.Equal(CliOutputFormat.Json, result.Format);
+            Assert.Equal("a & b", result.Expression);
+        }
+
+        [Fact]
+        public void ParseArguments_FormatSpacedValue_ShouldParse()
+        {
+            // The spaced form "--format json" is normalized to "--format=json".
+            var result = CommandLineProcessor.ParseArguments(new[] { "--format", "json", "a & b" });
+            Assert.True(result.IsValid);
+            Assert.Equal(CliOutputFormat.Json, result.Format);
+            Assert.Equal("a & b", result.Expression);
+        }
+
+        [Fact]
+        public void ParseArguments_DefaultFormat_IsText()
+        {
+            var result = CommandLineProcessor.ParseArguments(new[] { "a & b" });
+            Assert.Equal(CliOutputFormat.Text, result.Format);
+        }
+
+        [Fact]
+        public void ParseArguments_UnknownFormat_ShouldBeInvalid()
+        {
+            var result = CommandLineProcessor.ParseArguments(new[] { "--format=xml", "a & b" });
+            Assert.False(result.IsValid);
+            Assert.Contains("Unknown format", result.ErrorMessage);
+        }
+
+        [Fact]
+        public void ParseArguments_JsonWithOutputs_ShouldBeInvalid()
+        {
+            // JSON is a single-expression report; combining it with multi-output CSV is rejected.
+            var result = CommandLineProcessor.ParseArguments(
+                new[] { "--format=json", "--outputs=Sum,Carry", "a,b,Sum,Carry" });
+            Assert.False(result.IsValid);
+            Assert.Contains("--outputs", result.ErrorMessage);
+        }
+
         [Fact]
         public void ParseArguments_OutputsFlag_Parses()
         {

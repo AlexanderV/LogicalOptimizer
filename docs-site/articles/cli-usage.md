@@ -36,6 +36,7 @@ only when a pattern (XOR / implication / equivalence) is recognized.
 | `--anf` | Output only the Algebraic Normal Form (Zhegalkin / Reed–Muller polynomial) |
 | `--advanced` | Include advanced logical forms (XOR / `→` / `↔`) |
 | `--truth-table` | Output only the truth table |
+| `--format=json` (alias `--json`) | Machine-readable JSON report on stdout (stable `schemaVersion`); diagnostics stay on stderr |
 | `--cnf-mode=tseitin` | Equisatisfiable linear-size CNF (Tseitin) instead of the distributive CNF |
 | `--cnf-mode=equivalent` | Distributive (logically equivalent) CNF — the default |
 | `--outputs=Name1,Name2 <csv>` | Multi-output CSV minimization with shared cubes |
@@ -109,6 +110,41 @@ Carry = a & b
 
 Adds a metrics block including the explicit minimality status, for example
 `Minimality: MinimalProven` (see [Operation contracts & statuses](contracts-and-statuses.md)).
+
+### `--format=json`
+
+Emits a stable, versioned report to stdout for CI and tooling (human diagnostics stay on
+stderr). `--json` is an alias, and the spaced form `--format json` also works.
+
+```bash
+logical-optimizer --format=json "a & b | a & c"
+```
+
+```json
+{
+  "schemaVersion": 1,
+  "input": "a & b | a & c",
+  "optimized": "a & (b | c)",
+  "equivalent": true,
+  "minimality": "MinimalProven",
+  "cost": { "originalLiterals": 4, "optimizedLiterals": 3 },
+  "cnf": { "expression": "a & (b | c)", "status": "Computed", "minimality": "MinimalProven" },
+  "dnf": { "expression": "a & b | a & c", "status": "Computed" },
+  "variables": ["a", "b", "c"]
+}
+```
+
+`advanced` appears only when an XOR/`→`/`↔` pattern is detected. On an invalid expression the
+document carries an `error` object instead of the result fields. Fields are only added within
+a `schemaVersion`, never renamed or removed.
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Success |
+| `1` | Usage error (invalid arguments) |
+| `2` | Processing error (e.g. an invalid expression) |
 
 ## Operators
 

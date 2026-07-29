@@ -1,0 +1,25 @@
+﻿{
+  "schemaVersion": 1,
+  "input": "a & b | a & c | b & c",
+  "optimized": "b & c | a & (b | c)",
+  "equivalent": true,
+  "minimality": "MinimalProven",
+  "cost": {
+    "originalLiterals": 6,
+    "optimizedLiterals": 5
+  },
+  "cnf": {
+    "expression": "(a | b) & (a | c) & (b | c)",
+    "status": "Computed",
+    "minimality": "MinimalProven"
+  },
+  "dnf": {
+    "expression": "a & b | a & c | b & c",
+    "status": "Computed"
+  },
+  "variables": [
+    "a",
+    "b",
+    "c"
+  ]
+}

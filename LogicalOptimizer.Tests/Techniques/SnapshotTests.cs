@@ -48,6 +48,17 @@ public class SnapshotTests
         return Verifier.Verify(output);
     }
 
+    // Pins the machine-readable --format=json schema and every field's value, so any
+    // accidental rename/removal/reorder of the stable CLI report contract fails the gate.
+    [Fact]
+    public Task CliOutput_Json()
+    {
+        var result = new BooleanExpressionOptimizer().OptimizeExpression("a & b | a & c | b & c");
+        var writer = new StringWriter();
+        JsonReportWriter.Write(writer, result);
+        return Verifier.Verify(writer.ToString());
+    }
+
     [Fact]
     public Task CliOutput_Verbose()
     {
