@@ -17,7 +17,7 @@
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
 
     <PackageId>LogicalOptimizer.Bdd</PackageId>
-    <Version>3.0.0</Version>
+    <Version>3.1.0</Version>
     <Authors>Oleksandr Panasenko</Authors>
     <Description>BDD layer of the LogicalOptimizer toolkit: ROBDD with hash-consing, model counting, quantification, restriction, composition and variable-order optimization (static heuristics + sifting).</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

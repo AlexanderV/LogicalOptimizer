@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Targeting 3.1.0 — deployment, credibility and interoperability. All changes are additive;
-the public API baseline diff is additive-only.
+## [3.1.0] - 2026-07-29
+
+Deployment, credibility and interoperability. All changes are additive; the public API
+baseline diff is additive-only.
 
 ### Added
 

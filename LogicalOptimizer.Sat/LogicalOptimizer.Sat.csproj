@@ -17,7 +17,7 @@
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
 
     <PackageId>LogicalOptimizer.Sat</PackageId>
-    <Version>3.0.0</Version>
+    <Version>3.1.0</Version>
     <Authors>Oleksandr Panasenko</Authors>
     <Description>SAT layer of the LogicalOptimizer toolkit: dependency-free CDCL solver (incremental, assumptions, unsat cores, DRAT proofs), Tseitin and Plaisted-Greenbaum CNF encodings, cardinality/pseudo-Boolean constraints and weighted MaxSAT.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

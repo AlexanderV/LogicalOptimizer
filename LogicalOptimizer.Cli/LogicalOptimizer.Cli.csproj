@@ -11,7 +11,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>logical-optimizer</ToolCommandName>
     <PackageId>LogicalOptimizer.Cli</PackageId>
-    <Version>3.0.0</Version>
+    <Version>3.1.0</Version>
     <Authors>Oleksandr Panasenko</Authors>
     <Description>Command-line interface for LogicalOptimizer: boolean expression optimization with provable minimality, truth tables, CSV input, multi-output minimization, and export formats.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

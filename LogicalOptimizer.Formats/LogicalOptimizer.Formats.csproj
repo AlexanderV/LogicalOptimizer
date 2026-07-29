@@ -17,7 +17,7 @@
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
 
     <PackageId>LogicalOptimizer.Formats</PackageId>
-    <Version>3.0.0</Version>
+    <Version>3.1.0</Version>
     <Authors>Oleksandr Panasenko</Authors>
     <Description>Standard-format import/export layer of the LogicalOptimizer toolkit: streaming, budget-aware parsers and round-trip writers for DIMACS CNF, WCNF (weighted partial MaxSAT) and OPB (pseudo-Boolean) problems, each able to hand off directly to the in-house SAT, MaxSAT and pseudo-Boolean engines.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

@@ -14,7 +14,7 @@
     <NoWarn>$(NoWarn);NU5128</NoWarn>
 
     <PackageId>LogicalOptimizer.Full</PackageId>
-    <Version>3.0.0</Version>
+    <Version>3.1.0</Version>
     <Authors>Oleksandr Panasenko</Authors>
     <Description>Convenience meta-package for the LogicalOptimizer toolkit. It contains no code: it depends on the LogicalOptimizer facade, LogicalOptimizer.Dnnf and LogicalOptimizer.Formats so a single `dotnet add package LogicalOptimizer.Full` pulls in every managed package (optimizer, SAT, BDD, minimization, d-DNNF knowledge compilation and DIMACS/WCNF/OPB import/export). Modular users can keep referencing the individual layer packages instead.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
