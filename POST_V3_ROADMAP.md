@@ -58,7 +58,7 @@ LogicNG серед integrated propositional toolkits, і головний роз
 | ☐ | P1.3 | d-DNNF marginals і sampling | не розпочато | v3.2 |
 | ☐ | P1.4 | Production projected model counting | spike завершено; лишилися API-рішення та production implementation | v3.3 |
 | ☐ | P2.3 | Серіалізація BDD/d-DNNF (experimental) | не розпочато | v3.3 |
-| ☐ | P2.1 | Portfolio cardinality/PB encodings | не розпочато | v3.4 |
+| ✅ | P2.1 | Portfolio cardinality/PB encodings | portfolio encodings, `Auto`, `EncodingStats`, fixed corpus і exhaustive-докази реалізовано (additive API) | v3.4 |
 | ☐ | P2.2 | Core-guided MaxSAT | не розпочато | v3.5 |
 
 До завершення v3.1 залишилося:
@@ -586,6 +586,19 @@ public static DnnfCircuit Load(
 - experimental-маркування в API/README до першого stable format version.
 
 ## 11. P2.1 — Portfolio cardinality і PB encodings
+
+**Статус: ✅ реалізовано.** `CardinalityEncoder`/`PseudoBooleanEncoder` отримали
+encoding-selecting overloads (`CardinalityEncoding`, `PseudoBooleanEncoding`) з портфелем
+семантично еквівалентних encodings: cardinality — pairwise, sequential counter (default),
+product (Chen, at-most-one), totalizer; PB — dynamic programming (default), binary-merge
+(binary adder + comparator), generalized totalizer. Parameterless методи зберігають
+byte-identical output (доведено характеризаційним тестом). `Auto` — детермінований: вимірює
+кожен застосовний encoding і бере найменший за `EncodingStats.Cost` (clauses + aux vars), з
+поточним default завжди серед кандидатів, тож **ніколи не гірший за default** (політика §17
+рішення 6, threshold 0 на зафіксованому `tools/encoding_corpus.txt`). `EncodingStats`
+повертає clause/aux counts у diagnostics. Кожен encoding перевірено assignment-by-assignment
+(313 000+ exhaustive перевірок; важкі — `Category=Exhaustive`). OPB feasibility path
+(`PseudoBooleanProblem`) далі маршрутизує через незмінний default.
 
 ### Мета
 

@@ -352,6 +352,22 @@ public class DocExamplesTests
     }
 
     [Fact]
+    public void EncodingPortfolio_SelectsAndReportsSize()
+    {
+        var builder = new CnfBuilder(10);
+        var atMostOne = Enumerable.Range(1, 10).ToList();
+
+        // Pick an encoding explicitly and read back its size.
+        var stats = CardinalityEncoder.AtMostK(builder, atMostOne, 1, CardinalityEncoding.Product);
+        Assert.Equal("29 clauses, 7 aux vars", stats.ToString());
+
+        // Auto measures the applicable encodings and keeps the smallest (never larger than the default).
+        var auto = CardinalityEncoder.AtMostK(new CnfBuilder(10), atMostOne, 1, CardinalityEncoding.Auto);
+        var seq = CardinalityEncoder.AtMostK(new CnfBuilder(10), atMostOne, 1, CardinalityEncoding.SequentialCounter);
+        Assert.True(auto.Cost <= seq.Cost);
+    }
+
+    [Fact]
     public void MaxSatSolver_FindsOptimalCost()
     {
         var solver = new MaxSatSolver(2);

@@ -132,9 +132,10 @@ public class ArchitectureTests
             "FormulaFactory", "AstFormatter", "AstVisualizer", "TruthTable",
             "OptimizationMetrics", "AstMetrics", "ResourceBudget", "ComputationBudgetExceededException",
             "NodeBudgetExceededException", "NormalFormTooLargeException", "CircuitSerializationException",
-            // Sat (10)
+            // Sat (13)
             "SatSolver", "SatResult", "MaxSatSolver", "MaxSatResult", "MaxSatStatus",
             "CnfBuilder", "CardinalityEncoder", "PseudoBooleanEncoder", "CnfEncodingStyle", "TseitinCnf",
+            "CardinalityEncoding", "PseudoBooleanEncoding", "EncodingStats",
             // Bdd (1)
             "BinaryDecisionDiagram",
             // Dnnf (2)

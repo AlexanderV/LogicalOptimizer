@@ -86,6 +86,28 @@ PseudoBooleanEncoder.AtMost(builder, new[] { 1, 2, 3 }, new long[] { 2, 3, 4 }, 
 builder.ToSolver().Solve();    // Satisfiable
 ```
 
+## Encoding portfolio
+
+Every encoder method has an opt-in overload that selects the CNF encoding and returns an
+`EncodingStats` (clauses and auxiliary variables introduced). All encodings are semantically
+equivalent — they trade size against propagation strength. Cardinality offers `Pairwise`,
+`SequentialCounter` (the default), `Product` (at-most-one) and `Totalizer`; pseudo-Boolean
+offers `DynamicProgramming` (the default), `BinaryMerge` and `GeneralizedTotalizer`. The
+**parameterless** methods above keep their exact default output; the portfolio is additive.
+
+```csharp
+var builder = new CnfBuilder(10);
+var atMostOne = Enumerable.Range(1, 10).ToList();
+
+// Pick an encoding explicitly and read back its size:
+var stats = CardinalityEncoder.AtMostK(builder, atMostOne, 1, CardinalityEncoding.Product);
+Console.WriteLine(stats);                 // e.g. "29 clauses, 7 aux vars"
+
+// Or let Auto measure the applicable encodings and keep the smallest (never larger than the
+// default, deterministic within a release):
+var auto = CardinalityEncoder.AtMostK(new CnfBuilder(10), atMostOne, 1, CardinalityEncoding.Auto);
+```
+
 ## Weighted partial MaxSAT
 
 `MaxSatSolver` maximizes satisfied soft-clause weight subject to hard clauses:

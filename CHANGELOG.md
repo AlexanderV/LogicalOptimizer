@@ -12,6 +12,28 @@ the public API baseline diff is additive-only.
 
 ### Added
 
+- **Encoding portfolio (P2.1).** `CardinalityEncoder` and `PseudoBooleanEncoder` gain
+  encoding-selecting overloads that pick from a portfolio of semantically equivalent CNF
+  encodings and report the size they introduce. Cardinality adds `Pairwise` (binomial),
+  `Product` (Chen 2010, at-most-one) and `Totalizer` (Bailleux & Boufkhad 2003) alongside the
+  existing `SequentialCounter`; pseudo-Boolean adds `BinaryMerge` (a binary adder network
+  compared against the bound) and `GeneralizedTotalizer` (Joshi et al. 2015) alongside the
+  existing `DynamicProgramming` decision-diagram encoding. The new public surface is additive:
+  `enum CardinalityEncoding { Auto, Pairwise, SequentialCounter, Product, Totalizer }`,
+  `enum PseudoBooleanEncoding { Auto, DynamicProgramming, BinaryMerge, GeneralizedTotalizer }`,
+  a `readonly struct EncodingStats { int Clauses; int AuxiliaryVariables; int Cost }`, and one
+  encoding-taking overload per `AtMostK`/`AtLeastK`/`ExactlyK` and `AtMost`/`AtLeast`. **The
+  parameterless methods are unchanged** — they keep their byte-identical sequential-counter /
+  dynamic-programming output, so no existing caller's CNF changes; the portfolio and `Auto` are
+  opt-in. `Auto` is deterministic: it measures each applicable encoding and keeps the smallest by
+  `Cost` (clauses + auxiliary variables), with the current default always among the candidates,
+  so it is **never larger than the default** (its choice may change between minor releases, but
+  only with a CHANGELOG note and never worse than the default on the fixed calibration corpus in
+  `tools/encoding_corpus.txt`). Every encoding is verified assignment-by-assignment (313,000+
+  exhaustive satisfiability checks over all small-n cardinality and random weighted PB shapes);
+  characterization tests pin the default output and each encoding's clause / auxiliary-variable
+  counts, and the calibration-corpus gate confirms `Auto ≤ default` on every shape. The OPB
+  feasibility path (`PseudoBooleanProblem`) continues to route through the unchanged default.
 - **Circuit serialization (P2.3) — EXPERIMENTAL until v4.** `BinaryDecisionDiagram` and
   `DnnfCircuit` each gain `Save(Stream)` and
   `static Load(Stream, ResourceBudget?, CancellationToken)` over a compact, hand-written binary

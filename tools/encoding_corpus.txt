@@ -1,0 +1,54 @@
+# Fixed calibration corpus for the cardinality / pseudo-Boolean encoding portfolio (roadmap P2.1).
+#
+# This file is the REFERENCE INPUT for the "Auto never worse than the default" gate
+# (EncodingPortfolioTests.Auto_IsNeverWorseThanTheDefault_OnCalibrationCorpus). It is
+# committed as a fixed corpus and must NOT be tuned to flatter Auto: each line is a
+# constraint SHAPE, and the test measures Auto's size (clauses + auxiliary variables)
+# against the stable default's size on that same shape.
+#
+# One shape per line. Blank lines and lines starting with '#' are ignored.
+# Grammar:
+#   CARD <AM|AL|EX> n=<literals> k=<bound>
+#   PB   <AM|AL>    n=<literals> bound=<bound> weights=<w1,w2,...>   (weights count must equal n)
+#
+# Default encodings the gate compares against: cardinality -> SequentialCounter,
+# pseudo-Boolean -> DynamicProgramming (today's shipped output).
+
+# --- at-most-one (the pairwise / product sweet spot) ---
+CARD AM n=3 k=1
+CARD AM n=6 k=1
+CARD AM n=10 k=1
+CARD AM n=16 k=1
+CARD AM n=25 k=1
+
+# --- small / mid k cardinality ---
+CARD AM n=8 k=2
+CARD AM n=12 k=3
+CARD AM n=20 k=4
+CARD AM n=30 k=5
+CARD AM n=16 k=8
+
+# --- dense (k close to n) ---
+CARD AM n=10 k=8
+CARD AM n=14 k=12
+
+# --- at-least / exactly ---
+CARD AL n=10 k=2
+CARD AL n=12 k=9
+CARD EX n=8 k=3
+CARD EX n=12 k=4
+
+# --- pseudo-Boolean, small weights ---
+PB AM n=6 bound=8 weights=1,2,3,4,5,6
+PB AM n=8 bound=10 weights=2,2,2,2,3,3,3,3
+PB AM n=5 bound=7 weights=3,3,3,3,3
+PB AM n=10 bound=15 weights=1,1,2,2,3,3,4,4,5,5
+
+# --- pseudo-Boolean, larger weights / magnitude ---
+PB AM n=6 bound=50 weights=10,20,30,40,50,60
+PB AM n=8 bound=100 weights=13,17,19,23,29,31,37,41
+PB AM n=5 bound=200 weights=64,128,32,16,8
+
+# --- pseudo-Boolean at-least ---
+PB AL n=6 bound=12 weights=1,2,3,4,5,6
+PB AL n=7 bound=20 weights=5,5,5,5,5,5,5

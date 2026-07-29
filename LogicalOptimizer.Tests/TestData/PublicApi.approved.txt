@@ -550,8 +550,19 @@ namespace LogicalOptimizer
     public static class CardinalityEncoder
     {
         public static void AtLeastK(LogicalOptimizer.CnfBuilder builder, System.Collections.Generic.IReadOnlyList<int> literals, int k) { }
+        public static LogicalOptimizer.EncodingStats AtLeastK(LogicalOptimizer.CnfBuilder builder, System.Collections.Generic.IReadOnlyList<int> literals, int k, LogicalOptimizer.CardinalityEncoding encoding) { }
         public static void AtMostK(LogicalOptimizer.CnfBuilder builder, System.Collections.Generic.IReadOnlyList<int> literals, int k) { }
+        public static LogicalOptimizer.EncodingStats AtMostK(LogicalOptimizer.CnfBuilder builder, System.Collections.Generic.IReadOnlyList<int> literals, int k, LogicalOptimizer.CardinalityEncoding encoding) { }
         public static void ExactlyK(LogicalOptimizer.CnfBuilder builder, System.Collections.Generic.IReadOnlyList<int> literals, int k) { }
+        public static LogicalOptimizer.EncodingStats ExactlyK(LogicalOptimizer.CnfBuilder builder, System.Collections.Generic.IReadOnlyList<int> literals, int k, LogicalOptimizer.CardinalityEncoding encoding) { }
+    }
+    public enum CardinalityEncoding
+    {
+        Auto = 0,
+        Pairwise = 1,
+        SequentialCounter = 2,
+        Product = 3,
+        Totalizer = 4,
     }
     public sealed class CnfBuilder
     {
@@ -566,6 +577,14 @@ namespace LogicalOptimizer
     {
         Tseitin = 0,
         PlaistedGreenbaum = 1,
+    }
+    public readonly struct EncodingStats
+    {
+        public EncodingStats(int clauses, int auxiliaryVariables) { }
+        public int AuxiliaryVariables { get; }
+        public int Clauses { get; }
+        public int Cost { get; }
+        public override string ToString() { }
     }
     public sealed class MaxSatResult
     {
@@ -590,7 +609,16 @@ namespace LogicalOptimizer
     public static class PseudoBooleanEncoder
     {
         public static void AtLeast(LogicalOptimizer.CnfBuilder builder, System.Collections.Generic.IReadOnlyList<int> literals, System.Collections.Generic.IReadOnlyList<long> weights, long bound) { }
+        public static LogicalOptimizer.EncodingStats AtLeast(LogicalOptimizer.CnfBuilder builder, System.Collections.Generic.IReadOnlyList<int> literals, System.Collections.Generic.IReadOnlyList<long> weights, long bound, LogicalOptimizer.PseudoBooleanEncoding encoding) { }
         public static void AtMost(LogicalOptimizer.CnfBuilder builder, System.Collections.Generic.IReadOnlyList<int> literals, System.Collections.Generic.IReadOnlyList<long> weights, long bound) { }
+        public static LogicalOptimizer.EncodingStats AtMost(LogicalOptimizer.CnfBuilder builder, System.Collections.Generic.IReadOnlyList<int> literals, System.Collections.Generic.IReadOnlyList<long> weights, long bound, LogicalOptimizer.PseudoBooleanEncoding encoding) { }
+    }
+    public enum PseudoBooleanEncoding
+    {
+        Auto = 0,
+        DynamicProgramming = 1,
+        BinaryMerge = 2,
+        GeneralizedTotalizer = 3,
     }
     public enum SatResult
     {
