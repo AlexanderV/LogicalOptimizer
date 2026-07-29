@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="../LogicalOptimizer.Bdd/LogicalOptimizer.Bdd.csproj" />
+  <Project Path="../LogicalOptimizer.Core/LogicalOptimizer.Core.csproj" />
+  <Project Path="../LogicalOptimizer.Dnnf/LogicalOptimizer.Dnnf.csproj" />
+  <Project Path="../LogicalOptimizer.Minimization/LogicalOptimizer.Minimization.csproj" />
+  <Project Path="../LogicalOptimizer.Sat/LogicalOptimizer.Sat.csproj" />
+  <Project Path="../LogicalOptimizer/LogicalOptimizer.csproj" />
+  <Project Path="LogicalOptimizer.Samples/LogicalOptimizer.Samples.csproj" />
+</Solution>

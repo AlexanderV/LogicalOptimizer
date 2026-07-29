@@ -45,6 +45,12 @@ jobs:
       - name: Test
         run: dotnet test LogicalOptimizer.sln --no-build --configuration Release --filter "Category!=Performance&Category!=Exhaustive" --logger "trx" /p:CollectCoverage=true /p:Include="[LogicalOptimizer]*" /p:Threshold=80 /p:ThresholdType=line /p:ThresholdStat=total
 
+      # The runnable recipes double as an integration smoke test of the public API: each
+      # recipe asserts its own output, so a non-zero exit here means a documented sample
+      # stopped producing the result its README claims.
+      - name: Run samples (verify recipes)
+        run: dotnet run --project samples/LogicalOptimizer.Samples/LogicalOptimizer.Samples.csproj --configuration Release --no-build
+
       # Roadmap B2: emit the SymPy/PyEDA comparison table into the CI log where the
       # tools exist (sympy installed above; pyeda best-effort). Linux-only: the script's
       # per-function timeout relies on SIGALRM, which does not exist on Windows, so a slow
