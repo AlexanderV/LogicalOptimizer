@@ -85,3 +85,7 @@ api/.manifest
 docs-site/log.txt
 docfx-*.zip
 
+
+# Python bytecode cache (comparison adapters)
+__pycache__/
+*.pyc

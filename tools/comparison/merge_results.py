@@ -23,9 +23,16 @@ import sys
 
 
 def parse_table(path):
-    """Parse a Markdown pipe table into {first_column_value: {header: cell}}."""
+    """Parse a Markdown pipe table into {function_name: {header: cell}}.
+
+    The key is the ``Function`` column wherever it sits — not blindly the first column:
+    the SymPy/PyEDA adapter leads with a ``Zone`` column, so keying on column 0 would key
+    its rows by zone and never match a function name. Falls back to column 0 when no
+    ``Function`` header is present.
+    """
     rows = {}
     headers = None
+    key_idx = 0
     with open(path, "r", encoding="utf-8") as handle:
         for raw in handle:
             line = raw.strip()
@@ -36,9 +43,13 @@ def parse_table(path):
                 continue
             if headers is None:
                 headers = cells
+                for i, h in enumerate(headers):
+                    if h.strip().lower() == "function":
+                        key_idx = i
+                        break
                 continue
-            key = cells[0]
-            rows[key] = dict(zip(headers, cells))
+            if key_idx < len(cells):
+                rows[cells[key_idx]] = dict(zip(headers, cells))
     return rows, (headers or [])
 
 
@@ -60,6 +71,7 @@ def main(argv=None):
     ap.add_argument("--sympy", help="compare_sympy_pyeda.py output (Markdown)")
     ap.add_argument("--sat", help="run_sat_competitors.sh output (Markdown)")
     ap.add_argument("--modelcount", help="run_modelcount_competitors.sh output (Markdown)")
+    ap.add_argument("--logicng", help="tools/comparison/logicng adapter output (Markdown)")
     args = ap.parse_args(argv)
 
     with open(args.results, "r", encoding="utf-8") as handle:
@@ -68,6 +80,7 @@ def main(argv=None):
     sympy = parse_table(args.sympy)[0] if args.sympy else {}
     sat = parse_table(args.sat)[0] if args.sat else {}
     mc = parse_table(args.modelcount)[0] if args.modelcount else {}
+    logicng = parse_table(args.logicng)[0] if args.logicng else {}
 
     out = []
     out.append("# Cross-library comparison — merged (OUR committed + competitor adapters)\n")
@@ -99,12 +112,17 @@ def main(argv=None):
         out.append(f"| {n} | {r['verdict']} | {r['conflicts']} | "
                    f"{cell(sat, n, 'cadical verdict', 'cadical')} | {cell(sat, n, 'kissat verdict', 'kissat')} |")
 
-    out.append("\n## 4. Model counting (BDD / d-DNNF vs c2d/d4)\n")
-    out.append("| Function | LogicalOptimizer #SAT | c2d/d4 #SAT |")
-    out.append("|----------|----------------------:|:-----------:|")
+    out.append("\n## 4. Model counting (BDD / d-DNNF vs c2d/d4 and LogicNG BDD)\n")
+    out.append("The competitor #SAT is counted on the count-preserving per-function CNF "
+               "(`comparison-suite --emit-function-dimacs`), so it is directly comparable to "
+               "OUR exact `modelCount`; LogicNG counts its own BDD. Matching numbers are an "
+               "independent cross-check of OUR #SAT.\n")
+    out.append("| Function | LogicalOptimizer #SAT | c2d/d4 #SAT | LogicNG #SAT | LogicNG nodes |")
+    out.append("|----------|----------------------:|:-----------:|:-----------:|:------------:|")
     for r in data["bddDnnf"]:
         n = r["name"]
-        out.append(f"| {n} | {r['modelCount'] or '-'} | {cell(mc, n, 'd4 #SAT', 'c2d #SAT', 'd4', 'c2d')} |")
+        out.append(f"| {n} | {r['modelCount'] or '-'} | {cell(mc, n, 'd4 #SAT', 'c2d #SAT', 'd4', 'c2d')} | "
+                   f"{cell(logicng, n, 'LogicNG #SAT')} | {cell(logicng, n, 'LogicNG nodes')} |")
 
     print("\n".join(out))
     return 0

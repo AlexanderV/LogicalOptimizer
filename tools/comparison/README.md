@@ -1,15 +1,33 @@
 # Competitor-integration scaffolding (roadmap P0.2)
 
 These adapters produce the **competitor columns** of the cross-library comparison
-from the **same** committed corpus the OUR-side harness uses. They are documented and
-committed here, but **not executed** as part of the OUR-side deliverable and they
-**never fabricate numbers** — each one self-skips cleanly when its external tool is
-absent, exactly like the OUR harness leaves competitor cells `pending`.
+from the **same** committed corpus the OUR-side harness uses. They **never fabricate
+numbers** — each one self-skips cleanly when its external tool is absent, exactly like
+the OUR harness leaves competitor cells `pending`, and records a `timeout` when the
+shared budget is exceeded.
 
 See [`doc/COMPARISON_METHODOLOGY.md`](../../doc/COMPARISON_METHODOLOGY.md) for the
 single-runner / one-CPU / identical-timeout / do-not-mix rules that every adapter
 must respect, and [`doc/comparison/summary.md`](../../doc/comparison/summary.md) for
 the OUR column the competitor columns merge into.
+
+## One controlled environment (recommended): the container
+
+The methodology requires a **single Linux runner** for every tool. [`Dockerfile`](Dockerfile)
+bundles the OUR side (.NET SDK) with every competitor — SymPy, PyEDA, CaDiCaL, Kissat, d4
+and LogicNG — and [`run_all_in_container.sh`](run_all_in_container.sh) runs the whole
+comparison from the one committed corpus and writes the artifacts back under
+`doc/comparison/` (including the merged [`merged.md`](../../doc/comparison/merged.md)):
+
+```bash
+docker build -t logicopt-p0p2 tools/comparison
+docker run --rm -v "$PWD:/work" logicopt-p0p2
+```
+
+Every competitor is installed **best-effort**: a tool whose build fails is simply absent
+and its column self-skips — the image still builds and the run still produces every other
+column. The adapters below are what the container invokes; run them standalone where a
+given tool is already installed.
 
 ## Shared inputs
 
@@ -19,12 +37,17 @@ the OUR column the competitor columns merge into.
 
   ```powershell
   dotnet run -c Release --project LogicalOptimizer.Benchmarks -- \
-    comparison-suite --emit-sat-dimacs doc/comparison/sat-cnf
+    comparison-suite --emit-sat-dimacs doc/comparison/sat-cnf \
+                     --emit-function-dimacs doc/comparison/func-cnf
   ```
 
-  This writes one `<name>.miter.cnf` per function (the miter `Original XOR Optimized`,
-  UNSAT ⇒ equivalence-preserving). These are the SAT instances CaDiCaL / Kissat solve
-  and the model-counters count. They are regenerable, so they are **not** committed.
+  `--emit-sat-dimacs` writes one `<name>.miter.cnf` per function (the miter
+  `Original XOR Optimized`, UNSAT ⇒ equivalence-preserving) — the SAT instances CaDiCaL /
+  Kissat solve. `--emit-function-dimacs` writes one `<name>.cnf` per function: the function's
+  own **count-preserving** full-Tseitin CNF (every auxiliary variable is functionally
+  determined, so its model count over all DIMACS variables equals the OUR `modelCount`) —
+  the #SAT instances d4 / c2d count for a head-to-head against the BDD / d-DNNF table. Both
+  directories are regenerable, so they are **not** committed.
 
 ## Adapters
 
@@ -33,7 +56,7 @@ the OUR column the competitor columns merge into.
 | 1 & 2 | [`../compare_sympy_pyeda.py`](../compare_sympy_pyeda.py) | SymPy, PyEDA (`pip`) | `SymPy lits`, `PyEDA lits` |
 | 3 | [`run_sat_competitors.sh`](run_sat_competitors.sh) | CaDiCaL / Kissat (`PATH`) | `CaDiCaL`, `Kissat` |
 | 4 (#SAT) | [`run_modelcount_competitors.sh`](run_modelcount_competitors.sh) | d4 / c2d (`PATH`) | `c2d/d4 #SAT` |
-| 4 (BDD) | LogicNG (JVM) — documented below | LogicNG | `LogicNG BDD` |
+| 4 (BDD) | [`logicng/`](logicng/) (Maven/Java, LogicNG 2.4.1) | JDK + Maven | `LogicNG #SAT`, `LogicNG nodes` |
 
 ### 1 & 2 — SymPy / PyEDA (already present)
 
@@ -61,35 +84,31 @@ recorded `timeout`.
 ### 4 — c2d / d4 (#SAT model counting)
 
 ```bash
-tools/comparison/run_modelcount_competitors.sh doc/comparison/sat-cnf
+tools/comparison/run_modelcount_competitors.sh doc/comparison/func-cnf
 ```
 
-**Note on semantics:** the emitted DIMACS are the *equivalence miters* (all UNSAT, so
-their model count is 0) — useful for the SAT table but **not** the same function whose
-models the BDD/d-DNNF table counts. To compare #SAT head-to-head against c2d / d4,
-emit a *function* CNF (not the miter) for each corpus line and count that; this adapter
-shows the invocation and parsing, and documents that the function-CNF emitter is the
-change required to make the counts directly comparable to `our-results.json`'s
-`modelCount`. It self-skips when the counter is absent.
+Point it at the **`func-cnf`** directory (`--emit-function-dimacs`), not the miters: the
+miters are all UNSAT (count 0), whereas the per-function CNFs are the count-preserving
+full-Tseitin encoding, so d4 / c2d's count is directly comparable to `our-results.json`'s
+`modelCount`. Count-preservation is proven exhaustively for the small corpus functions
+(brute-force `#SAT` of the emitted CNF equals the OUR `modelCount`). It self-skips when
+the counter is absent and records `timeout` when the budget is exceeded.
 
 ### 4 — LogicNG BDD (JVM)
 
-LogicNG is a JVM library, so its adapter is a small Java/Kotlin program rather than a
-shell script. Documented invocation:
+LogicNG is a JVM library, so its adapter is a small self-contained Maven/Java project in
+[`logicng/`](logicng/) (pinned to LogicNG 2.4.1). `mvn package` shades it and its
+dependencies into one executable jar; the container bakes that jar in and runs:
 
-```java
-// build.gradle: implementation 'org.logicng:logicng:2.4.1'
-FormulaFactory f = new FormulaFactory();
-PropositionalParser p = new PropositionalParser(f);
-Formula formula = p.parse(expression.replace("!", "~").replace("&", " & ").replace("|", " | "));
-BDDFactory bdd = new BDDFactory(100000, 100000, f);
-BDD compiled = formula.bdd(bdd);
-long nodeCount = compiled.nodeCount();
-BigInteger modelCount = compiled.modelCount();
+```bash
+java -jar logicng-adapter.jar tools/comparison_corpus.txt 20   # <corpus> [timeout-seconds]
 ```
 
-Print `<name> | <nodeCount> | <modelCount> | <ms>` per corpus line, apply the shared
-timeout, and skip cleanly if LogicNG is not on the classpath.
+It reads the shared corpus, compiles each function to a BDD, and prints
+`| Function | LogicNG nodes | LogicNG #SAT | LogicNG ms |` per line, applying the shared
+per-function timeout (a build that exceeds it is `timeout`, a parse/build error is
+`error` — never a fabricated number). Its `#SAT` is an independent cross-check of the OUR
+exact model count.
 
 ## Merging
 
@@ -100,5 +119,8 @@ come only from `doc/comparison/our-results.json`. A tiny merge helper is provide
 
 ```bash
 python tools/comparison/merge_results.py doc/comparison/our-results.json \
-  --sat sat_out.md --sympy sympy_out.md   # any subset; missing inputs stay `pending`
+  --sympy sympy_out.md --sat sat_out.md \
+  --modelcount mc_out.md --logicng logicng_out.md   # any subset; missing inputs stay `pending`
 ```
+
+The container runs this for you and writes [`doc/comparison/merged.md`](../../doc/comparison/merged.md).
