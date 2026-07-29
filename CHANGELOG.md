@@ -5,6 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Targeting 3.1.0 — deployment, credibility and interoperability. All changes are additive;
+the public API baseline diff is additive-only.
+
+### Added
+
+- **`LogicalOptimizer.Formats` package — DIMACS / WCNF / OPB import.** `DimacsParser`,
+  `WcnfParser` and `OpbParser` (`Parse(TextReader, ResourceBudget?, CancellationToken)`)
+  stream standard SAT / MaxSAT / pseudo-Boolean datasets into `CnfProblem` /
+  `WeightedCnfProblem` / `PseudoBooleanProblem`, which hand off to the existing
+  `SatSolver` / `MaxSatSolver` / `CardinalityEncoder` engines (no new solver). Precise
+  line/column errors (`FormatParseException`), a streaming budget-aware tokenizer bounded
+  by the new `ResourceBudget.ParseTokenLimit`, and round-trip `Write` writers. New CLI
+  verbs `solve`, `maxsat`, `solve-pb` and `count --engine dnnf`.
+- **`LogicalOptimizer.Full` meta-package.** A code-less bundle that depends on the facade,
+  `.Dnnf` and `.Formats` so `dotnet add package LogicalOptimizer.Full` installs the whole
+  managed toolkit; the facade gains no new dependency and modular users keep referencing
+  individual layers.
+- **Native AOT / trimming certification.** The seven library packages enable
+  `IsAotCompatible` / `IsTrimmable` and the trim/AOT/single-file analyzers, so every build
+  (`TreatWarningsAsErrors`) guards the AOT contract; the reflection-free code is
+  analyzer-clean. A `LogicalOptimizer.AotSmoke` harness and the `aot.yml` workflow publish
+  and run a Native AOT binary for `win-x64` and `linux-x64`.
+- **Allocation-based performance regression gate.** A committed `doc/perf-baseline.json`,
+  `tools/compare_benchmarks.ps1` (fails when a benchmark exceeds baseline allocations by a
+  threshold; wall-clock is informational only) and a `perf.yml` workflow (dispatch +
+  weekly, off the PR path).
+- **Reproducible cross-library comparison.** A `comparison-suite` harness emits committed
+  OUR-side artifacts (JSON + Markdown + environment manifest) for symbolic optimization,
+  two-level minimization, SAT (equivalence miter with DRAT proof) and BDD/d-DNNF, each row
+  independently equivalence-verified; competitor columns stay `pending` with reproduce
+  commands (`doc/comparison/`, `doc/COMPARISON_METHODOLOGY.md`).
+- **Projected model counting design spike** (`doc/spikes/projected-model-counting.md`):
+  validated SAT-blocking-enumeration and BDD-existential-abstraction prototypes with an
+  exhaustive ≤4-variable proof; recommends the MVP and status contract. No public API yet.
+
+### Changed
+
+- **NuGet post-publish verification window widened** from ~5 min to ~30 min and extended to
+  all nine packages, so real indexing lag no longer reds a successful release while a
+  genuine publish failure is still caught.
+
+### Performance
+
+- **Espresso-lite two-level minimizer** is ~3.4× faster with ~8× fewer allocations on the
+  40-variable cover (a shared "eliminated" variable bitmask replaces per-recursion cube
+  cloning in the tautology check; cofactor-by-cube becomes a seed mask + conflict filter).
+- **Exact Quine–McCluskey** is ~2.3× faster with ~3× fewer allocations on a dense
+  10-variable function (popcount-bucketed adjacent-pair prime generation, batched
+  essential-prime extraction, and bitmask covering-table dominance). Output is
+  byte-identical: the prime set and `(literals, terms)` cover cost are unchanged.
+
 ## [3.0.0] - 2026-07-29
 
 ### Fixed (contract honesty — the documented guarantees now match the implementation)

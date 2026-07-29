@@ -2,6 +2,11 @@
 
 Базовий реліз: `v3.0.0`.
 
+Поточний перевірений стан плану: branch `perf/minimizer-and-nuget-verify` (29.07.2026).
+
+Статуси: ✅ виконано · ◐ частково виконано · 🧪 design spike завершено, production
+API ще не реалізовано · ☐ не розпочато.
+
 ## 0. Мета
 
 Посилити позицію LogicalOptimizer як інтегрованого propositional toolkit, не
@@ -39,30 +44,66 @@ LogicNG серед integrated propositional toolkits, і головний роз
 
 Кожна з них має бути підкріплена відтворюваним доказом (розд. 4), а не заявою.
 
-## 2. Зведений пріоритет
+## 2. Зведений статус і пріоритет
 
-| ID | Зміна | Вплив | Обсяг | Ризик | Реліз |
-|---|---|---:|---:|---:|---|
-| P0.2 | Контрольований cross-library benchmark | висока довіра | M | низький | v3.1 |
-| P0.1 | Native AOT і trimming certification | високий | S–M | низький | v3.1 |
-| P0.3 | Internal performance hardening + regression gate | середній–високий | S–M | низький | v3.1 |
-| P1.1 | DIMACS/WCNF/OPB import (пакет `.Formats`) | високий | M | середній | v3.1 |
-| P3.1 | `LogicalOptimizer.Full` meta-package | середній UX | S | низький | v3.1 |
-| P1.4-spike | Projected counting — design spike з прототипами | — | S | низький | v3.1 |
-| P1.2 | d-DNNF conditioning і batch queries | високий | M | середній | v3.2 |
-| P1.3 | d-DNNF marginals і sampling | високий | M | середній | v3.2 |
-| P1.4 | Projected model counting | дуже високий | L–XL | високий | v3.3 |
-| P2.3 | Серіалізація BDD/d-DNNF (experimental) | середній | M–L | середній | v3.3 |
-| P2.1 | Portfolio cardinality/PB encodings | середній–високий | L | середній | v3.4 |
-| P2.2 | Core-guided MaxSAT | середній–високий | L–XL | високий | v3.5 |
+| Статус | ID | Зміна | Фактичний результат / залишок | Реліз |
+|:---:|---|---|---|---|
+| ◐ | P0.2 | Контрольований cross-library benchmark | OUR-side JSON/manifest/summary і runners готові; competitor columns ще `pending` | v3.1 |
+| ✅ | P0.1 | Native AOT і trimming certification | 6 бібліотек + `.Formats` позначені AOT/trim-safe; smoke app і workflow готові | v3.1 |
+| ✅ | P0.3 | Internal performance hardening + regression gate | мінімізатори оптимізовано; allocation baseline і blocking CI gate додано | v3.1 |
+| ✅ | P1.1 | DIMACS/WCNF/OPB import | новий пакет `.Formats`, CLI, writers, budgets, fuzz/round-trip tests | v3.1 |
+| ✅ | P3.1 | `LogicalOptimizer.Full` meta-package | meta-package, integration tests і post-publish verification готові | v3.1 |
+| 🧪 | P1.4-spike | Projected counting design spike | SAT і BDD prototypes, 1,048,576 exhaustive checks, рекомендація зафіксована | v3.1 |
+| ☐ | P1.2 | d-DNNF conditioning і batch queries | не розпочато | v3.2 |
+| ☐ | P1.3 | d-DNNF marginals і sampling | не розпочато | v3.2 |
+| ☐ | P1.4 | Production projected model counting | spike завершено; лишилися API-рішення та production implementation | v3.3 |
+| ☐ | P2.3 | Серіалізація BDD/d-DNNF (experimental) | не розпочато | v3.3 |
+| ☐ | P2.1 | Portfolio cardinality/PB encodings | не розпочато | v3.4 |
+| ☐ | P2.2 | Core-guided MaxSAT | не розпочато | v3.5 |
 
-Порядок у v3.1 навмисний: benchmark (P0.2) — **перший**, бо всі claim'и про вплив
-спираються на його артефакти; далі AOT (P0.1), який має найкраще співвідношення
-цінність/ризик; далі внутрішнє перф-загартування з regression-гейтом (P0.3);
-потім interoperability (P1.1) і UX (P3.1). Дешевий spike найризикованішої
-можливості (P1.4) стартує вже у v3.1, щоб до v3.3 алгоритм був доведений.
+До завершення v3.1 залишилося:
+
+1. виконати competitor runners в одному контрольованому Linux environment;
+2. злити результати в спільний comparison artifact;
+3. закрити open questions projected-counting API, але не обов'язково реалізовувати
+   production feature до v3.3;
+4. виконати повний release gate і оновити comparison/README claims за реальними
+   артефактами.
+
+Закрито після зведеного стану вище: категоризацію exhaustive spike-тесту уніфіковано
+до `Category=Exhaustive` (гейт більше не тягне ~1-хвилинний доказ), кількість пакетів
+у README/docs-site узгоджено (9 опублікованих), і додано CHANGELOG-запис `[Unreleased]`
+для v3.1.
+
+Нові capability-напрями до закриття цього залишку додавати не потрібно.
+
+### Перевірка поточного branch
+
+Локально на branch `perf/minimizer-and-nuget-verify`:
+
+- Release build усієї solution: **0 warnings, 0 errors**;
+- повний тест-сюїт (без фільтра): **1113/1113 passed**, 0 failed, 0 skipped;
+- gate-фільтр `Category!=Performance&Category!=Exhaustive` — зелений; вичерпний ≤4-змінний
+  spike-доказ
+  (`ProjectedModelCountingTests.ExhaustiveAgreement_AllFourVariableFunctions`) тепер
+  виключено з гейта (trait уніфіковано до `Category=Exhaustive`): під гейт-фільтром
+  spike-набір виконується як **10 тестів за ~0.6 с** замість 11 за ~1 хв 28 с, а сам
+  вичерпний доказ зберігається у повному/nightly-прогоні.
 
 ## 3. P0.2 — Контрольований cross-library benchmark
+
+**Статус: ◐ частково виконано (`54dcccb`).**
+
+Готові:
+
+- `CrossLibraryComparisonHarness`;
+- `doc/comparison/our-results.json`, `manifest.json`, `summary.md`;
+- окрема methodology;
+- runners і merge tooling;
+- CI workflow.
+
+Залишок: запустити зовнішні інструменти та замінити `pending` у SymPy/PyEDA,
+CaDiCaL/Kissat, LogicNG/c2d/d4 columns результатами з того самого environment.
 
 ### Мета
 
@@ -123,6 +164,13 @@ capability-claim у розд. 1.
 
 ## 4. P0.1 — Native AOT і trimming certification
 
+**Статус: ✅ виконано (`8a78023`).**
+
+Production-критерій виконано через AOT/trim metadata, `LogicalOptimizer.AotSmoke`
+та `.github/workflows/aot.yml`. Цей розділ зберігається як контракт і checklist
+для наступних пакетів: кожен новий publishable package повинен пройти той самий
+analyzer/smoke gate.
+
 ### Мета
 
 Зробити AOT-сумісність формальною частиною контракту, а не припущенням.
@@ -162,7 +210,7 @@ globalization/ICU.
 2. не приховувати warnings без конкретного justification;
 3. створити окремий Native AOT smoke application;
 4. виконувати його для parser, optimizer, SAT, BDD, minimization і d-DNNF;
-5. додати CI publish щонайменше для `win-x64` і `linux-x64`;
+5. підтримувати CI publish щонайменше для `win-x64` і `linux-x64`;
 6. перевіряти semantic parity між JIT та AOT outputs.
 
 Native AOT CLI artifacts (`win-x64`, `linux-x64`, `linux-arm64`) — це
@@ -188,6 +236,13 @@ Native AOT CLI artifacts (`win-x64`, `linux-x64`, `linux-arm64`) — це
 - AOT artifacts не замінюють звичайний dotnet tool.
 
 ## 5. P0.3 — Internal performance hardening + regression gate
+
+**Статус: ✅ виконано (`5a17671`, `a3ee347`).**
+
+Hot-path оптимізації мінімізаторів уже внесені без public API changes. Committed
+allocation baseline, comparison script і blocking workflow є постійним
+regression gate. Подальше performance hardening — звичайна підтримка, а не
+незакритий milestone v3.1.
 
 ### Мета
 
@@ -225,6 +280,13 @@ Native AOT CLI artifacts (`win-x64`, `linux-x64`, `linux-arm64`) — це
 
 ## 6. P1.1 — DIMACS, WCNF та OPB import
 
+**Статус: ✅ виконано (`0aff0e7`).**
+
+Фактичний API реалізований у `LogicalOptimizer.Formats`; пакет містить problem
+types, `Parse(TextReader, ResourceBudget?, CancellationToken)`, writers і
+перетворення/solve helpers. CLI wiring, architecture/API baselines,
+round-trip/fuzz tests і release integration також готові.
+
 ### Мета
 
 Зробити бібліотеку безпосередньо сумісною зі стандартними SAT, MaxSAT і
@@ -240,7 +302,7 @@ convenience APIs — лише якщо не дублюють package APIs.
 
 ### Новий API
 
-Орієнтовно (остаточні назви типів — окремий API review):
+Фактично реалізовано:
 
 ```csharp
 public static class DimacsParser
@@ -375,6 +437,13 @@ public IEnumerable<IReadOnlyDictionary<string, bool>> SampleModels(
 
 ## 9. P1.4 — Projected model counting
 
+**Статус: 🧪 design spike завершено (`9ce9ede`); production API не реалізовано.**
+
+Повний звіт: [`doc/spikes/projected-model-counting.md`](doc/spikes/projected-model-counting.md).
+SAT blocking і BDD existential-abstraction prototypes збіглися з незалежним
+oracle на всіх 1,048,576 exhaustive 4-variable перевірках, randomized trials та
+edge cases.
+
 ### Мета
 
 Обчислювати кількість різних assignments лише за вибраною множиною змінних:
@@ -400,16 +469,25 @@ public ProjectedModelCountResult CountProjectedModels(
 Після projection різні повні моделі можуть відповідати одному projected model;
 наївне підсумовування дає overcount.
 
-### Підхід
+### Підхід після spike
 
-- **v3.1 spike:** прототипи двох-трьох стратегій, вибір алгоритму та status
-  contract до фіксації public API;
 - **MVP (v3.3):** SAT blocking enumeration як sound budgeted шлях із чесним
-  `Status` — віддається першим;
+  `Status`;
 - **exact d-DNNF projection** (projected compilation з cache за projected scope
   або existential abstraction з повторною deterministic compilation) — після
   spike;
-- hybrid BDD path для сприятливих projected variable sets — опційно.
+- hybrid BDD existential-abstraction path підтверджено прототипом і лишається
+  opt-in exact fallback для сприятливих projected variable sets.
+
+### Open API-рішення
+
+До production implementation треба зафіксувати:
+
+1. чи projection scope може містити змінні поза formula;
+2. `BigInteger? + ComputationStatus` чи discriminated result;
+3. budget currency для SAT і BDD engines;
+4. explicit engine чи `Auto`, і стабільність вибору між minor releases;
+5. чи потрібна окрема projected-model enumeration API.
 
 ### Статус-контракт
 
@@ -587,6 +665,13 @@ public enum MaxSatAlgorithm
 
 ## 13. P3.1 — `LogicalOptimizer.Full` meta-package
 
+**Статус: ✅ виконано (`cd1b186`, розширено `.Formats` у `0aff0e7`).**
+
+Meta-package створено, integration tests перевіряють dependency graph і
+capabilities, release verification оновлено. Надалі пункт є packaging contract:
+кожен новий user-facing engine/package має бути свідомо включений або явно
+виключений із `.Full`.
+
 ### Мета
 
 Дати one-install experience без зміни залежностей існуючого facade. «Один
@@ -645,7 +730,8 @@ serverless/worker-сценаріїв, які мотивують P0.1.
 ## 15. Обов'язкові gates для кожного релізу
 
 1. `dotnet build -c Release` — 0 warnings.
-2. PR-gate tests — 0 failed, 0 skipped.
+2. PR-gate tests — 0 failed, 0 skipped; усі `Performance`, `Exhaustive` і spike
+   exhaustive cases мають послідовну категоризацію та не потрапляють у fast gate.
 3. API baseline diff reviewed explicitly.
 4. Architecture layering test зелений.
 5. `dotnet list package --vulnerable --include-transitive` — чисто.
@@ -670,14 +756,17 @@ serverless/worker-сценаріїв, які мотивують P0.1.
 
 ### v3.1 — Credibility, deployment, interoperability
 
-1. P0.2 cross-library benchmark (першим — база для claim'ів);
-2. P0.1 Native AOT/trimming certification;
-3. P0.3 internal performance hardening + regression gate;
-4. P1.1 DIMACS/WCNF/OPB import (`.Formats` пакет);
-5. P3.1 `LogicalOptimizer.Full`;
-6. P1.4 spike (прототипи projected counting).
+Виконано: P0.1, P0.3, P1.1, P3.1 і P1.4 spike. P0.2 виконано з OUR-side,
+methodology та runners.
 
-Найбільший короткостроковий приріст із низьким ризиком для алгоритмічного ядра.
+Залишок перед релізом:
+
+1. competitor-side benchmark runs і merged artifact;
+2. рішення щодо projected-counting public contract;
+3. повний build/test/AOT/perf/API/security/release gate;
+4. синхронізація README, changelog, docs і comparison із фінальним складом v3.1.
+
+Production projected counting не є блокером v3.1.
 
 ### v3.2 — Reusable knowledge compilation
 
@@ -712,7 +801,8 @@ serverless/worker-сценаріїв, які мотивують P0.1.
    лише за доведеної вигоди кешу.
 4. **Projected counting** — MVP на SAT blocking enumeration з
    `ProjectedModelCountResult{Count?, Status}`; exact d-DNNF projection після
-   spike; часткове число ніколи не exact.
+   spike; часткове число ніколи не exact. Spike підтвердив soundness SAT і BDD
+   strategies; open API-рішення перелічені в §9.
 5. **Serialization format** — experimental до v4, stable лише з першим реальним
    споживачем.
 6. **`Auto` encoding** — може змінювати вибір між minor-релізами з CHANGELOG-записом

@@ -47,7 +47,7 @@ logical-optimizer "a & b | a & c"
 | [CLI usage](articles/cli-usage.md) | Every flag with verified example outputs |
 | [Migration to v2.0](articles/migration-v2.md) | Breaking changes and how to adapt |
 | [Testing overview](articles/testing-overview.md) | The ten-technique testing strategy |
-| [API Reference](api/index.md) | Generated from the XML doc comments of the six library packages |
+| [API Reference](api/index.md) | Generated from the XML doc comments of the seven library packages |
 
 Every code example across these articles is mirrored by an executed, asserted test in
 `LogicalOptimizer.Tests/Documentation/DocExamplesTests.cs` — the outputs shown are real.

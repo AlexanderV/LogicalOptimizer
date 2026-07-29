@@ -2,9 +2,10 @@
 
 ## The package split
 
-LogicalOptimizer ships as **seven** NuGet packages — six independently usable libraries
-plus the CLI tool. Dependencies are **acyclic and downward-only**, and the layering is
-enforced by an architecture test.
+LogicalOptimizer ships as **nine** NuGet packages: seven independently usable libraries,
+the `logical-optimizer` CLI tool, and the code-less `LogicalOptimizer.Full` bundle. The
+library dependencies are **acyclic and downward-only**, and the layering is enforced by
+an architecture test.
 
 | Package | Responsibility |
 |---|---|
@@ -12,12 +13,14 @@ enforced by an architecture test.
 | **LogicalOptimizer.Sat** | CDCL solver, Tseitin / Plaisted–Greenbaum CNF, cardinality / pseudo-Boolean, MaxSAT. Depends on Core. |
 | **LogicalOptimizer.Bdd** | ROBDD with hash-consing, model counting, quantification, sifting. Depends on Core. |
 | **LogicalOptimizer.Dnnf** | Top-down d-DNNF knowledge compiler: exact `#SAT` model counting, weighted model counting, model enumeration. Depends on Sat + Core. See [Knowledge Compilation & Model Counting](knowledge-compilation.md). |
+| **LogicalOptimizer.Formats** | DIMACS / WCNF / OPB parsers and round-trip writers with engine hand-off. Depends on Sat + Core. See [CLI usage](cli.md). |
 | **LogicalOptimizer.Minimization** | Quine–McCluskey, SAT prime cover, Espresso-lite, multi-output CSV. Depends on Sat + Core. |
 | **LogicalOptimizer** (facade) | `BooleanExpressionOptimizer`, the rewrite pipeline, `EquivalenceChecker`, `FormulaAnalysis`, exporters. Depends on Core/Sat/Bdd/Minimization. |
-| **LogicalOptimizer.Cli** | The `logical-optimizer` global tool. Depends on the facade. |
+| **LogicalOptimizer.Cli** | The `logical-optimizer` global tool. Depends on the facade + Formats + Dnnf. |
+| **LogicalOptimizer.Full** | Code-less meta-package: bundles the facade + Dnnf + Formats for a one-line install. Ships no assembly. |
 
-`LogicalOptimizer.Dnnf` is standalone: it is consumed directly rather than pulled in by
-the facade.
+`LogicalOptimizer.Dnnf` and `LogicalOptimizer.Formats` are standalone: they are consumed
+directly rather than pulled in by the facade.
 
 ```mermaid
 graph TD
@@ -27,9 +30,12 @@ graph TD
     Sat["LogicalOptimizer.Sat"]
     Bdd["LogicalOptimizer.Bdd"]
     Dnnf["LogicalOptimizer.Dnnf"]
+    Formats["LogicalOptimizer.Formats"]
     Core["LogicalOptimizer.Core"]
 
     CLI --> Facade
+    CLI --> Dnnf
+    CLI --> Formats
     Facade --> Min
     Facade --> Sat
     Facade --> Bdd
@@ -40,7 +46,13 @@ graph TD
     Bdd --> Core
     Dnnf --> Sat
     Dnnf --> Core
+    Formats --> Sat
+    Formats --> Core
 ```
+
+The code-less `LogicalOptimizer.Full` meta-package sits outside this dependency graph: it
+carries no assembly and simply aggregates the facade, `.Dnnf` and `.Formats` as NuGet
+dependencies.
 
 Take just the layer you need: `LogicalOptimizer.Sat` for a dependency-free CDCL solver,
 `LogicalOptimizer.Bdd` for an ROBDD engine, `LogicalOptimizer.Minimization` for exact

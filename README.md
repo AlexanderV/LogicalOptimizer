@@ -38,7 +38,7 @@ LogicalOptimizer is a lightweight, dependency-free .NET library and CLI for pars
 - ✅ **ROBDD Engine**: canonical binary decision diagrams with hash-consing, model counting, lazy assignment enumeration, existential/universal quantification, restriction, functional composition, variable-order optimization (`BuildWithBestOrder` heuristics + `BuildWithSiftedOrder` sifting), node budget
 - ✅ **d-DNNF Knowledge Compilation**: `LogicalOptimizer.Dnnf` compiles a formula to a deterministic, decomposable NNF circuit (top-down decision-DNNF with component caching), giving exact `#SAT` model counting (`CountModels`, `BigInteger`), weighted model counting (`WeightedModelCount`) and lazy model enumeration (`EnumerateModels`) — all linear in the compiled circuit; counts verified exactly against the ROBDD oracle
 - ✅ **Formula Factory**: LogicNG-style construction (`FormulaFactory`) — the single **canonical** construction path for building and parsing formulas (`Parse`, `And`/`Or`/`Not`/`Variable`, `Import`); n-ary And/Or with flattening, canonical operand ordering, duplicate removal, constant/complement folding and structural interning (equal formulas are the same instance — reference equality). The public low-level `AndNode`/`OrNode` constructors remain available for raw, non-canonical AST
-- ✅ **Modular Packages**: `LogicalOptimizer.Core` / `.Sat` / `.Bdd` / `.Dnnf` / `.Minimization` are independently usable NuGet packages; the `LogicalOptimizer` facade ties them together and the layering is enforced by an architecture test
+- ✅ **Modular Packages**: `LogicalOptimizer.Core` / `.Sat` / `.Bdd` / `.Dnnf` / `.Formats` / `.Minimization` are independently usable NuGet packages; the `LogicalOptimizer` facade ties them together (and `LogicalOptimizer.Full` bundles everything in one install); the layering is enforced by an architecture test
 - ✅ **Multi-Output Minimization**: CSV tables with several output columns (`--outputs=Sum,Carry`), shared don't-cares and PLA-style cube sharing across outputs
 - ✅ **Budgets & Cancellation**: `ResourceBudget` + `CancellationToken` on every expensive engine
 - ✅ **Normal Forms**: Conversion to CNF (Conjunctive) and DNF (Disjunctive)
@@ -389,8 +389,8 @@ is a separate heuristic quality rating and does not, on its own, assert optimali
 
 ### Native AOT
 
-All six library packages (`LogicalOptimizer.Core` / `.Sat` / `.Bdd` / `.Dnnf` /
-`.Minimization` and the `LogicalOptimizer` facade) are Native-AOT- and trim-compatible:
+All seven library packages (`LogicalOptimizer.Core` / `.Sat` / `.Bdd` / `.Dnnf` /
+`.Formats` / `.Minimization` and the `LogicalOptimizer` facade) are Native-AOT- and trim-compatible:
 they are reflection-free and mark `IsAotCompatible`/`IsTrimmable`, so the trim, single-file
 and AOT analyzers gate every build (`TreatWarningsAsErrors`). This is verified in CI — the
 [`Native AOT` workflow](.github/workflows/aot.yml) publishes the `LogicalOptimizer.AotSmoke`
@@ -452,10 +452,13 @@ article; the examples are executed and asserted in
 
 ### Package layering
 
-Eight NuGet packages with acyclic, downward-only dependencies (enforced by an
-architecture test). The `LogicalOptimizer.Dnnf` knowledge-compilation and
-`LogicalOptimizer.Formats` import/export packages sit beside `.Bdd` on Core+Sat and are
-consumed directly (not pulled in by the facade):
+Nine NuGet packages. Eight carry code — the seven libraries plus the
+`logical-optimizer` CLI tool — with acyclic, downward-only dependencies (the
+seven-library layering is enforced by an architecture test); the ninth,
+`LogicalOptimizer.Full`, is a code-less meta-package that bundles the facade with
+`.Dnnf` and `.Formats` for a one-line install. The `LogicalOptimizer.Dnnf`
+knowledge-compilation and `LogicalOptimizer.Formats` import/export packages sit beside
+`.Bdd` on Core+Sat and are consumed directly (not pulled in by the facade):
 
 ```mermaid
 graph TD

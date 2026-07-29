@@ -120,7 +120,7 @@ Console.WriteLine(ReferenceEquals(parsed, built));  // True (interning)
 - [Normal forms & transformations](normal-forms.md) — CNF / DNF / ANF / Tseitin.
 - [Two-level minimization](minimization.md) — exact SOP/POS, don't-cares, CSV, multi-output.
 - [SAT solving](sat-solving.md) · [Binary decision diagrams](bdd.md) · [Knowledge compilation](knowledge-compilation.md) · [Equivalence & backbones](equivalence-and-backbones.md) · [Export formats](exporters.md)
-- [Packages & architecture](packages-and-architecture.md) — the seven-package split.
+- [Packages & architecture](packages-and-architecture.md) — the nine-package split.
 - [CLI usage](cli-usage.md) — every flag with verified output.
 
 Every code example across these articles is mirrored by an executed, asserted test in
