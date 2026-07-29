@@ -15,6 +15,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LogicalOptimizer\LogicalOptimizer.csproj" />
+    <!-- Knowledge-compilation layer (d-DNNF). The facade does not reference it, but the
+         cross-library comparison suite (comparison-suite verb) measures d-DNNF compile /
+         model-count alongside BDD, so the bench project references it directly. -->
+    <ProjectReference Include="..\LogicalOptimizer.Dnnf\LogicalOptimizer.Dnnf.csproj" />
   </ItemGroup>
 
 </Project>

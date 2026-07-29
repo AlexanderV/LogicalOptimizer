@@ -73,6 +73,23 @@ requires a shared corpus, one machine and one cost model. The differential
 in [Comparison vs SymPy / PyEDA](#comparison-vs-sympy--pyeda-roadmap-b2) below:
 OUR column is measured under those controls; the SymPy/PyEDA columns are produced
 by a committed, self-skipping script where the tools are installed (never fabricated).
+## Controlled cross-library comparison (roadmap P0.2)
+
+The controlled, artifact-backed cross-library comparison (four result sets — symbolic
+optimization, two-level minimization, SAT, BDD/d-DNNF) lives under
+[`doc/comparison/`](comparison/) with its acceptance contract in
+[`doc/COMPARISON_METHODOLOGY.md`](COMPARISON_METHODOLOGY.md). Every OUR number there
+comes from the committed [`our-results.json`](comparison/our-results.json), regenerated
+by a single command:
+
+```powershell
+dotnet run -c Release --project LogicalOptimizer.Benchmarks -- comparison-suite
+```
+
+Competitor columns are left `pending (run <command>)` (never fabricated); the adapters
+that fill them are in [`tools/comparison/`](../tools/comparison/). The SymPy/PyEDA
+result-size table below is the earlier B2 slice of that comparison.
+
 ## Comparison vs SymPy / PyEDA (roadmap B2)
 
 Result size (literal count) and optimization time on a **shared** function set,

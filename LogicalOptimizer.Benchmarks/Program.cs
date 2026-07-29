@@ -11,6 +11,12 @@ using LogicalOptimizer.Benchmarks;
 if (args.Length > 0 && string.Equals(args[0], "compare", StringComparison.OrdinalIgnoreCase))
     return ComparisonHarness.Run(args);
 
+// Roadmap P0.2: `-- comparison-suite` runs the reproducible OUR-side cross-library
+// comparison and writes the committed artifacts (our-results.json + summary.md +
+// manifest.json) under doc/comparison/. See CrossLibraryComparisonHarness.
+if (args.Length > 0 && string.Equals(args[0], "comparison-suite", StringComparison.OrdinalIgnoreCase))
+    return CrossLibraryComparisonHarness.Run(args);
+
 BenchmarkSwitcher.FromAssembly(typeof(OptimizationBenchmarks).Assembly).Run(args);
 return 0;
 

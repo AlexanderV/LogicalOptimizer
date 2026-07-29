@@ -1,0 +1,57 @@
+name: Cross-library comparison (on demand)
+
+# Roadmap P0.2. Runs the OUR-side cross-library comparison harness and uploads the
+# committed-shape artifacts (our-results.json + summary.md + manifest.json). Also runs
+# the self-skipping SymPy/PyEDA competitor script on the Linux runner to fill tables 1
+# and 2 where those tools are installed. There are NO wall-clock assertions — only the
+# equivalence/correctness self-check gates (the harness exits non-zero if any OUR row is
+# not proven equivalent). Deliberately manual (workflow_dispatch): this is a credibility
+# artifact refresh, not a per-PR gate.
+on:
+  workflow_dispatch:
+
+jobs:
+  comparison:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore LogicalOptimizer.sln
+
+      - name: Build (Release, warnings as errors)
+        run: dotnet build LogicalOptimizer.sln --no-restore --configuration Release -warnaserror
+
+      # OUR side. The harness exits non-zero if any optimization/minimization row is not
+      # proven equivalent, so correctness (independent of timing) gates the job.
+      - name: Run OUR-side comparison harness
+        run: >
+          dotnet run -c Release --project LogicalOptimizer.Benchmarks --no-build --
+          comparison-suite --emit-sat-dimacs doc/comparison/sat-cnf
+
+      # Competitor side for tables 1 & 2 (self-skips if sympy/pyeda are unavailable; the
+      # per-function timeout uses SIGALRM, which is Linux-only — hence this runner).
+      - name: Competitor columns — SymPy / PyEDA (self-skipping)
+        run: |
+          python -m pip install --quiet sympy || echo "sympy install failed; column stays pending"
+          python tools/compare_sympy_pyeda.py --max-vars 14 --timeout 10 | tee sympy_pyeda_column.md
+
+      - name: Upload comparison artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-library-comparison
+          path: |
+            doc/comparison/our-results.json
+            doc/comparison/summary.md
+            doc/comparison/manifest.json
+            doc/comparison/sat-cnf/**
+            sympy_pyeda_column.md
+          if-no-files-found: ignore
