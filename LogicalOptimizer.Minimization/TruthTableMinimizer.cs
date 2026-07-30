@@ -148,7 +148,8 @@ public static class TruthTableMinimizer
         long? pairComparisonLimit = null, CancellationToken cancellationToken = default)
     {
         var fullMask = (1 << variableCount) - 1;
-        var current = new HashSet<Implicant>(careSet.Select(m => new Implicant(fullMask, m)));
+        var current = new HashSet<Implicant>();
+        foreach (var minterm in careSet) current.Add(new Implicant(fullMask, minterm));
         var primes = new List<Implicant>();
         var comparisons = 0L;
 
@@ -157,22 +158,53 @@ public static class TruthTableMinimizer
         var buckets = new List<Implicant>[variableCount + 1];
         for (var b = 0; b < buckets.Length; b++) buckets[b] = new List<Implicant>();
 
+        // Double-buffered levels. Each level used to allocate two fresh HashSet<Implicant> that
+        // grew to thousands of entries; Clear() keeps the capacity, so the sets are paid for once
+        // instead of once per level. Iteration order is unaffected: HashSet<T> enumerates its
+        // entry array in insertion order, Clear() resets that array, and nothing here removes -
+        // so a cleared-and-refilled set enumerates exactly like a fresh one. That matters,
+        // because the order of `primes` decides candidate order in the cover search.
+        var spare = new HashSet<Implicant>();
+        var combined = new HashSet<Implicant>();
+
+        // Mask grouping without LINQ. GroupBy allocated a Lookup plus a grouping object per
+        // distinct mask on every level; this keeps first-appearance group order (what GroupBy
+        // guarantees and the prime order depends on) using buffers reused across levels.
+        var groupOfMask = new Dictionary<int, int>();
+        var groups = new List<List<Implicant>>();
+
         while (current.Count > 0)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var next = new HashSet<Implicant>();
-            var combined = new HashSet<Implicant>();
+            var next = spare;
+            next.Clear();
+            combined.Clear();
+
+            groupOfMask.Clear();
+            foreach (var g in groups) g.Clear();
+            var groupCount = 0;
+            foreach (var cube in current)
+            {
+                if (!groupOfMask.TryGetValue(cube.Mask, out var index))
+                {
+                    index = groupCount++;
+                    groupOfMask[cube.Mask] = index;
+                    if (groups.Count < groupCount) groups.Add(new List<Implicant>());
+                }
+
+                groups[index].Add(cube);
+            }
 
             // Group by mask; within a mask two cubes can combine only if their values
             // differ in exactly one bit — i.e. their set-bit counts differ by one. Bucket
             // by value popcount and compare only adjacent buckets (classic QM speedup):
             // this yields the identical prime set while skipping every pair that provably
             // cannot merge.
-            foreach (var group in current.GroupBy(c => c.Mask))
+            for (var g = 0; g < groupCount; g++)
             {
                 foreach (var b in buckets) b.Clear();
-                foreach (var cube in group)
+                foreach (var cube in groups[g])
                     buckets[System.Numerics.BitOperations.PopCount((uint)cube.Value)].Add(cube);
 
                 for (var k = 0; k < buckets.Length - 1; k++)
@@ -205,7 +237,12 @@ public static class TruthTableMinimizer
                 }
             }
 
-            primes.AddRange(current.Where(c => !combined.Contains(c)));
+            foreach (var cube in current)
+                if (!combined.Contains(cube))
+                    primes.Add(cube);
+
+            // Swap: the level just consumed becomes the buffer the next level fills.
+            spare = current;
             current = next;
         }
 
@@ -263,6 +300,19 @@ public static class TruthTableMinimizer
     private static void ReduceCoverTable(List<Implicant> candidates, HashSet<int> uncovered, List<Implicant> cover,
         CancellationToken cancellationToken = default)
     {
+        // Every buffer below used to be rebuilt from scratch on each fixpoint round, including a
+        // JAGGED ulong[][] with one small array per row and per column. They are hoisted here and
+        // grown on demand; the bitsets are flat, indexed as [item * words + word], which removes
+        // both the per-round allocation and one pointer hop per access.
+        var essentials = new List<Implicant>();
+        var essentialSet = new HashSet<Implicant>();
+        var rows = new List<int>();
+        var uncoveredList = new List<int>();
+        var rowBits = Array.Empty<ulong>();
+        var rowPop = Array.Empty<int>();
+        var colBits = Array.Empty<ulong>();
+        var colPop = Array.Empty<int>();
+
         bool progress;
         do
         {
@@ -276,8 +326,8 @@ public static class TruthTableMinimizer
             // are forced into every minimal cover, so this yields the same forced set as
             // extracting them one at a time, but without restarting the whole fixpoint (and
             // its quadratic dominance passes) after each one.
-            var essentials = new List<Implicant>();
-            var essentialSet = new HashSet<Implicant>();
+            essentials.Clear();
+            essentialSet.Clear();
             foreach (var minterm in uncovered)
             {
                 Implicant sole = default;
@@ -307,24 +357,31 @@ public static class TruthTableMinimizer
 
             if (progress || uncovered.Count == 0) continue;
 
-            candidates.RemoveAll(c => !uncovered.Any(c.Covers));
+            candidates.RemoveAll(c =>
+            {
+                foreach (var minterm in uncovered)
+                    if (c.Covers(minterm))
+                        return false;
+                return true;
+            });
 
             // Row dominance: if every candidate covering m1 also covers m2, drop m2.
             // Coverage is held as a bitmask over candidate indices, so the O(rows^2)
             // subset/equality tests are a handful of word ops instead of HashSet<int>
             // operations with per-row allocation.
-            var rows = uncovered.ToList();
+            rows.Clear();
+            foreach (var minterm in uncovered) rows.Add(minterm);
             var candWords = (candidates.Count + 63) / 64 + 1;
-            var rowMask = new ulong[rows.Count][];
-            var rowPop = new int[rows.Count];
+            if (rowBits.Length < rows.Count * candWords) rowBits = new ulong[rows.Count * candWords];
+            else Array.Clear(rowBits, 0, rows.Count * candWords);
+            if (rowPop.Length < rows.Count) rowPop = new int[rows.Count];
             for (var r = 0; r < rows.Count; r++)
             {
-                var mask = new ulong[candWords];
+                var at = r * candWords;
                 for (var i = 0; i < candidates.Count; i++)
                     if (candidates[i].Covers(rows[r]))
-                        mask[i >> 6] |= 1UL << (i & 63);
-                rowMask[r] = mask;
-                rowPop[r] = PopCount(mask);
+                        rowBits[at + (i >> 6)] |= 1UL << (i & 63);
+                rowPop[r] = PopCount(rowBits, at, candWords);
             }
 
             for (var a = 0; a < rows.Count; a++)
@@ -337,8 +394,10 @@ public static class TruthTableMinimizer
                 {
                     if (a == b || !uncovered.Contains(rows[b]) || !uncovered.Contains(rows[a])) continue;
                     if (rowPop[a] > rowPop[b]) continue;
-                    if (rowPop[a] == rowPop[b] && MaskEquals(rowMask[a], rowMask[b]) && rows[a] > rows[b]) continue;
-                    if (IsSubset(rowMask[a], rowMask[b]))
+                    if (rowPop[a] == rowPop[b] &&
+                        MaskEquals(rowBits, a * candWords, rowBits, b * candWords, candWords) &&
+                        rows[a] > rows[b]) continue;
+                    if (IsSubset(rowBits, a * candWords, rowBits, b * candWords, candWords))
                     {
                         uncovered.Remove(rows[b]);
                         progress = true;
@@ -356,18 +415,20 @@ public static class TruthTableMinimizer
             // Column dominance: if c1 covers a superset of c2's rows at no higher literal
             // cost, c2 has a no-worse substitute and can be dropped. Coverage is a bitmask
             // over the (positional) uncovered-minterm indices.
-            var uncoveredList = uncovered.ToList();
+            uncoveredList.Clear();
+            foreach (var minterm in uncovered) uncoveredList.Add(minterm);
             var uncoveredWords = (uncoveredList.Count + 63) / 64 + 1;
-            var colMask = new ulong[candidates.Count][];
-            var colPop = new int[candidates.Count];
+            var colCells = candidates.Count * uncoveredWords;
+            if (colBits.Length < colCells) colBits = new ulong[colCells];
+            else Array.Clear(colBits, 0, colCells);
+            if (colPop.Length < candidates.Count) colPop = new int[candidates.Count];
             for (var i = 0; i < candidates.Count; i++)
             {
-                var mask = new ulong[uncoveredWords];
+                var at = i * uncoveredWords;
                 for (var u = 0; u < uncoveredList.Count; u++)
                     if (candidates[i].Covers(uncoveredList[u]))
-                        mask[u >> 6] |= 1UL << (u & 63);
-                colMask[i] = mask;
-                colPop[i] = PopCount(mask);
+                        colBits[at + (u >> 6)] |= 1UL << (u & 63);
+                colPop[i] = PopCount(colBits, at, uncoveredWords);
             }
 
             for (var i = 0; i < candidates.Count && !progress; i++)
@@ -379,10 +440,11 @@ public static class TruthTableMinimizer
                     var c1 = candidates[i];
                     var c2 = candidates[j];
                     if (c1.LiteralCount > c2.LiteralCount) continue;
-                    if (colPop[i] == colPop[j] && MaskEquals(colMask[i], colMask[j]) &&
+                    if (colPop[i] == colPop[j] &&
+                        MaskEquals(colBits, i * uncoveredWords, colBits, j * uncoveredWords, uncoveredWords) &&
                         c1.LiteralCount == c2.LiteralCount && i > j)
                         continue;
-                    if (IsSubset(colMask[j], colMask[i]))
+                    if (IsSubset(colBits, j * uncoveredWords, colBits, i * uncoveredWords, uncoveredWords))
                     {
                         candidates.RemoveAt(j);
                         progress = true;
@@ -393,27 +455,32 @@ public static class TruthTableMinimizer
         } while (progress && uncovered.Count > 0);
     }
 
-    /// <summary>Total set bits across a bitset stored as 64-bit words.</summary>
-    private static int PopCount(ulong[] mask)
+    /// <summary>
+    ///     Bitset helpers over a FLAT backing array: each logical bitset occupies
+    ///     <c>words</c> consecutive slots starting at the given offset. The covering table used a
+    ///     jagged <c>ulong[][]</c> rebuilt each fixpoint round - one array object per row and per
+    ///     column - which is what these offsets replace.
+    /// </summary>
+    private static int PopCount(ulong[] bits, int offset, int words)
     {
         var count = 0;
-        foreach (var w in mask) count += System.Numerics.BitOperations.PopCount(w);
+        for (var w = 0; w < words; w++) count += System.Numerics.BitOperations.PopCount(bits[offset + w]);
         return count;
     }
 
     /// <summary>Whether two equal-length bitsets hold the same elements.</summary>
-    private static bool MaskEquals(ulong[] a, ulong[] b)
+    private static bool MaskEquals(ulong[] a, int offsetA, ulong[] b, int offsetB, int words)
     {
-        for (var w = 0; w < a.Length; w++)
-            if (a[w] != b[w]) return false;
+        for (var w = 0; w < words; w++)
+            if (a[offsetA + w] != b[offsetB + w]) return false;
         return true;
     }
 
-    /// <summary>Whether every bit of <paramref name="a" /> is also set in <paramref name="b" /> (a ⊆ b).</summary>
-    private static bool IsSubset(ulong[] a, ulong[] b)
+    /// <summary>Whether every bit of the first bitset is also set in the second (a ⊆ b).</summary>
+    private static bool IsSubset(ulong[] a, int offsetA, ulong[] b, int offsetB, int words)
     {
-        for (var w = 0; w < a.Length; w++)
-            if ((a[w] & ~b[w]) != 0) return false;
+        for (var w = 0; w < words; w++)
+            if ((a[offsetA + w] & ~b[offsetB + w]) != 0) return false;
         return true;
     }
 
@@ -423,6 +490,16 @@ public static class TruthTableMinimizer
         private readonly int _stepLimit;
         private readonly CancellationToken _cancellationToken;
         private int _steps;
+
+        // Per-depth scratch. Every node used to allocate a filtered+sorted option list and, per
+        // option, a list of the minterms that option newly covers. The recursion is depth-first,
+        // so one pair of lists per depth is enough and the search stops allocating per node.
+        private readonly List<List<Implicant>> _optionsByDepth = new();
+        private readonly List<List<int>> _coveredByDepth = new();
+
+        // LowerBound ran once per node and allocated a HashSet plus a list per minterm.
+        private readonly HashSet<int> _blocked = new();
+        private readonly List<Implicant> _covering = new();
 
         public CoverSearch(List<Implicant> candidates, int stepLimit, CancellationToken cancellationToken)
         {
@@ -434,6 +511,12 @@ public static class TruthTableMinimizer
         public bool LimitHit { get; private set; }
 
         public List<Implicant>? Search(HashSet<int> uncovered, List<Implicant> partial, List<Implicant>? best)
+        {
+            return Search(uncovered, partial, best, 0);
+        }
+
+        private List<Implicant>? Search(HashSet<int> uncovered, List<Implicant> partial, List<Implicant>? best,
+            int depth)
         {
             if (uncovered.Count == 0)
                 return best == null || Cost(partial).CompareTo(Cost(best)) < 0
@@ -462,48 +545,119 @@ public static class TruthTableMinimizer
                 if (bound.CompareTo(Cost(best)) >= 0) return best;
             }
 
-            // Branch on the hardest minterm (fewest covering candidates)
-            var target = uncovered.MinBy(m => _candidates.Count(c => c.Covers(m)));
-            var options = _candidates.Where(c => c.Covers(target)).OrderBy(c => c.LiteralCount).ToList();
+            // Branch on the hardest minterm (fewest covering candidates). MinBy returns the FIRST
+            // minimum in enumeration order, so the strict `<` below keeps the same tie-break.
+            var target = 0;
+            var bestCount = int.MaxValue;
+            var seen = false;
+            foreach (var minterm in uncovered)
+            {
+                var count = 0;
+                foreach (var candidate in _candidates)
+                    if (candidate.Covers(minterm))
+                        count++;
+                if (!seen || count < bestCount)
+                {
+                    seen = true;
+                    bestCount = count;
+                    target = minterm;
+                }
+            }
+
+            var options = RentOptions(depth);
+            foreach (var candidate in _candidates)
+                if (candidate.Covers(target))
+                    options.Add(candidate);
             if (options.Count == 0) return best; // uncoverable under current candidate set
 
-            foreach (var option in options)
+            // OrderBy is a STABLE sort and the option order decides which of several equally
+            // costed covers is returned, so this is insertion sort (also stable), not List.Sort.
+            for (var i = 1; i < options.Count; i++)
             {
-                var newlyCovered = uncovered.Where(option.Covers).ToList();
-                uncovered.ExceptWith(newlyCovered);
+                var value = options[i];
+                var j = i - 1;
+                while (j >= 0 && options[j].LiteralCount > value.LiteralCount)
+                {
+                    options[j + 1] = options[j];
+                    j--;
+                }
+
+                options[j + 1] = value;
+            }
+
+            var newlyCovered = RentCovered(depth);
+            for (var i = 0; i < options.Count; i++)
+            {
+                var option = options[i];
+
+                newlyCovered.Clear();
+                foreach (var minterm in uncovered)
+                    if (option.Covers(minterm))
+                        newlyCovered.Add(minterm);
+
+                foreach (var minterm in newlyCovered) uncovered.Remove(minterm);
                 partial.Add(option);
 
-                best = Search(uncovered, partial, best);
+                best = Search(uncovered, partial, best, depth + 1);
 
                 partial.RemoveAt(partial.Count - 1);
-                uncovered.UnionWith(newlyCovered);
+                foreach (var minterm in newlyCovered) uncovered.Add(minterm);
             }
 
             return best;
+        }
+
+        /// <summary>A cleared per-depth option buffer; the recursion below rents depth + 1.</summary>
+        private List<Implicant> RentOptions(int depth)
+        {
+            while (_optionsByDepth.Count <= depth) _optionsByDepth.Add(new List<Implicant>());
+            var list = _optionsByDepth[depth];
+            list.Clear();
+            return list;
+        }
+
+        private List<int> RentCovered(int depth)
+        {
+            while (_coveredByDepth.Count <= depth) _coveredByDepth.Add(new List<int>());
+            var list = _coveredByDepth[depth];
+            list.Clear();
+            return list;
         }
 
         private (int Literals, int Terms) LowerBound(HashSet<int> uncovered)
         {
             var lbLiterals = 0;
             var lbTerms = 0;
-            var blocked = new HashSet<int>();
+            _blocked.Clear();
 
             foreach (var minterm in uncovered)
             {
-                if (blocked.Contains(minterm)) continue;
+                if (_blocked.Contains(minterm)) continue;
 
-                List<Implicant>? covering = null;
+                _covering.Clear();
                 foreach (var candidate in _candidates)
                     if (candidate.Covers(minterm))
-                        (covering ??= new List<Implicant>()).Add(candidate);
+                        _covering.Add(candidate);
 
-                if (covering == null) continue;
+                if (_covering.Count == 0) continue;
 
                 lbTerms++;
-                lbLiterals += covering.Min(c => c.LiteralCount);
+                var cheapest = int.MaxValue;
+                foreach (var candidate in _covering)
+                    if (candidate.LiteralCount < cheapest)
+                        cheapest = candidate.LiteralCount;
+                lbLiterals += cheapest;
+
                 foreach (var other in uncovered)
-                    if (!blocked.Contains(other) && covering.Any(c => c.Covers(other)))
-                        blocked.Add(other);
+                {
+                    if (_blocked.Contains(other)) continue;
+                    foreach (var candidate in _covering)
+                        if (candidate.Covers(other))
+                        {
+                            _blocked.Add(other);
+                            break;
+                        }
+                }
             }
 
             return (lbLiterals, lbTerms);
@@ -512,7 +666,11 @@ public static class TruthTableMinimizer
 
     private static (int Literals, int Terms) Cost(List<Implicant> cover)
     {
-        return (cover.Sum(c => c.LiteralCount), cover.Count);
+        // Called up to three times per branch-and-bound node; LINQ's Sum allocated a delegate
+        // and an enumerator on each one.
+        var literals = 0;
+        foreach (var implicant in cover) literals += implicant.LiteralCount;
+        return (literals, cover.Count);
     }
 
     private static AstNode BuildSop(IReadOnlyList<string> variables, List<Implicant> cover)
