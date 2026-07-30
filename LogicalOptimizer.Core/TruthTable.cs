@@ -11,7 +11,7 @@ public class TruthTable
     public const int MaxVariables = 20;
 
     private readonly List<string> _variables;
-    private readonly List<Dictionary<string, bool>> _rows;
+    private List<Dictionary<string, bool>>? _rows;
     private readonly List<bool> _results;
 
     public TruthTable(List<string> variables, List<bool> results)
@@ -31,12 +31,21 @@ public class TruthTable
                 $"Truth table for {_variables.Count} variables requires exactly {expectedResults} results, got {results.Count}");
 
         _results = new List<bool>(results);
-        _rows = new List<Dictionary<string, bool>>();
-        GenerateRows();
     }
 
     public IReadOnlyList<string> Variables => _variables;
-    public IReadOnlyList<Dictionary<string, bool>> Rows => _rows;
+
+    /// <summary>
+    ///     One assignment dictionary per row, materialized on first access.
+    ///     <para>
+    ///         Building these eagerly cost a <see cref="Dictionary{TKey,TValue}" /> per row - 1024
+    ///         of them for a 10-variable table - on every truth table ever constructed, including
+    ///         the ones the optimizer and its soundness guard build internally and then read only
+    ///         through <see cref="Results" />. In production only the CSV exporter reads this, so
+    ///         the rows are now built when they are actually asked for. The content is identical.
+    ///     </para>
+    /// </summary>
+    public IReadOnlyList<Dictionary<string, bool>> Rows => _rows ??= GenerateRows();
     public IReadOnlyList<bool> Results => _results;
 
     private static void ValidateVariableCount(int count)
@@ -46,22 +55,25 @@ public class TruthTable
                 $"Truth table would require 2^{count} rows; maximum supported is {MaxVariables} variables");
     }
 
-    private void GenerateRows()
+    private List<Dictionary<string, bool>> GenerateRows()
     {
         var numVars = _variables.Count;
         var numRows = 1 << numVars;
+        var rows = new List<Dictionary<string, bool>>(numRows);
 
         for (var i = 0; i < numRows; i++)
         {
-            var row = new Dictionary<string, bool>();
+            var row = new Dictionary<string, bool>(numVars);
             for (var j = 0; j < numVars; j++)
             {
                 var value = (i & (1 << (numVars - 1 - j))) != 0;
                 row[_variables[j]] = value;
             }
 
-            _rows.Add(row);
+            rows.Add(row);
         }
+
+        return rows;
     }
 
     /// <summary>
@@ -100,9 +112,14 @@ public class TruthTable
         else
         {
             var numRows = 1 << allVariables.Count;
+            results.Capacity = numRows;
+
+            // One assignment reused across rows: EvaluateExpression only reads it and never keeps
+            // a reference, so a dictionary per row was pure garbage - 1024 of them at 10
+            // variables, on top of the 1024 the row list used to build eagerly.
+            var variableAssignment = new Dictionary<string, bool>(allVariables.Count);
             for (var i = 0; i < numRows; i++)
             {
-                var variableAssignment = new Dictionary<string, bool>();
                 for (var j = 0; j < allVariables.Count; j++)
                 {
                     var value = (i & (1 << (allVariables.Count - 1 - j))) != 0;
@@ -125,6 +142,24 @@ public class TruthTable
         return EvaluateExpression(node, assignment);
     }
 
+    /// <summary>Conjunction over operands without allocating an enumerator or a closure.</summary>
+    private static bool EvaluateAll(IReadOnlyList<AstNode> operands, Dictionary<string, bool> assignment)
+    {
+        for (var i = 0; i < operands.Count; i++)
+            if (!EvaluateExpression(operands[i], assignment))
+                return false;
+        return true;
+    }
+
+    /// <summary>Disjunction over operands without allocating an enumerator or a closure.</summary>
+    private static bool EvaluateAny(IReadOnlyList<AstNode> operands, Dictionary<string, bool> assignment)
+    {
+        for (var i = 0; i < operands.Count; i++)
+            if (EvaluateExpression(operands[i], assignment))
+                return true;
+        return false;
+    }
+
     /// <summary>
     ///     Evaluates the expression value for a given set of variable values
     /// </summary>
@@ -136,8 +171,12 @@ public class TruthTable
             VariableNode varNode => assignment.TryGetValue(varNode.Name, out var value)
                 ? value
                 : throw new KeyNotFoundException($"No value provided for variable '{varNode.Name}'"),
-            AndNode andNode => andNode.Operands.All(operand => EvaluateExpression(operand, assignment)),
-            OrNode orNode => orNode.Operands.Any(operand => EvaluateExpression(operand, assignment)),
+            // Explicit loops, not All/Any: the lambdas captured `assignment`, so every n-ary node
+            // of every row allocated a closure, a delegate and an enumerator. A 10-variable table
+            // evaluates 1024 rows, which made this the bulk of one truth table's cost - and the
+            // soundness guard builds two of them per check.
+            AndNode andNode => EvaluateAll(andNode.Operands, assignment),
+            OrNode orNode => EvaluateAny(orNode.Operands, assignment),
             NotNode notNode => !EvaluateExpression(notNode.Operand, assignment),
             XorNode xorNode => EvaluateExpression(xorNode.Left, assignment) ^
                                EvaluateExpression(xorNode.Right, assignment),
