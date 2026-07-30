@@ -46,7 +46,7 @@ logical-optimizer "a & b | a & c"
 | [Packages & architecture](articles/packages-and-architecture.md) | The 7-package split, layering, `FormulaFactory`, canonical n-ary AST |
 | [CLI usage](articles/cli-usage.md) | Every flag with verified example outputs |
 | [Migration to v2.0](articles/migration-v2.md) | Breaking changes and how to adapt |
-| [Testing overview](articles/testing-overview.md) | The ten-technique testing strategy |
+| [Testing overview](articles/testing-overview.md) | The structured functional suite and the ten techniques layered on it |
 | [API Reference](api/index.md) | Generated from the XML doc comments of the seven library packages |
 
 Every code example across these articles is mirrored by an executed, asserted test in

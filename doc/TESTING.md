@@ -36,6 +36,15 @@ construction-time canonicalization)
 
 ## Part 1: Summary Matrix
 
+This matrix covers the **cross-cutting layer only**. It sits on top of the structured functional
+suite organized by subject (Part 2) — the tests that pin what the library must *do*, and the ones
+that fail first when a behavior changes. Of the 1230 discovered cases, 1085 are subject tests
+(Core 134 · Optimizers 186 · Engines 338 · Facade+Analysis 187 · Formats 116 · Cli 77 ·
+Documentation 47) and 109 live in `Techniques/` (the ten below plus the API-surface, claims and
+package-contract guards); the rest are the test infrastructure's own tests and the
+projected-model-counting spike. The techniques are cross-checks on that base, not a replacement
+for it — read Part 2's audit rules first.
+
 Status legend: ☑ current and verified in the last audit · ◪ present with known gaps · ☐ not started.
 
 | # | Technique | Applicability | Status | Coverage today | Effort to extend | Priority |
