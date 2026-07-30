@@ -194,8 +194,25 @@ return 0;
         }
 
         if (-not $SkipTool) {
-            Invoke-Step "dotnet tool install LogicalOptimizer.Cli $Version" {
+            # Retry, because "published" and "installable as a tool" are not the same instant.
+            # verify_nuget.ps1 polls the flat-container index and returns as soon as the .nupkg is
+            # fetchable there, but `dotnet tool install` needs the package indexed further, and that
+            # lags behind by anything from seconds to minutes. Running the two back to back means
+            # the tool install can legitimately lose the race and report
+            # "Version X of package logicaloptimizer.cli is not found in NuGet feeds" for a package
+            # that is on nuget.org and perfectly installable a minute later - which is exactly how
+            # the 3.2.1 release run failed AFTER a completely successful publish.
+            $toolAttempts = 10
+            $toolDelay = 30
+            for ($attempt = 1; $attempt -le $toolAttempts; $attempt++) {
+                Write-Host ("==> dotnet tool install LogicalOptimizer.Cli {0} (attempt {1}/{2})" -f $Version, $attempt, $toolAttempts)
                 dotnet tool install --global LogicalOptimizer.Cli --version $Version --add-source $nugetSource
+                if ($LASTEXITCODE -eq 0) { break }
+                if ($attempt -eq $toolAttempts) {
+                    throw ("dotnet tool install LogicalOptimizer.Cli {0} failed after {1} attempt(s)" -f $Version, $toolAttempts)
+                }
+                Write-Host ("    not installable yet; waiting {0}s (nuget.org indexing lag)" -f $toolDelay)
+                Start-Sleep -Seconds $toolDelay
             }
 
             Write-Host '==> logical-optimizer --format=json (CLI smoke test)'

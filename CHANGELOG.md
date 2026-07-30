@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The post-publish smoke test no longer races nuget.org's indexing.** `verify_nuget.ps1` returns
+  as soon as a package is fetchable from the flat-container index, but `dotnet tool install` needs
+  the package indexed further, and that lags behind by seconds to minutes. Running the two back to
+  back meant the tool install could report `Version 3.2.1 of package logicaloptimizer.cli is not
+  found in NuGet feeds` for a package that was on nuget.org and installed fine a minute later —
+  which is how the 3.2.1 release run failed *after* a completely successful publish, skipping the
+  evidence-bundle steps behind it. [`tools/smoke_install.ps1`](tools/smoke_install.ps1) now retries
+  the tool install (10 attempts, 30 s apart) the way the index check already retried, and fails
+  only if the package is still not installable after that.
+
 ## [3.2.1] - 2026-07-30
 
 Packaging fix. **This is the release to use; [3.2.0] never fully published** — see the note under
