@@ -10,7 +10,10 @@ dotnet run -c Release --project LogicalOptimizer.Benchmarks -- --filter * [--job
 
 Environment of the published run: BenchmarkDotNet v0.14.0, Windows 11, .NET 10.0.9,
 X64 RyuJIT AVX2, ShortRun job (3 iterations - indicative, not publication-grade;
-re-run with the default job for tighter error bars).
+re-run with the default job for tighter error bars). Recorded 2026-07-30, from the same
+run that produced [`doc/perf-baseline.json`](perf-baseline.json) — so the allocation
+column of the three gated classes below and the committed baseline always agree. The
+`SatSolverBenchmarks` table is from an earlier run and is not part of the gate.
 
 ## Performance regression gate (roadmap P0.3)
 
@@ -275,11 +278,11 @@ the log.
 
 ### OptimizationBenchmarks
 
-| Method                    | Mean        | Error       | StdDev    | Gen0     | Gen1     | Gen2     | Allocated  |
-|-------------------------- |------------:|------------:|----------:|---------:|---------:|---------:|-----------:|
-| SmallExpression           |    87.94 μs |    31.98 μs |  1.753 μs |  35.8276 |   0.3052 |        - |  219.77 KB |
-| GuaranteeZoneTenVariables | 7,791.00 μs | 1,244.70 μs | 68.226 μs | 578.1250 | 328.1250 | 242.1875 | 3976.35 KB |
-| MidRangeFourteenVariables |   443.08 μs |   157.77 μs |  8.648 μs | 166.5039 |   3.9063 |        - | 1020.68 KB |
+| Method                    | Mean        | Error      | StdDev    | Gen0     | Gen1     | Gen2    | Allocated  |
+|-------------------------- |------------:|-----------:|----------:|---------:|---------:|--------:|-----------:|
+| SmallExpression           |    97.05 μs |  26.07 μs  |  1.429 μs |  31.1279 |   0.3662 |       - |  190.94 KB |
+| GuaranteeZoneTenVariables | 4,080.47 μs | 684.11 μs  | 37.498 μs | 246.0938 | 164.0625 | 82.0313 | 1449.12 KB |
+| MidRangeFourteenVariables |   452.57 μs | 218.95 μs  | 12.001 μs |  97.6563 |   3.9063 |       - |  598.39 KB |
 
 ### SatSolverBenchmarks
 
@@ -339,17 +342,18 @@ precisely the regression this corpus is meant to surface.
 
 ### ExactMinimizationBenchmarks
 
-| Method                     | Mean     | Error    | StdDev   | Gen0      | Gen1     | Allocated |
-|--------------------------- |---------:|---------:|---------:|----------:|---------:|----------:|
-| QuineMcCluskeyTenVariables | 81.65 ms | 9.980 ms | 0.547 ms | 1750.0000 | 125.0000 |   11.2 MB |
+| Method                     | Mean     | Error     | StdDev    | Gen0    | Gen1   | Allocated |
+|--------------------------- |---------:|----------:|----------:|--------:|-------:|----------:|
+| QuineMcCluskeyTenVariables | 2.467 ms | 0.3248 ms | 0.0178 ms | 39.0625 | 3.9063 | 253.06 KB |
 
 ### NewEnginesBenchmarks
 
-| Method                             | Mean         | Error         | StdDev     | Gen0       | Gen1      | Gen2     | Allocated    |
-|----------------------------------- |-------------:|--------------:|-----------:|-----------:|----------:|---------:|-------------:|
-| EspressoLite_FortyVariableCover    | 66,879.39 μs | 13,336.972 μs | 731.044 μs | 18727.2727 | 1090.9091 | 272.7273 | 115013.61 KB |
-| BddSifting_TwelveVariablePairs     |  2,875.13 μs |    392.783 μs |  21.530 μs |   822.2656 |   76.1719 |        - |   5048.98 KB |
-| FormulaFactory_ImportFortyVarCover |  1,689.61 μs |    225.850 μs |  12.380 μs |    50.7813 |   15.6250 |        - |     323.4 KB |
+| Method                             | Mean        | Error       | StdDev    | Gen0     | Gen1   | Allocated  |
+|----------------------------------- |------------:|------------:|----------:|---------:|-------:|-----------:|
+| EspressoLite_FortyVariableCover    | 6,103.01 μs | 384.432 μs  | 21.072 μs |  23.4375 |      - |  168.13 KB |
+| BddSifting_TwelveVariablePairs     |   590.70 μs | 154.188 μs  |  8.452 μs | 218.7500 | 8.7891 | 1341.06 KB |
+| FormulaFactory_ImportFortyVarCover |    34.52 μs |   5.495 μs  |  0.301 μs |  16.6931 | 0.9155 |  102.38 KB |
+| Aig_FromFortyVarCover              |    21.37 μs |   4.959 μs  |  0.272 μs |  13.0768 | 0.7172 |   80.13 KB |
 | Aig_FromFortyVarCover              |     62.24 μs |      6.092 μs |   0.334 μs |     8.7280 |    0.4272 |        - |     53.57 KB |
 
 

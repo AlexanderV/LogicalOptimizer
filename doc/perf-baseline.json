@@ -2,7 +2,7 @@
     "note":  "Performance-regression baseline (roadmap P0.3). The gate is ALLOCATION-based: allocatedBytesPerOperation is compared by tools/compare_benchmarks.ps1 and a run FAILS if any benchmark exceeds baseline * (1 + threshold). meanNanoseconds is INFORMATIONAL only and is never asserted (wall-clock is noisy on shared CI runners). Regenerate with: pwsh tools/compare_benchmarks.ps1 -Current RESULTS_DIR -UpdateBaseline.",
     "thresholdDefault":  0.1,
     "minimumRegressionBytes":  32768,
-    "generatedUtc":  "2026-07-30T17:55:39Z",
+    "generatedUtc":  "2026-07-30T20:03:34Z",
     "environment":  {
                         "benchmarkDotNetVersion":  "0.14.0",
                         "runtimeVersion":  ".NET 10.0.9 (10.0.926.27113)",
@@ -13,36 +13,36 @@
                     },
     "benchmarks":  {
                        "ExactMinimizationBenchmarks.QuineMcCluskeyTenVariables":  {
-                                                                                      "allocatedBytesPerOperation":  274618,
-                                                                                      "meanNanoseconds":  2457548.1770833335
+                                                                                      "allocatedBytesPerOperation":  259136,
+                                                                                      "meanNanoseconds":  2467213.4114583335
                                                                                   },
                        "NewEnginesBenchmarks.Aig_FromFortyVarCover":  {
                                                                           "allocatedBytesPerOperation":  82048,
-                                                                          "meanNanoseconds":  20829.532368977863
+                                                                          "meanNanoseconds":  21374.368794759113
                                                                       },
                        "NewEnginesBenchmarks.BddSifting_TwelveVariablePairs":  {
                                                                                    "allocatedBytesPerOperation":  1373248,
-                                                                                   "meanNanoseconds":  586912.32096354163
+                                                                                   "meanNanoseconds":  590699.59309895837
                                                                                },
                        "NewEnginesBenchmarks.EspressoLite_FortyVariableCover":  {
-                                                                                    "allocatedBytesPerOperation":  172161,
-                                                                                    "meanNanoseconds":  6263593.75
+                                                                                    "allocatedBytesPerOperation":  172163,
+                                                                                    "meanNanoseconds":  6103009.895833333
                                                                                 },
                        "NewEnginesBenchmarks.FormulaFactory_ImportFortyVarCover":  {
-                                                                                       "allocatedBytesPerOperation":  113640,
-                                                                                       "meanNanoseconds":  36927.694702148438
+                                                                                       "allocatedBytesPerOperation":  104832,
+                                                                                       "meanNanoseconds":  34515.122477213539
                                                                                    },
                        "OptimizationBenchmarks.GuaranteeZoneTenVariables":  {
-                                                                                "allocatedBytesPerOperation":  1836654,
-                                                                                "meanNanoseconds":  6504247.135416667
+                                                                                "allocatedBytesPerOperation":  1483896,
+                                                                                "meanNanoseconds":  4080471.875
                                                                             },
                        "OptimizationBenchmarks.MidRangeFourteenVariables":  {
-                                                                                "allocatedBytesPerOperation":  612792,
-                                                                                "meanNanoseconds":  472096.46809895831
+                                                                                "allocatedBytesPerOperation":  612748,
+                                                                                "meanNanoseconds":  452571.35416666669
                                                                             },
                        "OptimizationBenchmarks.SmallExpression":  {
-                                                                      "allocatedBytesPerOperation":  192504,
-                                                                      "meanNanoseconds":  95092.2607421875
+                                                                      "allocatedBytesPerOperation":  195520,
+                                                                      "meanNanoseconds":  97054.964192708314
                                                                   }
                    }
 }

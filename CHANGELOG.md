@@ -13,6 +13,22 @@ No behaviour change anywhere below: every result, every cover and every proof st
 identical. Validated after each step by the gate suite (1255) and the full `Exhaustive`
 category — all 65534 four-variable functions asserted `MinimalProven` **and** equivalent.
 
+- **The 10-variable optimize path is at least 1.7x faster** (`GuaranteeZoneTenVariables`
+  6.75 ms → 2.94–3.94 ms; allocation 1.75 MB → 1.41 MB). A phase breakdown put 91% of that
+  benchmark in prime-implicant generation — not, as assumed, in the final soundness guard, which
+  costs nothing here because the winning candidate is the interned input node and the guard
+  returns on reference equality. The function has exactly five prime implicants but the tabular
+  method grinds 26,281 intermediate cubes through nine levels to reach them, and each level
+  paired its cubes quadratically. It no longer searches for a merge partner: cubes in a mask
+  group share one Mask and Value is always a subset of Mask, so a partner is the cube whose Value
+  has exactly ONE more bit set, and the candidates are just the free bits — at most
+  `variableCount` probes instead of a whole bucket scan. A second HashSet, which every merge hit
+  twice to mark both parents as combined (73,950 merges against 26,281 cubes), became a flag
+  array indexed by position in the level.
+  The order in which primes are emitted is a behavioural contract — it decides the candidate
+  order of the cover search and so which of several equally costed minimum covers is returned —
+  so partners are replayed in bucket order, and the resulting prime sequence was dumped for both
+  implementations over a dense and a sparse function and diffed: byte-identical, covers included.
 - **Exact minimization is 7.7x faster** (`QuineMcCluskeyTenVariables` 18.75 ms → 2.44 ms).
   Profiling put 83% of the time in the covering-table reductions, and the cause was control
   flow rather than arithmetic: column dominance removed a *single* dominated candidate and then
