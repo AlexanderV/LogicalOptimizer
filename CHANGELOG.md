@@ -14,10 +14,10 @@ public API change; no runtime behaviour change.
 
 - **Published JSON Schema for the CLI report.** The `--format=json` document is now a contract
   rather than a convention: [`schema/cli-report-v1.schema.json`](schema/cli-report-v1.schema.json)
-  (Draft 2020-12, served from the docs site at the `$id` it declares), seven golden example
+  (Draft 2020-12, served from the docs site at the `$id` it declares), eight golden example
   reports in [`schema/examples/`](schema/examples) covering success, `BudgetExceeded` minimality, a
-  `TooLarge` normal form, the optional `advanced` field, `--trace`, a structured parse error and a
-  bare processing error, and [`schema/README.md`](schema/README.md) spelling out what may change
+  `TooLarge` normal form, the optional `advanced` field, a CSV source, `--trace`, a structured parse
+  error and a bare processing error, and [`schema/README.md`](schema/README.md) spelling out what may change
   within a version and what requires a new one. `CliReportSchemaTests` validates the committed
   examples *and* freshly generated output against the schema, checks the schema's enums are exactly
   the CLR enums (`MinimizationStatus`, `ComputationStatus`, `OptimizationTraceCategory`,
@@ -88,6 +88,53 @@ public API change; no runtime behaviour change.
 
 ### Fixed
 
+- **The equivalence guarantee did not cover the returned result.** `RewriteEngine`'s soundness guard
+  only compares the rewrite phase's output to its own input. Everything after it — the exact
+  Quine–McCluskey candidate, the SAT prime cover, the subcircuit library, AIG rewriting — imports an
+  expression built by a *different* engine, and the winner of the cost comparison was never compared
+  to the parsed input at all. The documented promise ("every optimization is verified equivalent to
+  the input before it is returned") therefore described a stronger guarantee than the code provided;
+  `IsEquivalent()` only checked afterwards, and only if the caller asked.
+  A **final guard** now runs immediately before `OptimizationResult` is built: truth table up to 12
+  variables (reusing the exact path's ON-set, so no second table is built), SAT miter above. Failing
+  to *prove* equivalence — refuted, or the SAT budget exhausted — rolls the result back to the input,
+  drops the minimality status to `Heuristic`, and re-derives the normal forms from the input, so a
+  returned document can never mix a rolled-back expression with forms of a refuted candidate.
+- **Claim-critical exhaustive evidence never ran automatically.** README and `doc/CLAIMS.md` cite the
+  exhaustive 4-variable sweeps as what backs the `verified` and `MinimalProven` claims, but both are
+  `Exhaustive`-category and every automated filter excluded them — nothing re-proved them for the
+  commit being published. They now also carry a `ReleaseEvidence` category, run as a gate **before
+  `dotnet pack`** (~2 minutes for all 65534 functions, twice), and land in the evidence bundle as
+  `exhaustive-evidence.json`; `-RequireAll` fails the release without it. The full `Exhaustive`
+  category runs nightly ([`exhaustive.yml`](.github/workflows/exhaustive.yml)).
+- **The published JSON Schema accepted a self-contradictory report.** The two outcomes were expressed
+  as `anyOf`, which validates a document carrying *both* `optimized` and `error` — so schema
+  validation alone could not tell a consumer which outcome occurred. Now `oneOf` with explicit `not`
+  clauses: a success report requires `optimized`/`equivalent`/`minimality` and forbids `error`; an
+  error report forbids every result-only field. Negative tests cover all three cases. This is a
+  schema defect fix, not a contract change — the CLI has never emitted such a document, so nothing
+  that was valid before became invalid.
+- **A JSON report for a CSV truth table could not name its own input.** The schema defines `input`
+  as "the argument exactly as received", but the CSV path overwrote the received argument with the
+  sum-of-products it derived from the table, and the report wrote *that* into `input` — so a
+  consumer could not tell which CSV, or which `*.csv` file, a report came from, and the error path
+  (which always wrote the received argument) disagreed with the success path about what the field
+  meant. Single-output CSV plus `--format=json` is a supported combination — only `--outputs` is
+  rejected with JSON — so this was a real gap, not an invalid invocation. `input` is now the
+  received argument on both paths; two additive fields carry the rest: **`sourceFormat`**
+  (`expression` | `csv`, present in every report) and **`analyzedExpression`** (the derived
+  expression, present only when it differs from `input`). Every verdict in the report is about the
+  analyzed expression, which the schema now states field by field. New
+  [`CliJsonInputContractTests`](LogicalOptimizer.Tests/Cli/CliJsonInputContractTests.cs) drives
+  `Program.Main` for inline CSV, a `*.csv` file, auto-detected CSV, malformed CSV and a plain
+  expression, and checks stdout carries exactly one schema-valid document with the CSV progress
+  messages kept on stderr — the seam the writer-level tests structurally could not reach.
+- **Documented CLI transcripts had drifted from the CLI.** `docs-site/articles/cli-usage.md` claims
+  "All outputs shown are verified against the built CLI", yet its default-output block (and
+  `introduction.md`'s) predated the `Equivalent` / `Minimality` / `Cost` lines the formatter now
+  always prints. Both are updated, and `DocumentedCliOutputTests` makes the promise executable: every
+  documented transcript is compared line-by-line against output from the same formatter the CLI uses,
+  with a guard test so a reformatted block cannot silently turn the check into a no-op.
 - **The release evidence bundle silently omitted benchmark provenance.**
   `build_evidence_bundle.ps1` only recorded a `benchmarks` item when `-BenchmarkManifest` was
   passed, and `release.yml` never passed it — so every bundle would have shipped without the
@@ -104,6 +151,15 @@ public API change; no runtime behaviour change.
   dependencies" become "no third-party runtime dependency" in README, `SECURITY.md`, the facade
   package README and three documentation pages — a shipped LogicalOptimizer package does reference
   other LogicalOptimizer packages, so the unqualified form was not true.
+- **Narrowed the deterministic-build wording** in `RELEASING.md`: `ContinuousIntegrationBuild=true`
+  normalizes source paths, which makes the build deterministic *for a fixed SDK, OS and dependency
+  graph* — it is not a full reproducible-build guarantee across environments, and is no longer
+  described as one. What each release does verify (checksums, provenance attestation) is stated
+  instead.
+- **`git diff --check` no longer flags Markdown hard line breaks.** Two trailing spaces are
+  Markdown's line-break syntax and the README/docs hero lines depend on it; `*.md
+  whitespace=-trailing-space` in `.gitattributes` keeps the check meaningful everywhere else instead
+  of drowning a real defect in expected warnings.
 
 ## [3.1.0] - 2026-07-29
 

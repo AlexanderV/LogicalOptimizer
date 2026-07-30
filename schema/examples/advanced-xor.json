@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "input": "a & !b | !a & b",
+  "sourceFormat": "expression",
   "optimized": "a & !b | b & !a",
   "equivalent": true,
   "minimality": "MinimalProven",

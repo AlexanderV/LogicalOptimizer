@@ -271,6 +271,7 @@ dotnet run --project LogicalOptimizer.Cli -- --format=json "a & b | a & c"
 {
   "schemaVersion": 1,
   "input": "a & b | a & c",
+  "sourceFormat": "expression",
   "optimized": "a & (b | c)",
   "equivalent": true,
   "minimality": "MinimalProven",
@@ -284,6 +285,9 @@ dotnet run --project LogicalOptimizer.Cli -- --format=json "a & b | a & c"
 `advanced` (an `a XOR b`-style pattern) appears only when one is detected. On an invalid
 expression the document carries an `error` object with a structured parse diagnostic — `code`,
 `position`, `length`, `expected`, `snippet` — instead of the result fields.
+`input` is always the argument as received: with a CSV truth table (`--csv`, or a `*.csv` path)
+`sourceFormat` is `"csv"` and the expression derived from the table is reported separately as
+`analyzedExpression`.
 **Exit codes:** `0` success · `1` usage error · `2` processing error (e.g. an invalid expression).
 
 This is a **published contract**, not just a documented shape:

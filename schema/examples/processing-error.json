@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "input": "a & b",
+  "sourceFormat": "expression",
   "error": {
     "code": "processing_error",
     "message": "Simulated processing failure"

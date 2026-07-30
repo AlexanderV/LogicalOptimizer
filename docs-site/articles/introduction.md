@@ -65,6 +65,9 @@ Which prints (running from source with
 ```text
 Original: a & b | a & c
 Optimized: a & (b | c)
+Equivalent: proven
+Minimality: proven
+Cost: 4 -> 3 literals
 CNF: a & (b | c)
 DNF: a & b | a & c
 Variables: [a, b, c]

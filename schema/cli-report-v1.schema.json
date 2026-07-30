@@ -2,13 +2,35 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://AlexanderV.github.io/LogicalOptimizer/schema/cli-report-v1.schema.json",
   "title": "LogicalOptimizer CLI report (schemaVersion 1)",
-  "description": "The document written by `logical-optimizer --format=json \"<expression>\"` on stdout. Exactly one document per invocation. A successful run carries `optimized`; a failed one carries `error`. Fields absent from this schema are not part of the contract and must not be relied on; see schema/README.md for the compatibility rules.",
+  "description": "The document written by `logical-optimizer --format=json \"<expression>\"` on stdout. Exactly one document per invocation. A successful run carries `optimized`; a failed one carries `error`. `input` is always the argument the CLI received; the expression the verdicts are about is `analyzedExpression` when present and `input` otherwise — this document calls that \"the analyzed expression\". Fields absent from this schema are not part of the contract and must not be relied on; see schema/README.md for the compatibility rules.",
   "type": "object",
   "unevaluatedProperties": false,
-  "required": ["schemaVersion", "input"],
-  "anyOf": [
-    { "required": ["optimized"], "title": "success report" },
-    { "required": ["error"], "title": "error report" }
+  "required": ["schemaVersion", "input", "sourceFormat"],
+  "oneOf": [
+    {
+      "title": "success report",
+      "description": "The expression was processed. `optimized` is present and `error` is absent; the process exit code was 0.",
+      "required": ["optimized", "equivalent", "minimality"],
+      "not": { "required": ["error"] }
+    },
+    {
+      "title": "error report",
+      "description": "The expression could not be processed. `error` is present and every result-only field is absent; the process exit code was 2.",
+      "required": ["error"],
+      "not": {
+        "anyOf": [
+          { "required": ["optimized"] },
+          { "required": ["equivalent"] },
+          { "required": ["minimality"] },
+          { "required": ["cost"] },
+          { "required": ["cnf"] },
+          { "required": ["dnf"] },
+          { "required": ["advanced"] },
+          { "required": ["variables"] },
+          { "required": ["trace"] }
+        ]
+      }
+    }
   ],
   "properties": {
     "schemaVersion": {
@@ -16,15 +38,24 @@
       "const": 1
     },
     "input": {
-      "description": "The expression exactly as received, before any optimization. Present in every report, including error reports.",
+      "description": "The argument exactly as the CLI received it, before any parsing, derivation or optimization. For `sourceFormat: \"expression\"` this IS the analyzed expression; for `sourceFormat: \"csv\"` it is the CSV text or the `*.csv` path that was passed, and the derived expression is in `analyzedExpression`. Present in every report, including error reports.",
+      "type": "string"
+    },
+    "sourceFormat": {
+      "description": "What `input` is. `expression` = a boolean expression, analyzed as written. `csv` = a CSV truth table (inline text or a `*.csv` path) that the tool derived an expression from. Present in every report.",
+      "type": "string",
+      "enum": ["expression", "csv"]
+    },
+    "analyzedExpression": {
+      "description": "The expression the tool actually analyzed, present only when it differs from `input` — i.e. the sum-of-products derived from a `csv` source. Absent whenever `input` was analyzed as written, and absent on an error report that failed before the derivation. Its exact textual form is not part of the contract (see schema/README.md).",
       "type": "string"
     },
     "optimized": {
-      "description": "The optimized expression. Verified equivalent to `input` whenever `equivalent` is true. Absent on an error report.",
+      "description": "The optimized expression. Verified equivalent to the analyzed expression whenever `equivalent` is true. Absent on an error report.",
       "type": "string"
     },
     "equivalent": {
-      "description": "Whether `optimized` was PROVEN equivalent to `input` (truth table in the exhaustive range, SAT miter above it). `false` means the internal equivalence guard rejected the result and is a bug report worth filing — the optimize path is not expected to produce it.",
+      "description": "Whether `optimized` was PROVEN equivalent to the analyzed expression (truth table in the exhaustive range, SAT miter above it). `false` means the internal equivalence guard rejected the result and is a bug report worth filing — the optimize path is not expected to produce it.",
       "type": "boolean"
     },
     "minimality": {
@@ -33,7 +64,7 @@
       "enum": ["MinimalProven", "BudgetExceeded", "Heuristic"]
     },
     "cost": {
-      "description": "Literal counts before and after optimization. Absent when either side could not be counted.",
+      "description": "Literal counts of the analyzed expression before and after optimization. Absent when either side could not be counted.",
       "type": "object",
       "unevaluatedProperties": false,
       "required": ["originalLiterals", "optimizedLiterals"],
@@ -43,11 +74,11 @@
       }
     },
     "cnf": {
-      "description": "Conjunctive normal form. With the default `--cnf-mode=equivalent` it is equivalent to `input`; with `--cnf-mode=tseitin` it is only EQUISATISFIABLE and introduces auxiliary `_tN` variables.",
+      "description": "Conjunctive normal form. With the default `--cnf-mode=equivalent` it is equivalent to the analyzed expression; with `--cnf-mode=tseitin` it is only EQUISATISFIABLE and introduces auxiliary `_tN` variables.",
       "$ref": "#/$defs/form"
     },
     "dnf": {
-      "description": "Disjunctive normal form, equivalent to `input`. Carries no `minimality` field.",
+      "description": "Disjunctive normal form, equivalent to the analyzed expression. Carries no `minimality` field.",
       "$ref": "#/$defs/form"
     },
     "advanced": {
@@ -55,7 +86,7 @@
       "type": "string"
     },
     "variables": {
-      "description": "Variable names occurring in `input`, sorted.",
+      "description": "Variable names occurring in the analyzed expression, sorted.",
       "type": "array",
       "items": { "type": "string" }
     },
@@ -116,7 +147,7 @@
           "type": "string"
         },
         "position": {
-          "description": "0-based character offset of the error in `input`. Absent for `processing_error`.",
+          "description": "0-based character offset of the error in the analyzed expression. Absent for `processing_error`.",
           "type": "integer",
           "minimum": 0
         },
@@ -131,7 +162,7 @@
           "items": { "type": "string" }
         },
         "snippet": {
-          "description": "The input line with a caret under `position`. Formatting is NOT part of the contract.",
+          "description": "The offending line of the analyzed expression with a caret under `position`. Formatting is NOT part of the contract.",
           "type": "string"
         }
       }

@@ -49,6 +49,12 @@ public class CliReportSchemaTests
         "a13 & b13 & c13 | a14 & b14 & c14";
 
     /// <summary>
+    ///     A CSV truth table for <c>a | b</c>. Shows the one case where the received input is NOT
+    ///     the expression that gets analyzed.
+    /// </summary>
+    private const string CsvSource = "a,b,Result\\n0,0,0\\n0,1,1\\n1,0,1\\n1,1,1";
+
+    /// <summary>
     ///     One file per documented outcome a consumer has to handle. Each renders exactly what the
     ///     CLI writes to stdout for that case.
     /// </summary>
@@ -57,6 +63,7 @@ public class CliReportSchemaTests
         "budget-exceeded",
         "form-too-large",
         "advanced-xor",
+        "csv-source",
         "trace",
         "parse-error",
         "processing-error");
@@ -67,6 +74,7 @@ public class CliReportSchemaTests
         "budget-exceeded" => RenderResult(BudgetExceededExpression),
         "form-too-large" => RenderResult(TooLargeExpression),
         "advanced-xor" => RenderResult("a & !b | !a & b"),
+        "csv-source" => RenderCsvResult(CsvSource),
         "trace" => RenderResult("a & b | a & c", new OptimizationOptions { IncludeTrace = true }),
         // Both error shapes go through the CLI's own error path (Program.ProcessExpression), so
         // the examples show a real diagnostic rather than a hand-written one.
@@ -80,7 +88,21 @@ public class CliReportSchemaTests
         var result = new BooleanExpressionOptimizer().OptimizeExpression(expression,
             options ?? new OptimizationOptions());
         var writer = new StringWriter();
-        JsonReportWriter.Write(writer, result);
+        JsonReportWriter.Write(writer, result, expression, CliInputSource.Expression);
+        return Normalize(writer.ToString());
+    }
+
+    /// <summary>
+    ///     The CSV path the way the CLI walks it: derive an expression from the table, optimize
+    ///     that, but report the CSV as the input. <see cref="CliJsonInputContractTests" /> checks
+    ///     the same shape end-to-end through <c>Program.Main</c>.
+    /// </summary>
+    private static string RenderCsvResult(string csv)
+    {
+        var expression = CsvProcessor.ProcessCsvInput(csv);
+        var result = new BooleanExpressionOptimizer().OptimizeExpression(expression, new OptimizationOptions());
+        var writer = new StringWriter();
+        JsonReportWriter.Write(writer, result, csv, CliInputSource.Csv);
         return Normalize(writer.ToString());
     }
 
@@ -98,7 +120,7 @@ public class CliReportSchemaTests
             var diagnostic =
                 (ex as FormulaParseException ?? ex.InnerException as FormulaParseException)?.Diagnostic;
             Assert.NotNull(diagnostic);
-            JsonReportWriter.WriteError(writer, expression, ex.Message, diagnostic);
+            JsonReportWriter.WriteError(writer, expression, CliInputSource.Expression, ex.Message, diagnostic);
         }
 
         return Normalize(writer.ToString());
@@ -107,57 +129,25 @@ public class CliReportSchemaTests
     private static string RenderProcessingError(string expression, string message)
     {
         var writer = new StringWriter();
-        JsonReportWriter.WriteError(writer, expression, message);
+        JsonReportWriter.WriteError(writer, expression, CliInputSource.Expression, message);
         return Normalize(writer.ToString());
     }
 
     private static string Normalize(string json) => json.ReplaceLineEndings("\n").TrimEnd() + "\n";
 
-    private static string SchemaDirectory => Path.Combine(AppContext.BaseDirectory, "Schema");
+    private static string SchemaDirectory => PublishedCliSchema.Directory;
 
     private static string ExamplePath(string name) =>
         Path.Combine(SchemaDirectory, "examples", name + ".json");
 
-    private static JsonSchema Schema
-    {
-        get
-        {
-            var path = Path.Combine(SchemaDirectory, "cli-report-v1.schema.json");
-            Assert.True(File.Exists(path), $"Published CLI schema missing at {path}");
-            return JsonSchema.FromText(File.ReadAllText(path));
-        }
-    }
+    private static JsonSchema Schema => PublishedCliSchema.Schema;
 
-    private static JsonNode SchemaNode
-    {
-        get
-        {
-            var path = Path.Combine(SchemaDirectory, "cli-report-v1.schema.json");
-            return JsonNode.Parse(File.ReadAllText(path))!;
-        }
-    }
+    private static JsonNode SchemaNode => PublishedCliSchema.Node;
 
-    private static readonly EvaluationOptions StrictEvaluation = new()
-    {
-        OutputFormat = OutputFormat.List,
-        // Without this, `unevaluatedProperties: false` is not reported per-instance-location and an
-        // unexpected extra field could slip through as a passing evaluation.
-        RequireFormatValidation = true
-    };
+    private static EvaluationOptions StrictEvaluation => PublishedCliSchema.StrictEvaluation;
 
-    private static void AssertValidatesAgainstSchema(string json, string what)
-    {
-        var instance = JsonNode.Parse(json);
-        var evaluation = Schema.Evaluate(instance, StrictEvaluation);
-        if (evaluation.IsValid) return;
-
-        var errors = evaluation.Details
-            .Where(d => d.HasErrors)
-            .SelectMany(d => d.Errors!.Select(e => $"  {d.InstanceLocation}: {e.Key} -> {e.Value}"))
-            .ToArray();
-        Assert.Fail($"{what} does not satisfy schema/cli-report-v1.schema.json:\n" +
-                    string.Join("\n", errors) + "\n\nDocument was:\n" + json);
-    }
+    private static void AssertValidatesAgainstSchema(string json, string what) =>
+        PublishedCliSchema.AssertValid(json, what);
 
     [Theory]
     [MemberData(nameof(ExampleNames))]
@@ -225,6 +215,103 @@ public class CliReportSchemaTests
     }
 
     [Fact]
+    public void SuccessAndErrorTogether_IsRejected()
+    {
+        // The two outcomes are mutually exclusive, and the schema has to SAY so. An `anyOf` of
+        // the two branches accepts a document carrying both, which would let a consumer read a
+        // result off a report that also declares the run failed.
+        var both = JsonNode.Parse("""
+            {
+              "schemaVersion": 1,
+              "input": "a & b",
+              "optimized": "a & b",
+              "equivalent": true,
+              "minimality": "MinimalProven",
+              "error": { "code": "processing_error", "message": "contradictory document" }
+            }
+            """);
+        Assert.False(Schema.Evaluate(both, StrictEvaluation).IsValid,
+            "A report carrying both `optimized` and `error` must not validate: the outcomes are " +
+            "exclusive, so exactly one branch may match.");
+    }
+
+    [Fact]
+    public void SuccessReport_WithoutItsMandatoryFields_IsRejected()
+    {
+        // `optimized` alone is not a success report: the verdicts are the point of the tool, so a
+        // document that omits them must not pass as one.
+        foreach (var missing in new[] { "equivalent", "minimality" })
+        {
+            var report = JsonNode.Parse(Render("success-minimal-proven"))!.AsObject();
+            report.Remove(missing);
+            Assert.False(Schema.Evaluate(report, StrictEvaluation).IsValid,
+                $"A success report without '{missing}' must not validate.");
+        }
+    }
+
+    [Theory]
+    [InlineData("optimized", "\"a & b\"")]
+    [InlineData("minimality", "\"MinimalProven\"")]
+    [InlineData("cost", """{"originalLiterals": 2, "optimizedLiterals": 2}""")]
+    [InlineData("variables", """["a", "b"]""")]
+    public void ErrorReport_CarryingResultOnlyFields_IsRejected(string field, string value)
+    {
+        // The CLI writes an error report INSTEAD of the result fields. Encoding that in the schema
+        // is what lets a consumer branch on `error` alone without re-checking every other field.
+        var report = JsonNode.Parse(Render("parse-error"))!.AsObject();
+        report[field] = JsonNode.Parse(value);
+        Assert.False(Schema.Evaluate(report, StrictEvaluation).IsValid,
+            $"An error report carrying the result-only field '{field}' must not validate.");
+    }
+
+    [Fact]
+    public void CsvReport_NamesTheReceivedCsv_NotTheExpressionDerivedFromIt()
+    {
+        // The contract this schema publishes for `input` is "the argument exactly as received".
+        // Reporting the derived sum-of-products there instead left the artifact unable to say
+        // which CSV produced it, and made the success path disagree with the error path.
+        var report = JsonDocument.Parse(Render("csv-source")).RootElement;
+
+        Assert.Equal(CsvSource, report.GetProperty("input").GetString());
+        Assert.Equal("csv", report.GetProperty("sourceFormat").GetString());
+
+        var analyzed = report.GetProperty("analyzedExpression").GetString();
+        Assert.NotEqual(CsvSource, analyzed);
+        Assert.Equal("a | b", report.GetProperty("optimized").GetString());
+    }
+
+    [Fact]
+    public void ExpressionReport_OmitsAnalyzedExpression()
+    {
+        // Absence is the signal that nothing was derived, so `input` alone is the analyzed
+        // expression. Emitting an echo of `input` would make the field meaningless.
+        var report = JsonDocument.Parse(Render("success-minimal-proven")).RootElement;
+
+        Assert.Equal("expression", report.GetProperty("sourceFormat").GetString());
+        Assert.False(report.TryGetProperty("analyzedExpression", out _));
+    }
+
+    [Fact]
+    public void ReportWithoutSourceFormat_IsRejected()
+    {
+        // Every report states how its input arrived; a consumer must not have to infer it from
+        // whether `analyzedExpression` happens to be there.
+        var report = JsonNode.Parse(Render("success-minimal-proven"))!.AsObject();
+        report.Remove("sourceFormat");
+        Assert.False(Schema.Evaluate(report, StrictEvaluation).IsValid);
+    }
+
+    [Fact]
+    public void SourceFormatEnum_ListsExactlyTheClrInputSources()
+    {
+        // Same guard as the other enums: a new input source added in C# but not in the schema
+        // would make a legitimate report invalid.
+        var expected = Enum.GetNames<CliInputSource>().Select(n => n.ToLowerInvariant());
+        Assert.Equal(expected.OrderBy(n => n, StringComparer.Ordinal),
+            EnumAt("properties/sourceFormat").OrderBy(n => n, StringComparer.Ordinal));
+    }
+
+    [Fact]
     public void SchemaVersion_MatchesWhatTheWriterEmits()
     {
         var emitted = JsonDocument.Parse(Render("success-minimal-proven"))
@@ -265,12 +352,5 @@ public class CliReportSchemaTests
         return node["enum"]!.AsArray().Select(v => v!.GetValue<string>());
     }
 
-    private static string RepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "LogicalOptimizer.sln")))
-            directory = directory.Parent;
-        return directory?.FullName
-               ?? throw new InvalidOperationException("Cannot locate the repository root");
-    }
+    private static string RepositoryRoot() => PublishedCliSchema.RepositoryRoot();
 }

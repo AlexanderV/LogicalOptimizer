@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "input": "a & b | a & c",
+  "sourceFormat": "expression",
   "optimized": "a & (b | c)",
   "equivalent": true,
   "minimality": "MinimalProven",
@@ -126,6 +127,17 @@
       "category": "Rejected",
       "step": "AigRewrite",
       "message": "no structural gain (2 -> 2 AND nodes)"
+    },
+    {
+      "category": "Proof",
+      "step": "FinalSoundnessGuard",
+      "message": "final result proven equivalent to the input by truth table",
+      "data": {
+        "method": "truth-table",
+        "variables": "3",
+        "reusedInputOnSet": "true",
+        "proven": "true"
+      }
     },
     {
       "category": "Status",

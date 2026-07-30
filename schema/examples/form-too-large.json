@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "input": "a01 & b01 & c01 | a02 & b02 & c02 | a03 & b03 & c03 | a04 & b04 & c04 | a05 & b05 & c05 | a06 & b06 & c06 | a07 & b07 & c07 | a08 & b08 & c08 | a09 & b09 & c09 | a10 & b10 & c10 | a11 & b11 & c11 | a12 & b12 & c12 | a13 & b13 & c13 | a14 & b14 & c14",
+  "sourceFormat": "expression",
   "optimized": "a01 & b01 & c01 | a02 & b02 & c02 | a03 & b03 & c03 | a04 & b04 & c04 | a05 & b05 & c05 | a06 & b06 & c06 | a07 & b07 & c07 | a08 & b08 & c08 | a09 & b09 & c09 | a10 & b10 & c10 | a11 & b11 & c11 | a12 & b12 & c12 | a13 & b13 & c13 | a14 & b14 & c14",
   "equivalent": true,
   "minimality": "Heuristic",

@@ -72,9 +72,17 @@ internal class Program
 
     private static int ProcessExpression(CommandLineProcessor.CommandLineOptions options)
     {
+        // The received argument is kept separate from the expression actually analyzed: for CSV
+        // input the two differ, and the JSON report has to name the former (that is what makes the
+        // artifact traceable back to the CSV or the file the run was given). Both are declared out
+        // here so the error path reports the same pair as the success path.
+        var received = options.Expression;
+        var source = options.CsvInput ? CliInputSource.Csv : CliInputSource.Expression;
+        string? analyzed = null;
+
         try
         {
-            var expression = options.Expression;
+            var expression = received;
 
             // Multi-output CSV: minimize every declared output column and print the pairs
             if (options.OutputColumns.Count > 0)
@@ -88,7 +96,7 @@ internal class Program
             // Handle CSV input
             if (options.CsvInput)
             {
-                expression = CsvProcessor.ProcessCsvInput(expression);
+                expression = analyzed = CsvProcessor.ProcessCsvInput(expression);
             }
 
             // Optimize expression, computing only the artifacts the chosen mode displays.
@@ -111,7 +119,7 @@ internal class Program
 
             // Display results
             if (json)
-                JsonReportWriter.Write(Console.Out, result);
+                JsonReportWriter.Write(Console.Out, result, received, source);
             else
                 new OutputFormatter().DisplayResult(result, options);
 
@@ -123,7 +131,7 @@ internal class Program
             var diagnostic = (ex as FormulaParseException ?? ex.InnerException as FormulaParseException)?.Diagnostic;
 
             if (options.Format == CliOutputFormat.Json)
-                JsonReportWriter.WriteError(Console.Out, options.Expression, ex.Message, diagnostic);
+                JsonReportWriter.WriteError(Console.Out, received, source, ex.Message, diagnostic, analyzed);
 
             // Prefer the clean structured message over the facade's wrapped one.
             Console.Error.WriteLine($"Error processing expression: {diagnostic?.Message ?? ex.Message}");

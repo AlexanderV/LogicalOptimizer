@@ -47,15 +47,36 @@ git push origin v2.1.0
 ```
 
 `release.yml`: setup .NET 10 → `dotnet build -warnaserror` → `dotnet test` (CI-фільтр, `.trx`) →
-`dotnet pack` 9 пакетів → **audit вмісту пакетів (gate перед публікацією)** → **checksums +
-provenance attestation** → `dotnet nuget push --skip-duplicate` → **верифікація присутності в
-реєстрі** → **installation + Native AOT smoke test з опублікованих пакетів** → **release evidence
-bundle**. Якщо тести або audit впадуть — публікації не буде.
+**claim-critical exhaustive evidence** → `dotnet pack` 9 пакетів → **audit вмісту пакетів (gate
+перед публікацією)** → **checksums + provenance attestation** → `dotnet nuget push
+--skip-duplicate` → **верифікація присутності в реєстрі** → **installation + Native AOT smoke test
+з опублікованих пакетів** → **release evidence bundle**. Якщо тести, exhaustive evidence або audit
+впадуть — публікації не буде.
+
+**Claim-critical exhaustive evidence:** README і [`doc/CLAIMS.md`](doc/CLAIMS.md) посилаються на
+exhaustive-прогони по всіх 65534 чотиризмінних функціях як на доказ claims `verified` і
+`MinimalProven`. Ці тести належать до категорії `Exhaustive`, яку і CI, і основний release-прогін
+виключають — тобто для конкретного published commit їх ніщо не переперевіряло. Тому вони додатково
+позначені категорією `ReleaseEvidence` і запускаються окремим кроком **до `dotnet pack`**
+(≈2 хв на обидва), а їхній `.trx` потрапляє в evidence bundle як `exhaustive-evidence.json`. Без
+нього `-RequireAll` валить job. Повна категорія `Exhaustive` крутиться щоночі —
+[`exhaustive.yml`](.github/workflows/exhaustive.yml).
+
+```bash
+# локально, те саме що робить gate:
+dotnet test LogicalOptimizer.sln -c Release --filter "Category=ReleaseEvidence"
+```
 
 **Supply-chain гарантії кожного релізу:**
 
-- **детермінований build** — `ContinuousIntegrationBuild=true` автоматично на CI (див.
-  [`Directory.Build.props`](Directory.Build.props)), тому той самий коміт дає ідентичний вихід;
+- **детермінований build за фіксованого toolchain** — `ContinuousIntegrationBuild=true`
+  автоматично на CI (див. [`Directory.Build.props`](Directory.Build.props)) нормалізує шляхи до
+  джерел і прибирає machine-specific вміст із compiler output. Це означає: той самий коміт,
+  зібраний **тією самою версією SDK на тій самій ОС із тим самим dependency graph**, дає
+  ідентичний вихід. Це *не* повна reproducible-build гарантія — сам по собі прапорець не фіксує
+  версію SDK, ОС і native tooling, тому bit-for-bit збіг між різними середовищами не заявляється.
+  Що дійсно перевіряється для кожного релізу — `SHA256SUMS.txt` (ті самі байти, що були
+  опубліковані) і build provenance attestation (ким і з якого коміту зібрано);
 - **symbol-пакети** — `.snupkg` поруч із кожним `.nupkg` (`dotnet nuget push` вантажить їх
   автоматично) + SourceLink, тож споживач може зайти дебагером у код;
 - **package validation** — статичні перевірки SDK під час `pack`;

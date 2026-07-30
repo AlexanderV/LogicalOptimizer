@@ -17,7 +17,8 @@
           package-contract-report.json contents audit of every .nupkg  (verify_package_contract.ps1)
           nuget-index-report.json      packages present on nuget.org   (verify_nuget.ps1)
           aot-package-smoke.json       native binary built from the PUBLISHED package
-          test-summary.json            test counts parsed from the .trx
+          test-summary.json            per-push suite counts parsed from the .trx
+          exhaustive-evidence.json     the claim-critical exhaustive sweeps, re-run for this commit
           SHA256SUMS.txt               checksums of the published .nupkg/.snupkg
           claim-changes.md             the CHANGELOG section for this version
           verifying-provenance.md      how to verify the signed build attestation yourself
@@ -43,6 +44,11 @@
 
 .PARAMETER TrxPath
     A .trx test result file; test counts are parsed from it into test-summary.json.
+
+.PARAMETER ExhaustiveTrxPath
+    The .trx from the claim-critical run (`--filter "Category=ReleaseEvidence"`), parsed into
+    exhaustive-evidence.json. Kept separate from the general summary on purpose: this is the
+    evidence README and doc/CLAIMS.md cite, so it must be visibly present or visibly absent.
 
 .PARAMETER ChecksumsPath
     SHA256SUMS.txt covering the published .nupkg/.snupkg files.
@@ -80,6 +86,7 @@ param(
     [string] $NuGetIndexReport,
     [string] $AotReport,
     [string] $TrxPath,
+    [string] $ExhaustiveTrxPath,
     [string] $ChecksumsPath,
     [string] $BenchmarkManifest,
 
@@ -166,40 +173,61 @@ Add-BundleItem -SourcePath $ChecksumsPath -TargetName 'SHA256SUMS.txt' -Required
 Add-BundleItem -SourcePath $BenchmarkManifest -TargetName 'benchmarks' `
     -Proves 'Benchmark and comparison provenance: which version, corpus (with its SHA-256), hardware and runtime the published numbers came from, and the equivalence verdict for every row.'
 
-# --- test summary parsed from the .trx ---------------------------------------------------------
+# --- test summaries parsed from the .trx files -------------------------------------------------
 
-if ($TrxPath -and (Test-Path $TrxPath)) {
-    $trx = [xml](Get-Content -Raw $TrxPath)
+function Add-TrxSummary {
+    param(
+        [AllowEmptyString()] [AllowNull()] [string] $Path,
+        [Parameter(Mandatory = $true)] [string] $TargetName,
+        [Parameter(Mandatory = $true)] [string] $Scope,
+        [Parameter(Mandatory = $true)] [string] $Proves,
+        [switch] $Required
+    )
+
+    if (-not $Path -or -not (Test-Path $Path)) {
+        Write-Host ("   absent  {0}" -f $TargetName)
+        $items.Add([ordered]@{
+            file = $TargetName; status = 'absent'; proves = $Proves
+            required = [bool]$Required; source = $Path
+        })
+        return
+    }
+
+    $trx = [xml](Get-Content -Raw $Path)
     $counters = $trx.DocumentElement.SelectSingleNode("//*[local-name()='Counters']")
     $summary = [ordered]@{
         reportVersion = 1
-        source        = Split-Path -Leaf $TrxPath
+        source        = Split-Path -Leaf $Path
+        # Exactly which tests these counts cover. Without it a reader cannot tell a full run from
+        # a filtered one, and "1239 passed" would imply more than it proves.
+        scope         = $Scope
         total         = [int]$counters.total
         executed      = [int]$counters.executed
         passed        = [int]$counters.passed
         failed        = [int]$counters.failed
-        # The release suite deliberately excludes the Performance and Exhaustive categories;
-        # recorded here so the counts are not read as "every test in the repository".
-        excluded      = 'Category=Performance, Category=Exhaustive'
         result        = $(if ([int]$counters.failed -eq 0) { 'pass' } else { 'fail' })
     }
-    Write-Utf8NoBom -Path (Join-Path $bundle 'test-summary.json') -Content ($summary | ConvertTo-Json -Depth 4)
-    Write-Host ("   ok      test-summary.json ({0} passed, {1} failed)" -f $summary.passed, $summary.failed)
+
+    Write-Utf8NoBom -Path (Join-Path $bundle $TargetName) -Content ($summary | ConvertTo-Json -Depth 4)
+    Write-Host ("   ok      {0} ({1} passed, {2} failed)" -f $TargetName, $summary.passed, $summary.failed)
     $items.Add([ordered]@{
-        file     = 'test-summary.json'
+        file     = $TargetName
         status   = 'present'
-        proves   = "Test counts for this release build ($($summary.passed) passed, $($summary.failed) failed), excluding the Performance and Exhaustive categories."
-        required = $false
-        source   = (Resolve-Path $TrxPath).Path
+        proves   = "$Proves Counts for this release build: $($summary.passed) passed, $($summary.failed) failed."
+        required = [bool]$Required
+        source   = (Resolve-Path $Path).Path
     })
 }
-else {
-    Write-Host '   absent  test-summary.json'
-    $items.Add([ordered]@{
-        file = 'test-summary.json'; status = 'absent'
-        proves = 'Test counts for this release build.'; required = $false; source = $TrxPath
-    })
-}
+
+Add-TrxSummary -Path $TrxPath -TargetName 'test-summary.json' `
+    -Scope 'dotnet test --filter "Category!=Performance&Category!=Exhaustive"' `
+    -Proves 'The per-push suite passed for the exact commit being published. Timing-sensitive (Performance) and exhaustive-sweep (Exhaustive) tests are excluded here and reported separately.'
+
+# Separate on purpose: this is the evidence README and doc/CLAIMS.md point at for the "verified"
+# and "MinimalProven" claims. Folding it into the general count would hide whether it ran at all.
+Add-TrxSummary -Path $ExhaustiveTrxPath -TargetName 'exhaustive-evidence.json' -Required:$RequireAll `
+    -Scope 'dotnet test --filter "Category=ReleaseEvidence"' `
+    -Proves 'The claim-critical exhaustive sweeps re-ran for this commit: all 65534 non-constant 4-variable functions preserve semantics (the "verified" claim) and all of them report MinimalProven (the "minimal" claim).'
 
 # --- claim changes vs the previous release -----------------------------------------------------
 

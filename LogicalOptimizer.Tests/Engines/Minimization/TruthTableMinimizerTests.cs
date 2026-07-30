@@ -346,14 +346,18 @@ public class TruthTableMinimizerTests
 
     [Fact]
     [Trait("Category", "Exhaustive")]
+    [Trait("Category", "ReleaseEvidence")]
     public void OptimizeExpression_AllFourVariableFunctions_MinimalProven()
     {
         // The published claim is that MinimalProven holds for every 3- AND 4-variable function
         // (README "Overview", doc/CLAIMS.md). The 3-variable sweep above is cheap enough to run on
-        // every CI build; this one covers all 65534 non-constant 4-variable functions and is
-        // Exhaustive-category, so it runs locally and in the release-evidence sweep rather than on
-        // every push. Same two assertions: the status is proven, AND the returned form is still the
-        // input function - a proven status on a wrong result would be the worse bug.
+        // every CI build; this one covers all 65534 non-constant 4-variable functions, so it is too
+        // slow for every push. It carries BOTH categories: Exhaustive keeps it out of the fast
+        // suite, ReleaseEvidence puts it in the gate that runs before publishing
+        // (.github/workflows/release.yml) and lands its .trx in the release evidence bundle - a
+        // claim nothing automatically re-proves is a claim nobody can check. Same two assertions:
+        // the status is proven, AND the returned form is still the input function - a proven status
+        // on a wrong result would be the worse bug.
         var optimizer = new BooleanExpressionOptimizer();
         var options = new OptimizationOptions
         { ComputeCnf = false, ComputeDnf = false, ComputeAdvancedForms = false };

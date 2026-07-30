@@ -19,6 +19,9 @@ logical-optimizer "a & b | a & c"
 ```text
 Original: a & b | a & c
 Optimized: a & (b | c)
+Equivalent: proven
+Minimality: proven
+Cost: 4 -> 3 literals
 CNF: a & (b | c)
 DNF: a & b | a & c
 Variables: [a, b, c]
@@ -125,6 +128,7 @@ logical-optimizer --format=json "a & b | a & c"
 {
   "schemaVersion": 1,
   "input": "a & b | a & c",
+  "sourceFormat": "expression",
   "optimized": "a & (b | c)",
   "equivalent": true,
   "minimality": "MinimalProven",
@@ -139,6 +143,37 @@ logical-optimizer --format=json "a & b | a & c"
 document carries an `error` object instead of the result fields. Fields are only added within
 a `schemaVersion`, never renamed or removed.
 
+#### JSON with a CSV truth table
+
+`--format=json` accepts a CSV input — inline or a `*.csv` file — as one single-output report. The
+document names the input the CLI **received**, and reports the expression derived from the table
+separately, so an archived report stays traceable to the table it came from:
+
+```bash
+logical-optimizer --format=json --csv "a,b,Result\n0,0,0\n0,1,1\n1,0,1\n1,1,1"
+```
+
+```json
+{
+  "schemaVersion": 1,
+  "input": "a,b,Result\\n0,0,0\\n0,1,1\\n1,0,1\\n1,1,1",
+  "sourceFormat": "csv",
+  "analyzedExpression": "(!a & b) | (a & !b) | (a & b)",
+  "optimized": "a | b",
+  "equivalent": true,
+  "minimality": "MinimalProven"
+}
+```
+
+Every verdict in the report — `optimized`, `equivalent`, `minimality`, `cost`, the normal forms —
+is about `analyzedExpression`. For a `*.csv` file, `input` is the path as passed. With a plain
+expression `sourceFormat` is `"expression"` and `analyzedExpression` is omitted, because `input`
+already is the analyzed expression.
+
+`--format=json` is **not** available with `--outputs`: that mode emits one expression per output
+column, which a single-expression report cannot carry. The combination is rejected as a usage
+error (exit code 1).
+
 The report is a published contract, not just a convention:
 
 - **JSON Schema** (Draft 2020-12):
@@ -146,7 +181,8 @@ The report is a published contract, not just a convention:
   — validate a report with, for example,
   `check-jsonschema --schemafile cli-report-v1.schema.json report.json`;
 - **golden examples** for every outcome a consumer must handle — success, `BudgetExceeded`
-  minimality, a `TooLarge` normal form, a structured parse error, and a bare processing error:
+  minimality, a `TooLarge` normal form, a CSV source, a structured parse error, and a bare
+  processing error:
   [`schema/examples/`](https://github.com/AlexanderV/LogicalOptimizer/tree/main/schema/examples);
 - **what may change and what may not**, in
   [`schema/README.md`](https://github.com/AlexanderV/LogicalOptimizer/blob/main/schema/README.md).
