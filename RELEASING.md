@@ -175,7 +175,9 @@ pwsh tools/build_evidence_bundle.ps1 -Version 3.1.0 -PackageContractReport packa
 
 - **Завжди push `main` → потім push тег** (щоб гілка й docs-сайт були актуальні; docs-workflow
   тригериться на push у `main`).
-- Поточна dev-версія — **3.2.1** (у [`Directory.Build.props`](Directory.Build.props)). Мінор 3.2
+- Поточна dev-версія — **3.2.2** (у [`Directory.Build.props`](Directory.Build.props)). Патч 3.2.2
+  не змінює публічний API (`PublicApi.approved.txt` ідентичний до `v3.2.1`) — це перформанс
+  точної мінімізації та виправлення релізного конвеєра. Мінор 3.2
   додає публічний API адитивно (`OptimizationTrace`, `TryParse`/`ParseDiagnostic`,
   `FormulaParseException`); мажор 3.0
   увімкнув AIG DAG-aware rewriting за замовчуванням + доведено-мінімальну min-AIG бібліотеку

@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this project will be documented in this file.
 
@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [3.2.2] - 2026-07-31
 
 ### Performance
 
@@ -42,10 +44,11 @@ category — all 65534 four-variable functions asserted `MinimalProven` **and** 
   and ran at nearly every node — 22,219 scans across 34,544 nodes, ~44 million bit tests per call.
   Cubes are sparse (a couple of literals out of forty variables), so the tally now walks only the
   set bits.
-- **Allocation is down 75% across the gated benchmarks** (18.7 MB → 4.65 MB per operation in
-  total), chiefly by not rebuilding working memory inside the hottest loops: EspressoLite
-  6,596,502 → 171,878 bytes (-97%), Quine–McCluskey 3,404,038 → 274,432 (-92%), the 10-variable
-  optimize path 6,288,111 → 1,836,605 (-71%). The largest single item was in truth-table
+- **Allocation is down 77% across the gated benchmarks** (18.67 MB → 4.28 MB per operation in
+  total, as committed in [`doc/perf-baseline.json`](doc/perf-baseline.json)), chiefly by not
+  rebuilding working memory inside the hottest loops: EspressoLite 6,596,502 → 172,163 bytes
+  (-97%), Quine–McCluskey 3,426,380 → 259,136 (-92%), the 10-variable
+  optimize path 6,291,632 → 1,483,896 (-76%). The largest single item was in truth-table
   evaluation, where `Operands.All/Any` captured the assignment dictionary and so allocated a
   closure, a delegate and an enumerator per n-ary node **per row** — 1024 rows per table, two
   tables per equivalence check.
@@ -64,22 +67,6 @@ category — all 65534 four-variable functions asserted `MinimalProven` **and** 
 - **`doc/perf-baseline.json` re-recorded** for the improvements above. Without this the gate would
   have stayed green while being blind — a regression of EspressoLite from 172 KB back to 6.5 MB
   would still have been under the old 6.6 MB baseline and reported OK.
-
-### Changed
-
-- **Allocation baseline re-recorded for the mid-range zone.**
-  `OptimizationBenchmarks.MidRangeFourteenVariables` went from 583,472 to 646,881 bytes/op
-  (+10.9%, just over the gate's 10% threshold). This is the cost of a feature, not a leak: the
-  baseline was recorded 2026-07-29, the **final soundness guard** landed 2026-07-30, and above 12
-  variables that guard proves the returned result equivalent to the input with a SAT miter — which
-  is exactly what a 14-variable benchmark exercises. The attribution is visible in the numbers:
-  `GuaranteeZoneTenVariables` (10 variables, where the guard uses the cheap truth-table path) moved
-  −0.1%, and the other six benchmarks are flat. Verifying every result is a headline guarantee, so
-  the allocation is accepted and [`doc/perf-baseline.json`](doc/perf-baseline.json) re-recorded
-  rather than the threshold widened.
-
-### Fixed
-
 - **The post-publish smoke test no longer races nuget.org's indexing.** `verify_nuget.ps1` returns
   as soon as a package is fetchable from the flat-container index, but `dotnet tool install` needs
   the package indexed further, and that lags behind by seconds to minutes. Running the two back to
@@ -103,6 +90,22 @@ category — all 65534 four-variable functions asserted `MinimalProven` **and** 
   account). The same correction is applied to the README and `RELEASING.md`. Verified by running
   the rewritten steps against the v3.2.1 release as an outside consumer: attestation verifies, 17
   of 17 checksums match, and the contract audit passes 169 checks.
+
+### Changed
+
+- **Allocation baseline re-recorded for the mid-range zone.**
+  `OptimizationBenchmarks.MidRangeFourteenVariables` is the one gated benchmark that grew:
+  583,472 → 612,748 bytes/op (+5.0%) as finally recorded. This is the cost of a feature, not a
+  leak: the old baseline predates the **final soundness guard**, and above 12 variables that guard
+  proves the returned result equivalent to the input with a SAT miter — which is exactly what a
+  14-variable benchmark exercises. The attribution is visible in the numbers:
+  `GuaranteeZoneTenVariables` (10 variables, where the guard uses the cheap truth-table path) did
+  not move for this reason, and the untouched benchmarks are flat. Verifying every result is a
+  headline guarantee, so the allocation is accepted and
+  [`doc/perf-baseline.json`](doc/perf-baseline.json) re-recorded rather than the threshold widened.
+  What set this off was an intermediate recording of 646,881 bytes/op (+10.9%) that tripped the
+  gate; later runs of the same binary settled at 612,748, which is itself part of why the gate
+  gained an absolute floor above.
 
 ## [3.2.1] - 2026-07-30
 
