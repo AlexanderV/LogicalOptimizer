@@ -8,8 +8,9 @@ the behavior. Both layers have been audited (duplicates removed, weak oracles st
 This page is a short map — the full strategy, actuality matrix, audit log, and mutation results
 live in [`doc/TESTING.md`](https://github.com/AlexanderV/LogicalOptimizer/blob/main/doc/TESTING.md).
 
-Discovery finds **1 230 test cases**; the CI gate runs **1 152** of them (the timing-sensitive
-and exhaustive-sweep categories run separately — see [Running the tests](#running-the-tests)).
+The CI gate runs **1 255 cases**, all green (the timing-sensitive and exhaustive-sweep categories
+run separately on top of that — see [Running the tests](#running-the-tests)). The count is a
+snapshot taken after the 2026-07-30 audit, not a contract.
 
 ## Layer 1 — the functional suite
 
@@ -18,17 +19,17 @@ a behavior changes; the techniques below then catch what a hand-written example 
 
 | Area | What it pins | Cases |
 |---|---|---:|
-| **Core** | Lexer, parser and its diagnostics, n-ary AST node contracts (≥ 2 operands, defensive copy, order-sensitive equality, cached hash, `Clone == this`), `FormulaFactory` canonicalization and interning, truth-table generation and comparison | 134 |
-| **Optimizers** | Every rewrite rule and pattern detector, construction-time canonical ordering, distributive expansion, consensus, rule completeness, and the soundness guard's rollback contract | 186 |
-| **Engines** | SAT (CDCL, incremental, unsat cores, DRAT proofs) · BDD (operations, sifting) · AIG (cut enumeration, NPN canonicalization, rewriting) · d-DNNF (compilation, conditioning, sampling) · two-level minimization (Quine–McCluskey, SAT cover, Espresso-lite) · encodings (Tseitin, Plaisted–Greenbaum, cardinality / PB / MaxSAT) | 338 |
-| **Facade & Analysis** | `BooleanExpressionOptimizer` end to end: statuses, metrics and the quality report, normal forms and ANF, the diagnostic trace, resource budgets and cancellation, backbone computation and model enumeration | 187 |
+| **Core** | Lexer, parser and its diagnostics, n-ary AST node contracts (≥ 2 operands, defensive copy, order-sensitive equality, cached hash, `Clone == this`), `FormulaFactory` canonicalization and interning, truth-table generation and comparison | 165 |
+| **Optimizers** | Every rewrite rule and pattern detector, construction-time canonical ordering, distributive expansion, consensus, rule completeness, the extended-operator rule library under a truth-table sweep, and the final soundness guard's rollback contract | 196 |
+| **Engines** | SAT (CDCL, incremental, unsat cores, DRAT proofs, core-guided MaxSAT) · BDD (operations, sifting) · AIG (cut enumeration, NPN canonicalization, rewriting) · d-DNNF (compilation, conditioning, sampling) · two-level minimization (Quine–McCluskey, SAT cover, Espresso-lite, multi-output sharing) · encodings (Tseitin, Plaisted–Greenbaum, cardinality / PB) · circuit serialization | 306 |
+| **Facade & Analysis** | `BooleanExpressionOptimizer` end to end: statuses, metrics and the quality report, normal forms and ANF, the diagnostic trace, resource budgets and cancellation, equivalence checking, backbone computation and model enumeration | 190 |
 | **Formats** | CSV truth tables (single- and multi-output), C# / BLIF / Verilog export, DIMACS / OPB / WCNF, AST visualizer | 116 |
-| **CLI** | Argument parsing and validation, output formatting, the JSON report and the published schema it must validate against | 77 |
-| **Documentation** | Every code snippet in the README and in these articles, compiled, executed and asserted — the outputs shown are real | 47 |
+| **CLI** | Argument parsing and validation, output formatting, the JSON report and the published schema it must validate against, the CSV-input contract | 92 |
+| **Documentation** | Every code snippet in the README and in these articles, compiled, executed and asserted — plus the documented CLI flag set, the standard-format verb set, and the documented CLI transcripts compared line for line against the formatter the tool runs | 55 |
 
-The remaining cases are the technique suites (109, see below), the test infrastructure's own
-tests (10 — the random-expression generators and oracles are themselves tested) and a
-projected-model-counting spike (26).
+The remaining cases are the technique suites (101, see below), a projected-model-counting spike
+(24) and the test infrastructure's own tests (10 — the random-expression generators and oracles
+are themselves tested).
 
 ### What makes them *structured*
 
@@ -48,10 +49,18 @@ audits delete or strengthen whatever violates them:
 5. **Weak assertions are bugs.** `Assert.NotEmpty`, unfalsifiable disjuncts and
    `>= small-constant` checks get strengthened or deleted.
 
-The rules have teeth: the 2026-07-29 audit cut the gate suite from 1 158 to 1 152 cases while
-adding assertions — including replacing a circular oracle in the flagship minimizer honesty test,
-where the "reference optimum" had been the same routine at a larger budget and is now cross-checked
-by an independent SAT prime-cover.
+The rules have teeth, and an audit routinely ends with *fewer* cases asserting *more*:
+
+- **2026-07-29** cut the gate suite from 1 158 to 1 152 while replacing a circular oracle in the
+  flagship minimizer honesty test, where the "reference optimum" had been the same routine at a
+  larger budget and is now cross-checked by an independent SAT prime-cover.
+- **2026-07-30** cut 1 261 to 1 254. The headline finding was a *representativeness* one: the
+  extended-operator rule library had 46 cases that asserted only the shape the implementation
+  happens to build, so a rule firing on the wrong operand kind was invisible. Demonstrated rather
+  than assumed — a planted mutant making `NAND(1, a)` return `1` instead of `!a` left all 52
+  pre-existing cases green. Both rule files now sit on a truth-table sweep over a 64-pair operand
+  grid with a per-rule firing counter, and the suite's own folder layout is enforced by a test
+  instead of by convention.
 
 ## Layer 2 — the ten systematic techniques
 
@@ -68,10 +77,16 @@ by an independent SAT prime-cover.
 | 9 | **Characterization** | A golden-master corpus of expressions |
 | 10 | **Combinatorial / Pairwise** | Covering array over the CLI/option axes |
 
-They live in `Techniques/` alongside three contract guards that use the same machinery: the
+They live in `Techniques/` alongside four contract guards that use the same machinery: the
 member-level public-API baseline, the claims-vocabulary check behind
-[`doc/CLAIMS.md`](https://github.com/AlexanderV/LogicalOptimizer/blob/main/doc/CLAIMS.md), and the
-package-contract audit — 109 cases in total.
+[`doc/CLAIMS.md`](https://github.com/AlexanderV/LogicalOptimizer/blob/main/doc/CLAIMS.md), the
+meta-package bundle check, and the suite-layout guard that keeps a test class in a file named
+after it, under the folder for its subject — 101 cases in total.
+
+The two **external** oracles no longer skip silently. `LOGICALOPTIMIZER_REQUIRE_SYMPY` and
+`LOGICALOPTIMIZER_REQUIRE_Z3` turn an absent oracle into a failing test where it is expected to be
+present; CI sets the SymPy one exactly when `pip install sympy` succeeded, so an oracle that stops
+importing cannot quietly leave the differential technique asserting nothing.
 
 ## Verification is part of the product, not just the tests
 
@@ -106,4 +121,5 @@ dotnet test --filter "Category=Performance"
 dotnet test --filter "Category=Exhaustive"   # e.g. all 4-variable functions
 ```
 
-CI enforces an 80% line-coverage floor (the suite sits around ~89%).
+CI enforces an 80% line-coverage floor on the `LogicalOptimizer` facade assembly, which currently
+measures 92.7% line / 84.6% branch / 96.1% method.

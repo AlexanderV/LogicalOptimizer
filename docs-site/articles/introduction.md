@@ -33,15 +33,23 @@ the better answer.
 
 ## Installation
 
-Add the library as a NuGet package. The `LogicalOptimizer` facade pulls in all four
-engine packages; you can also depend on individual layers:
+Add the library as a NuGet package. There are three ways in, depending on how much you
+want:
 
 ```bash
-dotnet add package LogicalOptimizer               # facade: everything
-# or pick individual layers:
+# 1. Everything in one install: a code-less meta-package that pulls in all seven libraries.
+dotnet add package LogicalOptimizer.Full
+
+# 2. The facade: Core + Sat + Bdd + Minimization. It does NOT pull in .Dnnf or .Formats —
+#    add those alongside it if you need knowledge compilation or DIMACS/WCNF/OPB.
+dotnet add package LogicalOptimizer
+
+# 3. Individual layers, for a minimal dependency set:
 dotnet add package LogicalOptimizer.Core          # n-ary AST, FormulaFactory, AstFormatter, truth tables
-dotnet add package LogicalOptimizer.Sat           # CDCL solver, CNF encodings, MaxSAT
+dotnet add package LogicalOptimizer.Sat           # CDCL solver, CNF encodings, cardinality/PB, MaxSAT
 dotnet add package LogicalOptimizer.Bdd           # ROBDD
+dotnet add package LogicalOptimizer.Dnnf          # d-DNNF compilation, exact/weighted model counting
+dotnet add package LogicalOptimizer.Formats       # DIMACS / WCNF / OPB parsers and round-trip writers
 dotnet add package LogicalOptimizer.Minimization  # QM, Espresso-lite, multi-output
 ```
 
@@ -131,7 +139,8 @@ Console.WriteLine(ReferenceEquals(parsed, built));  // True (interning)
 - [Two-level minimization](minimization.md) — exact SOP/POS, don't-cares, CSV, multi-output.
 - [SAT solving](sat-solving.md) · [Binary decision diagrams](bdd.md) · [Knowledge compilation](knowledge-compilation.md) · [Equivalence & backbones](equivalence-and-backbones.md) · [Export formats](exporters.md)
 - [Packages & architecture](packages-and-architecture.md) — the nine-package split.
-- [CLI usage](cli-usage.md) — every flag with verified output.
+- [CLI usage](cli-usage.md) — every flag with verified output, plus the `solve` / `maxsat` / `solve-pb` / `count` verbs for DIMACS, WCNF and OPB problem files.
+- [Diagnostic trace](diagnostic-trace.md) — why a result came out the way it did.
 
 Every code example across these articles is mirrored by an executed, asserted test in
 `LogicalOptimizer.Tests/Documentation/DocExamplesTests.cs`, so the outputs shown are real.

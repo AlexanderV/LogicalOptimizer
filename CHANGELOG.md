@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Turning shipped capabilities into a versioned, independently verifiable product contract. No
-public API change; no runtime behaviour change.
+## [3.2.0] - 2026-07-30
+
+Turning shipped capabilities into a versioned, independently verifiable product contract. The
+public API grows additively — `OptimizationTrace` / `OptimizationTraceEntry` /
+`OptimizationTraceCategory`, `OptimizationOptions.IncludeTrace`, `OptimizationResult.Trace`,
+`FormulaFactory.TryParse` with `ParseDiagnostic` / `ParseErrorCode`, and `FormulaParseException`
+(an `ArgumentException`, so the throwing parser API stays source- and binary-compatible). No
+existing member changed shape and no runtime behaviour changed, so an upgrade from 3.1.x needs no
+code change.
 
 ### Added
 
@@ -160,6 +167,62 @@ public API change; no runtime behaviour change.
   Markdown's line-break syntax and the README/docs hero lines depend on it; `*.md
   whitespace=-trailing-space` in `.gitattributes` keeps the check meaningful everywhere else instead
   of drowning a real defect in expected warnings.
+
+### Documentation
+
+- **The standard-format CLI verbs are documented.** `solve` (DIMACS CNF), `maxsat` (WCNF),
+  `solve-pb` (OPB) and `count --engine dnnf` (exact `#SAT`) existed and were listed in
+  `--help`, but appeared in no README and on no documentation-site page — a whole capability
+  area was reachable only by running `--help`. They now have a section in
+  [`docs-site/articles/cli-usage.md`](docs-site/articles/cli-usage.md) with the input file, the
+  verified output and the error/exit-code behaviour of each, a short section in the README and
+  in the CLI package README, a pointer from the `LogicalOptimizer.Formats` package README, and
+  a parse-level pin — `DocExamplesTests.Cli_RecognizesEveryDocumentedStandardFormatVerb` — so a
+  renamed verb fails the build the way a renamed flag already does.
+- **Published figures re-measured against the current suite.** Test count `1175 → 1254` and audit
+  date `2026-07-29 → 2026-07-30` in the README; the whole per-area table in
+  [`docs-site/articles/testing-overview.md`](docs-site/articles/testing-overview.md) (it still
+  reported the pre-reorganization 1 152-case layout). Coverage was published as "~89% line" with
+  no statement of *what* was measured; it is now the measured 92.7% line / 84.6% branch on the
+  `LogicalOptimizer` facade assembly — the module the CI gate actually covers and applies its 80%
+  floor to.
+- **Corrected an exporter example that had gone stale.** `doc/ADVANCED_FEATURES.md` showed
+  `ToLatex("a & b | c")` returning `a \land b \lor c`; since exporters parse through
+  `FormulaFactory` the real output is canonically ordered, `c \lor a \land b`. The same file's
+  feature list predated the SAT / BDD / d-DNNF / AIG engines and claimed "1150+ tests"; it is now
+  scoped to the tooling it actually documents, with the invented per-expression timings replaced
+  by a pointer to the recorded benchmark artifacts.
+- **The documentation-site map is complete again.** `docs-site/index.md` omitted four articles
+  that are in the table of contents and shipped: diagnostic trace, benchmarks & comparison,
+  choosing a tool, and case studies.
+- **The facade's package scope is stated correctly.** `docs-site/articles/introduction.md` said the
+  `LogicalOptimizer` facade installs "everything"; it installs Core + Sat + Bdd + Minimization, and
+  `.Dnnf` / `.Formats` have to be added alongside it (or `LogicalOptimizer.Full` used instead).
+- **`[3.1.1]` added below** — the tag was published but the release had no changelog section.
+- **Historical planning documents removed from the repository root.** Fourteen point-in-time
+  files — code-review reports, refactoring and positioning plans, four roadmaps, `TODO.md` and
+  three superseded library comparisons — were deleted. They recorded intermediate states that the
+  shipped documentation now covers: measured comparison results live in [`doc/comparison/`](doc/comparison)
+  and [Choosing a Tool](docs-site/articles/choosing-a-tool.md), the claim inventory in
+  [`doc/CLAIMS.md`](doc/CLAIMS.md), release history here, and the projected-model-counting design
+  in [`doc/decisions/`](doc/decisions) and [`doc/spikes/`](doc/spikes). The handful of prose
+  citations pointing into them (in `doc/CLAIMS.md`, `doc/ADOPTION.md`, the comparison workflow,
+  the evidence-bundle and reproduction-verifier scripts, the spike and decision records, and
+  `ClaimsConsistencyTests`) were rewritten to state the substance inline, so no claim lost its
+  backing — `Claims_EveryEvidenceReference_StillResolves` still passes. `MIGRATION-v2.md` is
+  kept: it is live upgrade documentation, not a plan.
+
+## [3.1.1] - 2026-07-29
+
+Whitespace-only patch release. No public API change, no behaviour change, no new or removed
+functionality — recorded here because the tag was published and every released version belongs in
+this file.
+
+### Fixed
+
+- Whitespace formatting in `LogicalOptimizer.Dnnf/DnnfCircuit.cs`,
+  `LogicalOptimizer.Sat/CardinalityEncoder.cs`, `LogicalOptimizer.Sat/MaxSatSolver.cs` and three
+  test files, so `dotnet format --verify-no-changes` passes in CI.
 
 ## [3.1.0] - 2026-07-29
 

@@ -68,8 +68,8 @@ jobs:
             sympy_pyeda_column.md
           if-no-files-found: ignore
 
-  # V3 in POSITIONING_IMPROVEMENT_PLAN.md: the comparison must be reproducible OUTSIDE this
-  # repository, by the exact sequence doc/COMPARISON_METHODOLOGY.md documents. That sequence was
+  # The comparison must be reproducible OUTSIDE this repository, by the exact sequence
+  # doc/COMPARISON_METHODOLOGY.md documents. That sequence was
   # documented but never exercised, so script rot would have been discovered by the first outside
   # reproducer - precisely the person whose confirmation the criterion depends on.
   #

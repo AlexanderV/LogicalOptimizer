@@ -165,7 +165,9 @@ pwsh tools/build_evidence_bundle.ps1 -Version 3.1.0 -PackageContractReport packa
 
 - **Завжди push `main` → потім push тег** (щоб гілка й docs-сайт були актуальні; docs-workflow
   тригериться на push у `main`).
-- Поточна dev-версія — **3.1.0** (у [`Directory.Build.props`](Directory.Build.props)). Мажор 3.0
+- Поточна dev-версія — **3.2.0** (у [`Directory.Build.props`](Directory.Build.props)). Останній
+  опублікований тег — `v3.1.1` (whitespace-only). Мінор 3.2 додає публічний API адитивно
+  (`OptimizationTrace`, `TryParse`/`ParseDiagnostic`, `FormulaParseException`); мажор 3.0
   увімкнув AIG DAG-aware rewriting за замовчуванням + доведено-мінімальну min-AIG бібліотеку
   (`EnableAigRewriting=false` повертає до-3.0 поведінку).
 - **Історична примітка щодо тегів:** BDD complement edges (C1) влилися комітом `247afcd`. Якщо

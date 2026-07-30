@@ -206,8 +206,9 @@ corpus, in a specific environment, against pinned competitor versions.
 - **No independent third-party reproduction exists yet.** All published numbers come from this
   project's own runners. The documented sequence is rehearsed on a clean checkout and mechanically
   verified, which removes the "the scripts were broken" failure mode — but a rehearsal on our own
-  runner is not independent reproduction. That gap is tracked as V3 in
-  [`POSITIONING_IMPROVEMENT_PLAN.md`](../POSITIONING_IMPROVEMENT_PLAN.md).
+  runner is not independent reproduction. This is the one piece of evidence the project cannot
+  produce for itself: it stays open until someone outside the project runs
+  [`doc/COMPARISON_METHODOLOGY.md`](COMPARISON_METHODOLOGY.md) and reports the result.
 - Comparisons cover the propositional scope both sides implement. They are not a general
   "better than Z3/LogicNG" statement, and no absolute superlative is used anywhere in public
   material.

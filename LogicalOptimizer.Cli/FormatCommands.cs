@@ -12,10 +12,17 @@ namespace LogicalOptimizer;
 /// </summary>
 internal static class FormatCommands
 {
+    /// <summary>
+    ///     The standard-format verbs, in the order they are documented. Exposed as a list rather
+    ///     than hidden inside <see cref="IsFormatVerb" /> so the documentation guard can compare
+    ///     it against what the docs actually list, in both directions.
+    /// </summary>
+    public static readonly string[] Verbs = { "solve", "maxsat", "solve-pb", "count" };
+
     /// <summary>True when the first CLI argument selects one of the standard-format verbs.</summary>
     public static bool IsFormatVerb(string arg)
     {
-        return arg is "solve" or "maxsat" or "solve-pb" or "count";
+        return Array.IndexOf(Verbs, arg) >= 0;
     }
 
     public static int Run(string[] args)

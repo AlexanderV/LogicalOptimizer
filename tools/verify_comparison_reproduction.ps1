@@ -284,7 +284,7 @@ $report = [ordered]@{
     limitations    = @(
         'Wall-clock timings are machine-dependent and are never asserted here; only correctness, provenance and coverage are.',
         'A populated competitor column proves the adapter ran, not that its tool version matches the pinned container - use the container for that.',
-        'This verifies a reproduction on the machine it ran on. Independent reproduction on a third party''s runner is what V3 in POSITIONING_IMPROVEMENT_PLAN.md tracks.'
+        'This verifies a reproduction on the machine it ran on. Independent reproduction on a third party''s runner remains open - see the benchmark-result limits in doc/CLAIMS.md.'
     )
     summary        = [ordered]@{
         checks = $checks.Count

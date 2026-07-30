@@ -58,10 +58,11 @@ construction-time canonicalization)
 
 This matrix covers the **cross-cutting layer only**. It sits on top of the structured functional
 suite organized by subject (Part 2) — the tests that pin what the library must *do*, and the ones
-that fail first when a behavior changes. The gate suite is **1254** cases:
+that fail first when a behavior changes. The gate suite is **1255** cases (the 1254 the audit
+below ended on, plus one documentation guard added after it — see `Documentation/`):
 
-- **1119** subject tests — Core 165 · Optimizers 196 · Engines 306 · Facade 180 · Analysis 10 ·
-  Formats 116 · Cli 92 · Documentation 54;
+- **1120** subject tests — Core 165 · Optimizers 196 · Engines 306 · Facade 180 · Analysis 10 ·
+  Formats 116 · Cli 92 · Documentation 55;
 - **101** in `Techniques/` — the ten below plus the API-surface, claims, package-contract and
   suite-layout guards;
 - **24** in the two projected-model-counting suites (the facade one and the `Spikes/` one share a
@@ -133,7 +134,7 @@ LogicalOptimizer.Tests/                                                  (gate c
 │     `internal`, currently with no production consumer; per-rule shape pins PLUS a
 │     truth-table sweep over the whole operand grid, since shape alone re-states the code) ·
 │     AdvancedPatternDetectorTests · EqvPatternRecognizerTests · TransformationsTests
-├── Engines/                                                                                  305
+├── Engines/                                                                                  306
 │   ├── Sat/               SatSolverTests · SatSolverMutationKillerTests ·
 │   │                      IncrementalSatTests · DratProofTests ·
 │   │                      MaxSatSolverTests · CoreGuidedMaxSatTests ·
@@ -177,12 +178,14 @@ LogicalOptimizer.Tests/                                                  (gate c
 │                          on stdout, progress on stderr, documented exit codes, CSV seam) ·
 │                          PublishedCliSchema + ConsoleCollection (shared fixtures — the
 │                          collection serializes every suite that redirects Console)
-├── Documentation/         DocExamplesTests (every runnable doc recipe asserts its own          54
-│                          output) · DocumentedCliOutputTests (each documented CLI
-│                          transcript compared line-for-line against the real formatter)
+├── Documentation/         DocExamplesTests (every runnable doc recipe asserts its own          55
+│                          output; the flag set AND the standard-format verb set are
+│                          compared against what the docs list) · DocumentedCliOutputTests
+│                          (each documented CLI transcript compared line-for-line against
+│                          the real formatter)
 ├── Spikes/                ProjectedModelCounting spike + its tests (a DIFFERENT production
 │                          API from the facade suite: BddExistentialAbstraction)
-├── Techniques/            the ten cross-cutting suites (see Part 3)                           108
+├── Techniques/            the ten cross-cutting suites (see Part 3)                           101
 │                          + CanonicalInvariantTests (v2 interning/canonical-shape/Tseitin
 │                          counts) + ApiSurfaceTests (member-level baseline) +
 │                          ClaimsConsistencyTests (doc/CLAIMS.md vocabulary) +

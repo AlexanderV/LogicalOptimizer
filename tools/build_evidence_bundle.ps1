@@ -340,8 +340,8 @@ pwsh tools/verify_comparison_reproduction.ps1 -RequireCompetitors 3
 
 The verifier fails an all-``pending`` report, checks the corpus by SHA-256 rather than by name, and
 asserts correctness independently of timing. **If you run this, please say so** — an independent
-reproduction is the one piece of evidence this project cannot produce for itself
-(V3 in ``POSITIONING_IMPROVEMENT_PLAN.md``).
+reproduction is the one piece of evidence this project cannot produce for itself (see the
+``benchmark result`` limits in ``doc/CLAIMS.md``).
 
 ## What this bundle does not prove
 

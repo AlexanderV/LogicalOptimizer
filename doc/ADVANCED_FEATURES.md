@@ -1,92 +1,157 @@
 # LogicalOptimizer Advanced Features Guide
 
-## 🚀 New Features (additional to 100% specification compliance)
+This guide covers the **tooling** built around the optimizer: exporters, the quality analyzer,
+AST visualization and the built-in benchmark runner. Everything here is available from the
+`LogicalOptimizer` facade package.
 
-### 1. **Multi-format Export System**
+The reasoning **engines** — CDCL SAT, ROBDD, d-DNNF knowledge compilation, cardinality /
+pseudo-Boolean / MaxSAT encodings, AIG rewriting and the two-level minimizers — have their own
+pages in the capability guide, each with a runnable, asserted example:
+<https://AlexanderV.github.io/LogicalOptimizer/>.
 
-#### Supported Formats (6):
-- **DIMACS CNF** - standard for SAT solvers
-- **BLIF** - Berkeley Logic Interchange Format  
-- **Verilog** - logic circuit description
-- **CSV** - truth tables for analysis
-- **Mathematical notation** - Unicode `∧ ∨ ¬` (see section 6)
-- **LaTeX** - `\land \lor \lnot` for papers
+---
 
-#### Code Usage:
+## 1. Multi-format export
+
+### Supported formats (6)
+
+| Format | Purpose |
+|---|---|
+| **DIMACS CNF** | standard input for SAT solvers |
+| **BLIF** | Berkeley Logic Interchange Format, for circuit synthesis |
+| **Verilog** | logic circuit description |
+| **CSV** | truth tables for spreadsheets and analysis |
+| **Mathematical notation** | Unicode `∧ ∨ ¬` |
+| **LaTeX** | `\land \lor \lnot` for papers |
+
 ```csharp
 // All BooleanExpressionExporter methods are static and take the expression string.
 
-// Export to DIMACS for SAT solvers
-string dimacs = BooleanExpressionExporter.ToDimacs("(a | b) & (a | c)");
-
-// Export to BLIF for circuit synthesis  
-string blif = BooleanExpressionExporter.ToBlif("a & b | c", "mymodule");
-
-// Export to Verilog
+string dimacs  = BooleanExpressionExporter.ToDimacs("(a | b) & (a | c)");
+string blif    = BooleanExpressionExporter.ToBlif("a & b | c", "mymodule");
 string verilog = BooleanExpressionExporter.ToVerilog("!(a & b)", "logic_gate");
+string csv     = BooleanExpressionExporter.TruthTableToCsv("a & b | c");
 
-// Export truth table to CSV
-string csv = BooleanExpressionExporter.TruthTableToCsv("a & b | c");
-
-// Export to Unicode mathematical notation
-string math = BooleanExpressionExporter.ToMathematicalNotation("a & (b | c)"); // a ∧ (b ∨ c)
-
-// Export to LaTeX
-string latex = BooleanExpressionExporter.ToLatex("a & b | c");                 // a \land b \lor c
+string math  = BooleanExpressionExporter.ToMathematicalNotation("a & (b | c)"); // a ∧ (b ∨ c)
+string latex = BooleanExpressionExporter.ToLatex("a & b | c");                  // c \lor a \land b
 ```
 
-### 2. **Optimization Quality Analysis System**
+> **Canonical order.** The exporters parse through `FormulaFactory`, so the output is in
+> **canonical operand order** — which is why `a & b | c` renders as `c \lor a \land b`: the single
+> literal `c` sorts before the `a & b` term. The semantics are unchanged; only the printed order
+> is normalized. See [Formula construction](https://AlexanderV.github.io/LogicalOptimizer/articles/formula-construction.html).
 
-#### Quality Metrics:
-- **Compression Ratio** - how much the expression was reduced
-- **Complexity** - combined assessment (operators + literals + depth)
-- **Optimality Score** - 0-100 points
-- **Applied Rules** - which optimizations were used
-- **Possible Improvements** - recommendations for further optimization
+### Importing standard formats
 
-#### Usage:
+The reverse direction lives in the separate `LogicalOptimizer.Formats` package: streaming,
+budget-aware parsers and round-trip writers for **DIMACS CNF**, **WCNF** (weighted partial MaxSAT)
+and **OPB** (pseudo-Boolean), each handing off directly to the in-house engines.
+
+```csharp
+using LogicalOptimizer;
+
+var problem = DimacsParser.Parse(new StringReader("p cnf 2 2\n1 2 0\n-1 0\n"));
+Console.WriteLine(problem.Solve());        // Satisfiable
+var formula = problem.ToFormula();         // hand off to the BDD or d-DNNF engine
+```
+
+The CLI exposes the same path as four verbs — `solve`, `maxsat`, `solve-pb` and `count` — so an
+existing competition or benchmark corpus can be run without writing code. See
+[CLI usage](https://AlexanderV.github.io/LogicalOptimizer/articles/cli-usage.html).
+
+---
+
+## 2. Optimization quality analysis
+
+### Metrics
+
+- **Compression ratio** — how much the expression shrank
+- **Complexity** — combined assessment (operators + literals + depth)
+- **Optimality score** — a 0–100 **heuristic** quality rating
+- **`IsOptimal`** — a *proven* property, unlike the score: true only when the exact minimizer
+  proved the two-level minimum (`MinimizationStatus.MinimalProven`)
+- **Applied rules** — which optimizations fired
+- **Possible improvements** — recommendations for further optimization
+
+`OptimalityScore` and `IsOptimal` are deliberately independent: a high score does **not** assert
+optimality, and a proven-minimal result may score below 100.
+
+### Usage
+
 ```csharp
 // AnalyzeOptimization is a static method returning OptimizationQualityAnalyzer.QualityMetrics.
+var result  = new BooleanExpressionOptimizer()
+    .OptimizeExpression("(a | b) & (a | c)", new OptimizationOptions { IncludeMetrics = true });
 var metrics = OptimizationQualityAnalyzer.AnalyzeOptimization(result);
 
-Console.WriteLine($"Compression: {metrics.CompressionRatio:P1}");
-Console.WriteLine($"Complexity: {metrics.Complexity:F1}");
-Console.WriteLine($"Score: {metrics.OptimalityScore}/100");
+Console.WriteLine($"Optimized:   {result.Optimized}");                  // a | b & c
+Console.WriteLine($"Compression: {metrics.CompressionRatio:P1}");       // 71.4%
+Console.WriteLine($"Complexity:  {metrics.Complexity:F1}");             // 5.1
+Console.WriteLine($"Score:       {metrics.OptimalityScore}/100");       // 65/100
+Console.WriteLine($"IsOptimal:   {metrics.IsOptimal}");                 // True (MinimalProven)
 ```
 
-### 3. **Extended Operators (XOR, IMP) - AST-Based Implementation**
+(Numeric formatting follows the current culture; the values above are shown with an invariant
+decimal point.)
 
-#### XOR and IMP Pattern Recognition:
+### Explaining a result
+
+Where the quality analyzer scores the *outcome*, the **diagnostic trace** explains how it was
+reached: the engine chosen and the threshold behind it, the budgets in force, every candidate's
+cost, what was adopted or rejected, which proof path discharged equivalence, and any fallback.
+
+```csharp
+var traced = new BooleanExpressionOptimizer()
+    .OptimizeExpression("a & b | a & c", new OptimizationOptions { IncludeTrace = true });
+
+foreach (var entry in traced.Trace!.Entries)
+    Console.WriteLine($"{entry.Category}: {entry.Message}");
+```
+
+The trace is **diagnostic, not a stability contract** — its wording and ordering may change in any
+release; only its shape and the `category` domain are stable. On the CLI it is `--trace`.
+
+---
+
+## 3. Extended operators (XOR, IMP, EQV)
+
+### Pattern recognition
+
 ```csharp
 // XOR (exclusive OR) - detected via AST analysis
 var xorNode = new XorNode(varA, varB);
 // Pattern: (a & !b) | (!a & b) → a XOR b
 
-// IMP (implication) - detected via AST analysis  
+// IMP (implication) - detected via AST analysis
 var impNode = new ImpNode(varA, varB);
 // Pattern: !a | b → a → b
+
+// EQV (biconditional)
+// Pattern: (a & b) | (!a & !b) → a ↔ b
 ```
 
-#### AST-Based Pattern Detection:
-- **No Regular Expressions**: Pure syntax tree analysis
-- **Structural Pattern Matching**: Traverses AST nodes to identify patterns
-- **Recursive Detection**: Works at any depth in expression tree
-- **Node Replacement**: Detected patterns replaced with specialized AST nodes
+### AST-based pattern detection
 
-#### Implementation Details:
-- **DetectXorPatternInAst()**: Analyzes OR nodes for XOR structures
-- **DetectImplicationPatternInAst()**: Examines OR nodes for implication patterns  
-- **ConvertAstToAdvancedForms()**: Recursively converts AST with pattern replacement
-- **Pure Tree-Based**: Leverages existing XorNode and ImpNode classes
+- **No regular expressions**: pure syntax-tree analysis
+- **Structural pattern matching**: traverses AST nodes to identify patterns
+- **Recursive detection**: works at any depth in the expression tree
+- **Node replacement**: detected patterns are replaced with specialized AST nodes
 
-#### Functional completeness:
-- **NAND-basis**: any expression through NAND
-- **NOR-basis**: any expression through NOR
-- **Special optimization rules** for each operator
+Advanced forms are a **display** layer. All internal processing uses the core `&`, `|`, `!`
+operators, and the text grammar cannot express `XOR` / `→` / `↔` as input.
 
-### 4. **Benchmarking and Performance Testing**
+### Functional completeness
 
-#### Console command:
+The `NandNode` / `NorNode` types and their rewrite rules give NAND-only and NOR-only bases. These
+rules are `internal` and currently have no production consumer; they are exercised by a
+truth-table sweep over the full operand grid rather than by shape assertions alone.
+
+---
+
+## 4. Benchmarking and performance testing
+
+### Built-in runner
+
 ```bash
 # installed CLI tool
 logical-optimizer --benchmark
@@ -94,38 +159,42 @@ logical-optimizer --benchmark
 dotnet run --project LogicalOptimizer.Cli -- --benchmark
 ```
 
-#### Capabilities:
-- **Testing different expression types**:
-  - Simple (a & b, a | b)
-  - Medium ((a | b) & (a | c))
-  - Complex (multi-level)
-  - Very complex (auto-generated)
+It walks a fixed ladder of expression classes — simple (`a & b`), medium
+(`(a | b) & (a | c)`), complex multi-level, and auto-generated very complex — plus stress runs at
+10 / 50 / 100 / 200 variables, reporting node-count change and elapsed time per row:
 
-- **Stress tests**:
-  - 10, 50, 100, 200 variables
-  - Execution time measurement
-  - Node count change tracking
-
-#### Sample output:
-```
+```text
 Expression                               Nodes    Time (ms)  Result
 ------------------------------------------------------------------------
-a & b                                    2→1      0.19       ✓
-(a | b) & (a | c)                        5→3      0.13       ✓
-Complex expression...                    20→12    1.90       ✓
+a & b                                    2→1      ...        ✓
+(a | b) & (a | c)                        5→3      ...        ✓
 ```
 
-### 5. **AST Tree Visualization**
+Wall-clock numbers from this runner are **machine-dependent and indicative only**. Published,
+citable figures come from the BenchmarkDotNet suite with the environment recorded alongside them:
 
-#### Text visualization:
+```bash
+dotnet run -c Release --project LogicalOptimizer.Benchmarks -- --filter *
+```
+
+See [BENCHMARKS.md](BENCHMARKS.md) for results, methodology and the pinned corpus, and
+[CLAIMS.md](CLAIMS.md#benchmark-result--comparison-numbers) for what a published number does and
+does not assert.
+
+---
+
+## 5. AST visualization
+
+### Text visualization
+
 ```csharp
 // AstVisualizer is a static class. Both members take an AstNode
-// (e.g. FormulaFactory.Parse("a & (b | c)")).
+// (e.g. new FormulaFactory().Parse("a & (b | c)")).
 string tree = AstVisualizer.VisualizeTree(ast);
 Console.WriteLine(tree);
 ```
 
-```
+```text
 └─ AND (&)
    ├─ Variable: 'a'
    └─ OR (|)
@@ -133,70 +202,56 @@ Console.WriteLine(tree);
       └─ Variable: 'c'
 ```
 
-#### Compact visualization (expression + tree):
+### Compact visualization (expression + tree)
+
 ```csharp
 string compact = AstVisualizer.GetCompactVisualization(ast);
-// "AST: a & (b | c)" followed by the tree rendering above
 ```
 
-### 6. **Mathematical Notation**
-
-#### Export to mathematical format:
-```csharp
-string mathNotation = BooleanExpressionExporter.ToMathematicalNotation("a & (b | c)");
-// Result: "a ∧ (b ∨ c)" instead of "a & (b | c)"
+```text
+AST: a & (b | c)
+Tree:
+└─ AND (&)
+   ├─ Variable: 'a'
+   └─ OR (|)
+      ├─ Variable: 'b'
+      └─ Variable: 'c'
 ```
 
-## 🎯 Usage Recommendations
+A fuller human-readable dump — original and optimized trees plus metrics — is available as
+`OptimizationResult.DebugInfo` when `OptimizationOptions.IncludeDebugInfo` is set.
 
-### For researchers:
-- Use **DIMACS export** for integration with SAT solvers
-- **Quality analysis** helps evaluate effectiveness of new algorithms
-- **CSV export** convenient for analysis in Excel/Python
+---
 
-### For engineers:
-- **Verilog export** for logic circuit synthesis
-- **Benchmarks** for performance evaluation in working loads
-- **Extended operators** for specialized tasks
+## 6. Usage recommendations
 
-### For students:
-- **AST visualization** helps understand expression structure
-- **Mathematical notation** for academic papers
-- **Quality analysis** for studying optimization effectiveness
+**For researchers**
+- **DIMACS export** for handing formulas to external SAT solvers, and the `.Formats` **parsers**
+  for reading an existing corpus back in
+- **d-DNNF model counting** (`count --engine dnnf`) for exact `#SAT`, cross-verified against the
+  ROBDD counter
+- **Quality analysis** to evaluate the effectiveness of new algorithms
 
-## 📊 Achieved Results
+**For engineers**
+- **Verilog / BLIF export** for logic-circuit synthesis flows
+- **Benchmarks** for performance evaluation under working loads
+- **`--format=json`** for CI: a versioned report with a published JSON Schema and stable exit codes
 
-### ✅ Full specification compliance (100%)
-- All requirements implemented and tested (1150+ CI tests, all passing)
-- Console interface fully complies with specification
-- All constraints correctly applied
+**For students**
+- **AST visualization** to understand expression structure
+- **Mathematical / LaTeX notation** for academic papers
+- **Truth tables** and the **diagnostic trace** to see how a simplification was reached
 
-### 🚀 Extended functionality
-- **6 export formats** for integration with external tools (DIMACS, BLIF, Verilog, CSV, Mathematical, LaTeX)
-- **Quality analysis system** with 8 different metrics
-- **3 additional operators** with optimization rules
-- **Comprehensive benchmarking system**
-- **Multiple visualization options**
+---
 
-### 📈 Performance
-- Simple expression processing: **0.1-0.2 ms**
-- Complex expressions: **1-2 ms**
-- Stress test up to 100 variables: **< 5 ms**
-- All performance constraints met
+## 7. Where this fits
 
-### 🔬 Code quality
-- **1150+ automated CI tests** cover the public API across ten techniques
-- **Comprehensive documentation** for all components
-- **Modular architecture** for easy extension
-- **Error handling** at all levels
+LogicalOptimizer covers propositional Boolean reasoning in pure managed .NET with no third-party
+runtime dependency, and verifies every optimization result against its input before returning it.
+It is not a replacement for Z3 (full SMT), ABC (industrial logic synthesis), CUDD (industrial BDD)
+or a complete Espresso — [Choosing a tool](https://AlexanderV.github.io/LogicalOptimizer/articles/choosing-a-tool.html)
+works through the alternatives scenario by scenario, including where this project is weakest.
 
-## 🎉 Conclusion
-
-The **LogicalOptimizer** project not only fully complies with the original specification, but significantly exceeds its requirements. The implemented system represents a **professional tool** for working with boolean expressions, ready for:
-
-- **Industrial use**
-- **Scientific research** 
-- **Educational purposes**
-- **Integration with other systems**
-
-The code is ready for deployment and further development! 🚀
+Every claim the project makes in public is defined — with the test or CI check that backs it and
+the limits it deliberately does not assert — in [CLAIMS.md](CLAIMS.md). The test suite behind it
+is described in [TESTING.md](TESTING.md).

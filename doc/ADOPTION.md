@@ -13,8 +13,7 @@ issue form.
 
 Several planned capabilities are deliberately **not built** until a real workload shows they are
 needed — a compiled evaluator, batch evaluation, reusable BDD/d-DNNF query objects, and additional
-algorithmic engines (D1 and D2 in
-[POSITIONING_IMPROVEMENT_PLAN.md](../POSITIONING_IMPROVEMENT_PLAN.md)). The reasoning is that an
+algorithmic engines. The reasoning is that an
 API built for a guessed workload is worse than no API: it fixes the wrong shape, has to be
 supported forever under the compatibility policy, and crowds out the design that a real workload
 would have suggested.
@@ -65,9 +64,8 @@ arrive, and the counts are reproducible by anyone from the
 | Roadmap items unblocked by a report | 0 |
 | Consented external case studies | 0 |
 
-Success targets for this channel — at least three actionable use cases per quarter, and at least
-one consented external case study — are tracked in section 9 of
-[POSITIONING_IMPROVEMENT_PLAN.md](../POSITIONING_IMPROVEMENT_PLAN.md).
+Success targets for this channel: at least three actionable use cases per quarter, and at least
+one consented external case study.
 
 ## Other channels
 

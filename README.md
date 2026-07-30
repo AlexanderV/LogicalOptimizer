@@ -114,8 +114,9 @@ LogicalOptimizer is a lightweight .NET library and CLI, with no third-party runt
 - ✅ **Precedence-Based Formatting**: single `AstFormatter` renderer — parentheses appear exactly where precedence requires (`a & (b | c)`, `!(a & b)`)
 - ✅ **Truth Table Generation**: up to 20 variables; equivalence checking itself scales beyond that via the SAT miter (`EquivalenceChecker`, and `OptimizationResult.IsEquivalent()` / three-valued `CheckEquivalence()`)
 - ✅ **Multiple Export Formats**: DIMACS, BLIF, Verilog, CSV, Mathematical notation, LaTeX
+- ✅ **Standard-Format Import & CLI Verbs**: streaming, budget-aware DIMACS / WCNF / OPB parsers with round-trip writers (`LogicalOptimizer.Formats`), reachable from the CLI as `solve`, `maxsat`, `solve-pb` and `count` — run an existing competition or benchmark corpus without writing code
 - ✅ **Performance Analytics**: Detailed metrics and benchmarking
-- ✅ **Comprehensive Testing**: 1175 audited CI tests (repeatedly audited for representativeness, logical correctness, strength and non-duplication — most recently 2026-07-29) across ten systematic techniques — property-based (CsCheck), metamorphic, algebraic, differential (with SymPy and Z3 as external oracles), fuzzing, characterization golden master, snapshot approval (Verify), architecture rules (ArchUnitNET), pairwise option coverage, and Stryker.NET mutation testing with per-module survivor triage (see [doc/TESTING.md](doc/TESTING.md))
+- ✅ **Comprehensive Testing**: 1255 audited CI tests (repeatedly audited for representativeness, logical correctness, strength and non-duplication — most recently 2026-07-30) across ten systematic techniques — property-based (CsCheck), metamorphic, algebraic, differential (with SymPy and Z3 as external oracles), fuzzing, characterization golden master, snapshot approval (Verify), architecture rules (ArchUnitNET), pairwise option coverage, and Stryker.NET mutation testing with per-module survivor triage (see [doc/TESTING.md](doc/TESTING.md))
 - ✅ **Error Protection**: Input validation and infinite loop prevention
 
 ## Result quality vs SymPy / PyEDA
@@ -257,6 +258,35 @@ dotnet run --project LogicalOptimizer.Cli -- --benchmark
 # Help
 dotnet run --project LogicalOptimizer.Cli -- --help
 ```
+
+### Standard-format problem files (DIMACS / WCNF / OPB)
+
+Besides the expression flags above, the CLI takes four verbs that read a problem **file** in a
+standard competition format through `LogicalOptimizer.Formats` and dispatch it to the in-house
+SAT, MaxSAT, pseudo-Boolean or d-DNNF engine. Output follows the usual `s`/`o`/`v` line
+convention, so existing tooling can consume it:
+
+```bash
+logical-optimizer solve problem.cnf         # DIMACS CNF satisfiability
+# s SATISFIABLE
+# v -1 -2 -3 0
+
+logical-optimizer maxsat problem.wcnf       # WCNF weighted partial MaxSAT
+# s OPTIMUM FOUND
+# o 1
+# v -1 2 0
+
+logical-optimizer solve-pb problem.opb      # OPB pseudo-Boolean feasibility
+# s SATISFIABLE
+# v -1 2 0
+
+logical-optimizer count problem.cnf --engine dnnf   # exact #SAT via d-DNNF
+# 5
+```
+
+`count` currently supports one engine (`dnnf`) and prints an exact `BigInteger` model count over
+the variables declared in the header. A parse error or an exceeded budget is reported on stderr
+with exit code `1`. Full details: [CLI usage](docs-site/articles/cli-usage.md).
 
 ### Machine-readable output (`--format=json`)
 
@@ -558,8 +588,8 @@ article; the examples are executed and asserted in
 
 - 🔀 **[Migration Guide v1 → v2](MIGRATION-v2.md)** - Breaking changes in 2.0.0 and how to adapt
 - 📋 **[Changelog](CHANGELOG.md)** - Release history (Keep a Changelog format)
-- 📖 **[Technical Specification](doc/Spec.md)** - Complete system specification
-- 🚀 **[Advanced Features Guide](doc/ADVANCED_FEATURES.md)** - Extended functionality documentation
+- 📖 **[Technical Specification](doc/Spec.md)** - The original expression-language and optimizer specification (grammar, precedence, rewrite laws, normal forms, limits). It predates the SAT/BDD/d-DNNF engines — those are covered by the capability guide above
+- 🚀 **[Advanced Features Guide](doc/ADVANCED_FEATURES.md)** - Exporters, quality analysis, AST visualization and benchmarking, with pointers into the capability guide for the engines
 - 🧪 **[Testing Strategy](doc/TESTING.md)** - Ten testing techniques, actuality matrix, audit log, mutation results
 - 📊 **[Benchmarks](doc/BENCHMARKS.md)** - head-to-head result-size/time comparison vs SymPy and PyEDA, plus BenchmarkDotNet results and the SAT-corpus perf-regression
 
@@ -698,8 +728,8 @@ graph LR
 
 ## Project Statistics
 
-- **Total tests**: 1175 CI cases (all passing; performance and exhaustive-sweep categories run outside CI via --filter; count is a snapshot, not a contract; suite fully audited 2026-07-29 — see doc/TESTING.md Part 4)
-- **Code coverage**: ~89% line coverage (CI enforces an 80% floor)
+- **Total tests**: 1255 CI cases (all passing; performance and exhaustive-sweep categories run outside CI via --filter; count is a snapshot, not a contract; suite fully audited 2026-07-30 — see doc/TESTING.md Part 4)
+- **Code coverage**: 92.7% line / 84.6% branch on the `LogicalOptimizer` facade assembly — the module the CI gate measures, which enforces an 80% line floor
 - **Mutation scores** (Stryker.NET, per module): Transformations 100%, TruthTableMinimizer 82.6%, EspressoLite 72.5%, SatSolver 52.5% — every survivor killed or classified equivalent (doc/TESTING.md Part 5)
 - **Minimization engines**: 4 zones — exact QM (≤12 vars, proven ≤10), SAT prime cover (13–24), Espresso-lite cube lists (beyond), plus the precomputed 3-input subcircuit library
 - **Rewrite layer**: construction-time canonicalization in `FormulaFactory` (constants, complement, flatten, dedup, canonical order) + 5-rule single-traversal fixpoint engine (De Morgan, absorption, consensus, redundancy, factorization with rollback) + bounded expand-reduce
@@ -707,6 +737,8 @@ graph LR
 - **Export formats**: 6 (DIMACS, BLIF, Verilog, Mathematical, LaTeX, CSV)
 - **Operator support**: 3 core operators (AND, OR, NOT) in the text grammar; the AST has a canonical n-ary core (And/Or/Not/Variable/Constant) plus derived binary nodes (XOR, IMP, EQV, NAND, NOR) used for pattern-recognition display
 - **Truth table capacity**: Up to 20 variables (1M+ combinations)
+- **Public API surface**: 80 public types across the seven library assemblies (Core 27 · Sat 14 · Bdd 1 · Dnnf 2 · Formats 9 · Minimization 5 · facade 22), pinned member-by-member by `ApiSurfaceTests` and type-by-type by `ArchitectureTests.PublicSurface_IsTheDocumentedSet`
+- **CLI surface**: the expression flags (documented and parse-checked by `DocExamplesTests.Cli_RecognizesEveryDocumentedFlag`) plus four standard-format verbs — `solve`, `maxsat`, `solve-pb`, `count`
 - **Platform support**: Cross-platform (packages net8.0/net10.0; CLI net10.0)
 
 ## AI-assisted development
@@ -755,7 +787,7 @@ audit, the index check, the AOT result, test counts, checksums, this version's c
 step-by-step instructions to reproduce every check yourself. Starting point:
 
 ```bash
-gh attestation verify LogicalOptimizer.3.1.0.nupkg --repo AlexanderV/LogicalOptimizer
+gh attestation verify LogicalOptimizer.<version>.nupkg --repo AlexanderV/LogicalOptimizer
 ```
 
 ## License
