@@ -290,7 +290,7 @@ internal static class EspressoLiteMinimizer
             if (!conflict) filtered.Add(f);
         }
 
-        return IsTautology(filtered, variableCount, eliminated, scratch.Pool, 0, ref budget);
+        return IsTautology(filtered, variableCount, eliminated, scratch, 0, ref budget);
     }
 
     /// <summary>
@@ -336,6 +336,27 @@ internal static class EspressoLiteMinimizer
         public readonly List<Cube> Filtered = new();
         public readonly BranchPool Pool = new();
         private ulong[] _eliminated = Array.Empty<ulong>();
+        private int[] _positive = Array.Empty<int>();
+        private int[] _negative = Array.Empty<int>();
+
+        /// <summary>
+        ///     Per-variable literal tallies for the binate-variable choice, zeroed for the caller.
+        /// </summary>
+        public (int[] Positive, int[] Negative) TalliesFor(int variableCount)
+        {
+            if (_positive.Length < variableCount)
+            {
+                _positive = new int[variableCount];
+                _negative = new int[variableCount];
+            }
+            else
+            {
+                Array.Clear(_positive, 0, variableCount);
+                Array.Clear(_negative, 0, variableCount);
+            }
+
+            return (_positive, _negative);
+        }
 
         /// <summary>A zeroed mask of at least <paramref name="words" /> words.</summary>
         public ulong[] EliminatedFor(int words)
@@ -353,11 +374,11 @@ internal static class EspressoLiteMinimizer
     /// </summary>
     private static bool? IsTautology(List<Cube> cover, int variableCount, ulong[] eliminated, ref int budget)
     {
-        return IsTautology(cover, variableCount, eliminated, new BranchPool(), 0, ref budget);
+        return IsTautology(cover, variableCount, eliminated, new Scratch(), 0, ref budget);
     }
 
     private static bool? IsTautology(List<Cube> cover, int variableCount, ulong[] eliminated,
-        BranchPool pool, int depth, ref int budget)
+        Scratch scratch, int depth, ref int budget)
     {
         if (--budget <= 0) return null;
         // Universal cube: no literals remain once eliminated variables are masked out
@@ -366,20 +387,44 @@ internal static class EspressoLiteMinimizer
         if (cover.Count == 0) return false;
 
         // Find the most binate variable; a unate cover without the universal cube
-        // (checked above) can never be a tautology
+        // (checked above) can never be a tautology.
+        //
+        // This was O(variables x cubes) with a bit test per pair, run at nearly every node of the
+        // recursion - the single hottest loop in the minimizer. Cubes are SPARSE, though: a cube
+        // carries a couple of literals out of tens of variables. Walking only the set bits (clear
+        // the lowest set bit each step) makes the tally O(cubes x literals-per-cube) instead, and
+        // produces exactly the same counts because the eliminated variables are masked out here
+        // just as they were skipped there.
+        var (positive, negative) = scratch.TalliesFor(variableCount);
+        var words = eliminated.Length;
+        foreach (var c in cover)
+            for (var w = 0; w < words; w++)
+            {
+                var live = ~eliminated[w];
+                var bits = c.Pos[w] & live;
+                while (bits != 0)
+                {
+                    positive[(w << 6) + BitOperations.TrailingZeroCount(bits)]++;
+                    bits &= bits - 1;
+                }
+
+                bits = c.Neg[w] & live;
+                while (bits != 0)
+                {
+                    negative[(w << 6) + BitOperations.TrailingZeroCount(bits)]++;
+                    bits &= bits - 1;
+                }
+            }
+
         var bestVariable = -1;
         var bestScore = -1;
         for (var v = 0; v < variableCount; v++)
         {
-            if ((eliminated[v >> 6] & (1UL << (v & 63))) != 0) continue;
-            int pos = 0, neg = 0;
-            foreach (var c in cover)
-            {
-                if (c.HasPos(v)) pos++;
-                if (c.HasNeg(v)) neg++;
-            }
-
+            int pos = positive[v], neg = negative[v];
             if (pos == 0 || neg == 0) continue;
+
+            // Ascending v with a strict `>` keeps the original tie-break: the FIRST variable
+            // reaching the best score wins.
             var score = Math.Min(pos, neg) * 1000 + pos + neg;
             if (score > bestScore)
             {
@@ -396,19 +441,19 @@ internal static class EspressoLiteMinimizer
         // value = true: keep cubes without a negative literal on bestVariable.
         // The branch list is rented for THIS depth; the recursion below rents depth + 1, so the
         // child never writes to the list it is reading.
-        var branch = pool.RentCleared(depth);
+        var branch = scratch.Pool.RentCleared(depth);
         foreach (var c in cover)
             if (!c.HasNeg(bestVariable)) branch.Add(c);
-        var verdict = IsTautology(branch, variableCount, eliminated, pool, depth + 1, ref budget);
+        var verdict = IsTautology(branch, variableCount, eliminated, scratch, depth + 1, ref budget);
 
         if (verdict == true)
         {
             // value = false: keep cubes without a positive literal on bestVariable. Safe to reuse
             // the same list - the first branch's subtree is finished and nothing retained it.
-            branch = pool.RentCleared(depth);
+            branch = scratch.Pool.RentCleared(depth);
             foreach (var c in cover)
                 if (!c.HasPos(bestVariable)) branch.Add(c);
-            verdict = IsTautology(branch, variableCount, eliminated, pool, depth + 1, ref budget);
+            verdict = IsTautology(branch, variableCount, eliminated, scratch, depth + 1, ref budget);
         }
 
         eliminated[bestVariable >> 6] &= ~(1UL << (bestVariable & 63));
