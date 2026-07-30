@@ -7,7 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.1] - 2026-07-30
+
+Packaging fix. **This is the release to use; [3.2.0] never fully published** — see the note under
+it. No source change to any library: the assemblies, the public API and the runtime behaviour are
+exactly those described under [3.2.0], which is the section to read for what is new.
+
+### Fixed
+
+- **The meta-package no longer packs an empty symbol package.** `LogicalOptimizer.Full` ships no
+  code, so the `.snupkg` it produced contained no `.pdb`, and nuget.org rejects such a symbol
+  package outright (`400 The package does not contain any symbol (.pdb) files.`). Because
+  `dotnet nuget push` walks its glob in order and aborts on the first failure, that rejection
+  stopped the 3.2.0 publish part-way through. The cause was a side effect of centralizing package
+  metadata: `LogicalOptimizer.Full.csproj` previously carried its own metadata and never set
+  `IncludeSymbols`, so no `.snupkg` existed for it; moving `IncludeSymbols` /
+  `SymbolPackageFormat` into `Directory.Build.props` applied them to every project. The
+  meta-package now opts out, rather than the shared setting being weakened for the packages that
+  legitimately ship symbols.
+- **The pre-publish gate now catches this class of failure.**
+  [`tools/verify_package_contract.ps1`](tools/verify_package_contract.ps1) ran its symbols check
+  only for packages of kind `library`, so it never opened the meta-package's `.snupkg`: it
+  asserted that libraries *have* `.pdb`s, and nothing asserted that a produced `.snupkg` is not
+  empty. It now checks every `.snupkg` it finds, whatever the package kind — the audit is 169
+  checks across the nine packages, and copying a `.nupkg` over
+  `LogicalOptimizer.Full.<version>.snupkg` makes it fail with `symbols-package-not-empty`.
+
 ## [3.2.0] - 2026-07-30
+
+> **Partially published; superseded by [3.2.1].** The publish step failed part-way through, so
+> only `LogicalOptimizer.Minimization`, `LogicalOptimizer.Dnnf` and `LogicalOptimizer.Full`
+> reached nuget.org at 3.2.0 — and those three depend on `LogicalOptimizer.Core` /
+> `LogicalOptimizer.Sat` 3.2.0, which were never pushed, so all three are uninstallable. They have
+> been unlisted. **Use 3.2.1**, which is the same source with the packaging fix. Everything
+> described below shipped in 3.2.1.
 
 Turning shipped capabilities into a versioned, independently verifiable product contract. The
 public API grows additively — `OptimizationTrace` / `OptimizationTraceEntry` /

@@ -165,9 +165,9 @@ pwsh tools/build_evidence_bundle.ps1 -Version 3.1.0 -PackageContractReport packa
 
 - **Завжди push `main` → потім push тег** (щоб гілка й docs-сайт були актуальні; docs-workflow
   тригериться на push у `main`).
-- Поточна dev-версія — **3.2.0** (у [`Directory.Build.props`](Directory.Build.props)). Останній
-  опублікований тег — `v3.1.1` (whitespace-only). Мінор 3.2 додає публічний API адитивно
-  (`OptimizationTrace`, `TryParse`/`ParseDiagnostic`, `FormulaParseException`); мажор 3.0
+- Поточна dev-версія — **3.2.1** (у [`Directory.Build.props`](Directory.Build.props)). Мінор 3.2
+  додає публічний API адитивно (`OptimizationTrace`, `TryParse`/`ParseDiagnostic`,
+  `FormulaParseException`); мажор 3.0
   увімкнув AIG DAG-aware rewriting за замовчуванням + доведено-мінімальну min-AIG бібліотеку
   (`EnableAigRewriting=false` повертає до-3.0 поведінку).
 - **Історична примітка щодо тегів:** BDD complement edges (C1) влилися комітом `247afcd`. Якщо
@@ -177,6 +177,13 @@ pwsh tools/build_evidence_bundle.ps1 -Version 3.1.0 -PackageContractReport packa
 - Перед новим мінорним/мажорним тегом: онови `<Version>` у
   [`Directory.Build.props`](Directory.Build.props) (одне місце) і додай запис у
   [CHANGELOG.md](CHANGELOG.md).
+- **`dotnet nuget push` по глобу не атомарний.** Він публікує пакети послідовно й припиняє роботу
+  на першій помилці — тобто відмова на одному пакеті лишає попередні вже опублікованими, а
+  наступні ненадісланими. Саме так сталося з 3.2.0: nuget.org відхилив порожній
+  `LogicalOptimizer.Full.3.2.0.snupkg` (`400`, немає жодного `.pdb`), і 3 пакети пішли в реєстр, а
+  6 — ні; опубліковані посилалися на залежності, яких не існує. Відкотити це неможливо, лише
+  unlist + новий номер версії. Тому «Verify package contract» — це справжній gate: усе, що
+  nuget.org може відхилити, треба ловити **до** `push`.
 
 ## Після релізу
 
