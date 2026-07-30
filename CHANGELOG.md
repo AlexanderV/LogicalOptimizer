@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Allocation baseline re-recorded for the mid-range zone.**
+  `OptimizationBenchmarks.MidRangeFourteenVariables` went from 583,472 to 646,881 bytes/op
+  (+10.9%, just over the gate's 10% threshold). This is the cost of a feature, not a leak: the
+  baseline was recorded 2026-07-29, the **final soundness guard** landed 2026-07-30, and above 12
+  variables that guard proves the returned result equivalent to the input with a SAT miter — which
+  is exactly what a 14-variable benchmark exercises. The attribution is visible in the numbers:
+  `GuaranteeZoneTenVariables` (10 variables, where the guard uses the cheap truth-table path) moved
+  −0.1%, and the other six benchmarks are flat. Verifying every result is a headline guarantee, so
+  the allocation is accepted and [`doc/perf-baseline.json`](doc/perf-baseline.json) re-recorded
+  rather than the threshold widened.
+
 ### Fixed
 
 - **The post-publish smoke test no longer races nuget.org's indexing.** `verify_nuget.ps1` returns
@@ -18,6 +31,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   evidence-bundle steps behind it. [`tools/smoke_install.ps1`](tools/smoke_install.ps1) now retries
   the tool install (10 attempts, 30 s apart) the way the index check already retried, and fails
   only if the package is still not installable after that.
+- **"Verify this release yourself" is now actually executable.** nuget.org *repository-signs* every
+  package it accepts, appending ~13 KB and therefore changing its SHA-256 — so the provenance
+  attestation and `SHA256SUMS.txt`, which describe the bytes the workflow *pushed*, could not be
+  verified against a copy downloaded from nuget.org. `gh attestation verify` on such a copy fails
+  with a bare `HTTP 404`, which reads like a missing attestation rather than a different digest.
+  Three of the six steps in the bundle's `verifying-provenance.md` were broken this way (the third
+  additionally needed the `.snupkg`, which nuget.org serves from the symbol server, not next to the
+  `.nupkg`), while the document claimed every step could be run against nuget.org downloads. The
+  release now attaches the `.nupkg`, `.snupkg` and `SHA256SUMS.txt` to the GitHub release, the
+  instructions say which byte stream each check belongs to, and a new step verifies the nuget.org
+  copy with `dotnet nuget verify` (which is what proves the repository signature and the owning
+  account). The same correction is applied to the README and `RELEASING.md`. Verified by running
+  the rewritten steps against the v3.2.1 release as an outside consumer: attestation verifies, 17
+  of 17 checksums match, and the contract audit passes 169 checks.
 
 ## [3.2.1] - 2026-07-30
 

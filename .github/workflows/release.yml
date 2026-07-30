@@ -154,10 +154,19 @@ jobs:
           path: evidence/**
           if-no-files-found: error
 
-      # Attach the bundle to the GitHub release for this tag so it outlives the workflow logs.
-      # Only if a release object already exists - this workflow publishes packages, it does not
-      # decide when a release is announced.
-      - name: Attach evidence bundle to the GitHub release
+      # Attach the bundle AND the packages to the GitHub release for this tag, so both outlive the
+      # workflow logs. Only if a release object already exists - this workflow publishes packages,
+      # it does not decide when a release is announced.
+      #
+      # The packages matter as much as the bundle. nuget.org REPOSITORY-SIGNS every package it
+      # accepts, which appends ~13 KB and therefore changes its SHA-256. The provenance attestation
+      # and SHA256SUMS.txt both describe the bytes this workflow PUSHED, so neither can be verified
+      # against a copy downloaded from nuget.org - `gh attestation verify` on such a copy fails with
+      # a bare HTTP 404, which reads like a missing attestation rather than a different digest.
+      # Attaching the pushed bytes here is what makes "verify it yourself" actually executable;
+      # the nuget.org copy is verified instead with `dotnet nuget verify`, which checks that
+      # repository signature.
+      - name: Attach evidence bundle and packages to the GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
@@ -165,7 +174,10 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             zip -r "release-evidence-${VERSION}.zip" evidence
             gh release upload "$TAG" "release-evidence-${VERSION}.zip" --clobber
-            echo "Evidence bundle attached to release $TAG."
+            # The attested bytes, plus the checksum file that describes them.
+            gh release upload "$TAG" artifacts/*.nupkg artifacts/*.snupkg \
+              artifacts/SHA256SUMS.txt --clobber
+            echo "Evidence bundle and packages attached to release $TAG."
           else
             echo "No GitHub release exists for $TAG yet; the bundle is available as the"
             echo "release-evidence-${VERSION} run artifact and can be attached when the release is published."

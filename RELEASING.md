@@ -75,16 +75,26 @@ dotnet test LogicalOptimizer.sln -c Release --filter "Category=ReleaseEvidence"
   зібраний **тією самою версією SDK на тій самій ОС із тим самим dependency graph**, дає
   ідентичний вихід. Це *не* повна reproducible-build гарантія — сам по собі прапорець не фіксує
   версію SDK, ОС і native tooling, тому bit-for-bit збіг між різними середовищами не заявляється.
-  Що дійсно перевіряється для кожного релізу — `SHA256SUMS.txt` (ті самі байти, що були
-  опубліковані) і build provenance attestation (ким і з якого коміту зібрано);
+  Що дійсно перевіряється для кожного релізу — `SHA256SUMS.txt` (байти, які workflow зібрав і
+  запушив, тобто **до** repository signature, яку nuget.org додає вже на своєму боці) і build
+  provenance attestation (ким і з якого коміту зібрано);
 - **symbol-пакети** — `.snupkg` поруч із кожним `.nupkg` (`dotnet nuget push` вантажить їх
   автоматично) + SourceLink, тож споживач може зайти дебагером у код;
 - **package validation** — статичні перевірки SDK під час `pack`;
 - **SHA-256 checksums** — `artifacts/SHA256SUMS.txt`, разом із пакетами прикріплюється до run;
 - **build provenance attestation** — підписане твердження, що ці байти зібрані цим workflow із
-  цього коміту. Перевірити опублікований пакет:
+  цього коміту.
+
+  > **Увага: nuget.org repository-підписує кожен пакет**, дописуючи ~13 КБ, тому SHA-256 копії
+  > з nuget.org **не збігається** з атестованим. `gh attestation verify` на такій копії падає з
+  > голим `HTTP 404` — виглядає як відсутня атестація, хоча насправді це інший дайджест. Саме
+  > тому release-крок чіпляє `.nupkg`/`.snupkg` і `SHA256SUMS.txt` до GitHub release: атестація,
+  > checksums і package-contract audit працюють з **цими** байтами, а копію з nuget.org
+  > перевіряють через `dotnet nuget verify` (вона доводить repository signature й власника).
   ```bash
-  gh attestation verify LogicalOptimizer.3.1.0.nupkg --repo AlexanderV/LogicalOptimizer
+  gh release download v3.2.1 --pattern '*.nupkg'
+  gh attestation verify LogicalOptimizer.3.2.1.nupkg --repo AlexanderV/LogicalOptimizer
+  dotnet nuget verify logicaloptimizer.3.2.1.nupkg   # для копії з nuget.org
   ```
 - **Trusted Publishing (OIDC)** — довготривалого API-ключа не існує взагалі.
 

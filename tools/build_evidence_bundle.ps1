@@ -275,17 +275,34 @@ $body
 Write-Utf8NoBom -Path (Join-Path $bundle 'verifying-provenance.md') -Content @"
 # Verifying this release yourself
 
-Nothing here asks you to trust the bundle. Every step below can be run against the packages as
-downloaded from nuget.org.
+Nothing here asks you to trust the bundle. Every step below can be run by you.
+
+## 0. First, get the right bytes
+
+**There are two different byte streams for the same release, and it matters which one you have.**
+nuget.org *repository-signs* every package it accepts: it appends a signature (~13 KB) to the
+``.nupkg``, so the file you download from nuget.org has a **different SHA-256** from the file this
+workflow built and pushed.
+
+| You want to check | Use |
+|---|---|
+| provenance attestation, ``SHA256SUMS.txt``, package contract | the packages attached to the **GitHub release** — these are the pushed bytes |
+| that nuget.org is serving a genuine package from this account | the nuget.org copy, with ``dotnet nuget verify`` (step 4) |
+
+Verifying the attestation against a nuget.org download fails with a bare ``HTTP 404`` — no
+attestation exists for the re-signed digest. That is expected, not a red flag.
+
+``````bash
+gh release download v$Version --repo $Repository --pattern '*.nupkg' --pattern '*.snupkg' --pattern 'SHA256SUMS.txt'
+``````
 
 ## 1. The packages were built by this repository's release workflow
 
 The release workflow signs a build provenance attestation for exactly the ``.nupkg`` bytes it
-pushed. Download a package and verify it with the GitHub CLI:
+pushed:
 
 ``````bash
-curl -sSLO https://api.nuget.org/v3-flatcontainer/logicaloptimizer/$Version/logicaloptimizer.$Version.nupkg
-gh attestation verify logicaloptimizer.$Version.nupkg --repo $Repository
+gh attestation verify LogicalOptimizer.$Version.nupkg --repo $Repository
 ``````
 
 A successful verification names the workflow (``release.yml``) and the commit the package was
@@ -293,23 +310,38 @@ built from.
 
 ## 2. The bytes match what was published
 
-``SHA256SUMS.txt`` in this bundle lists the SHA-256 of every ``.nupkg`` and ``.snupkg`` at push
-time:
+``SHA256SUMS.txt`` lists the SHA-256 of every ``.nupkg`` and ``.snupkg`` at push time, so this
+checks the release assets against the record made when they were pushed:
 
 ``````bash
-sha256sum -c SHA256SUMS.txt        # in a directory holding the downloaded packages
+sha256sum -c SHA256SUMS.txt        # in the directory you downloaded them into
 ``````
 
 ## 3. The package contents satisfy the contract
 
 Re-run the same audit that produced ``package-contract-report.json``, against the packages you
-downloaded rather than the ones the workflow built:
+downloaded rather than the ones the workflow built. It needs the ``.snupkg`` files too — they are
+release assets for exactly this reason; nuget.org serves symbol packages from the symbol server,
+not next to the ``.nupkg`` in the flat container:
 
 ``````bash
-pwsh tools/verify_package_contract.ps1 -ArtifactsPath downloaded -Version $Version
+pwsh tools/verify_package_contract.ps1 -ArtifactsPath . -Version $Version
 ``````
 
-## 4. The packages install, run, and compile with Native AOT
+## 4. nuget.org is serving a genuine package from this account
+
+This is the one check that belongs on the **nuget.org** copy, because the signature it verifies is
+the one nuget.org added:
+
+``````bash
+curl -sSLO https://api.nuget.org/v3-flatcontainer/logicaloptimizer/$Version/logicaloptimizer.$Version.nupkg
+dotnet nuget verify logicaloptimizer.$Version.nupkg
+``````
+
+It reports ``Signature type: Repository``, the nuget.org signing certificate, and the account that
+owns the package.
+
+## 5. The packages install, run, and compile with Native AOT
 
 ``````bash
 pwsh tools/smoke_install.ps1 -Version $Version -IncludeAot
@@ -319,14 +351,14 @@ This creates a throwaway project outside the repository, installs the published 
 the optimization result together with its equivalence proof and minimality status, installs the
 CLI tool, and then compiles and runs the same program as a Native AOT binary.
 
-## 5. The CLI JSON report matches its published schema
+## 6. The CLI JSON report matches its published schema
 
 ``````bash
 logical-optimizer --format=json "a & b | a & c" > report.json
 check-jsonschema --schemafile schema/cli-report-v1.schema.json report.json
 ``````
 
-## 6. The comparison numbers reproduce
+## 7. The comparison numbers reproduce
 
 ``benchmarks/`` in this bundle carries the corpus checksum, the environment the numbers came from,
 and every row's equivalence verdict. Reproduce them on your machine with the sequence from

@@ -784,10 +784,20 @@ built against the *published* package produces the right answer.
 
 All of that lands in a single **release evidence bundle** attached to the release: the contract
 audit, the index check, the AOT result, test counts, checksums, this version's claim changes, and
-step-by-step instructions to reproduce every check yourself. Starting point:
+step-by-step instructions to reproduce every check yourself.
+
+Two byte streams exist for the same release, and the right one depends on what you are checking:
+nuget.org *repository-signs* every package it accepts, so its copy has a different SHA-256 from
+the one the workflow built and attested. The attested bytes are therefore attached to the GitHub
+release:
 
 ```bash
+# Provenance of the bytes we built and pushed:
+gh release download v<version> --repo AlexanderV/LogicalOptimizer --pattern '*.nupkg'
 gh attestation verify LogicalOptimizer.<version>.nupkg --repo AlexanderV/LogicalOptimizer
+
+# That nuget.org is serving a genuine package from this account:
+dotnet nuget verify logicaloptimizer.<version>.nupkg    # Signature type: Repository
 ```
 
 ## License
