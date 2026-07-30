@@ -564,4 +564,46 @@ public class DocExamplesTests
         Assert.True(CommandLineProcessor.ParseArguments(new[] { "--csv-example" }).ShowCsvExample);
         Assert.True(CommandLineProcessor.ParseArguments(new[] { "--csv", "a,b,Result" }).CsvInput);
     }
+
+    /// <summary>
+    ///     The standard-format verbs are a whole capability area that lived only in
+    ///     <c>--help</c> for a while: they appeared in no README and on no documentation page.
+    ///     This compares the verbs the CLI recognizes against the ones the documentation lists,
+    ///     in BOTH directions — a new verb that nobody documents fails here just as loudly as a
+    ///     documented verb that was renamed or removed.
+    /// </summary>
+    [Fact]
+    public void Cli_RecognizesEveryDocumentedStandardFormatVerb()
+    {
+        foreach (var verb in FormatCommands.Verbs)
+            Assert.True(FormatCommands.IsFormatVerb(verb), $"'{verb}' is listed but not recognized.");
+
+        Assert.False(FormatCommands.IsFormatVerb("a & b"));
+        Assert.False(FormatCommands.IsFormatVerb("--cnf"));
+
+        // Each document must name every verb as a command, i.e. followed by its input file.
+        foreach (var relative in new[]
+                 {
+                     "README.md",
+                     Path.Combine("LogicalOptimizer.Cli", "README.md"),
+                     Path.Combine("docs-site", "articles", "cli-usage.md")
+                 })
+        {
+            var text = File.ReadAllText(Path.Combine(RepositoryRoot(), relative));
+            foreach (var verb in FormatCommands.Verbs)
+                Assert.True(text.Contains($"logical-optimizer {verb} ", StringComparison.Ordinal),
+                    $"{relative} does not document the '{verb}' verb. Every standard-format verb " +
+                    "must be documented where the others are, or it is reachable only via --help.");
+        }
+    }
+
+    /// <summary>Walks up from the test binary to the directory holding the solution.</summary>
+    private static string RepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "LogicalOptimizer.sln")))
+            directory = directory.Parent;
+        return directory?.FullName
+               ?? throw new InvalidOperationException("Cannot locate the repository root");
+    }
 }

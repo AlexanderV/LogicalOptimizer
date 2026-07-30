@@ -81,7 +81,8 @@ public class TruthTableAdvancedTests
     [InlineData("a & b", "b & a")] // Commutativity of AND
     [InlineData("a | b", "b | a")] // Commutativity of OR
     [InlineData("a & (b | c)", "(a & b) | (a & c)")] // Distributivity
-    [InlineData("a | (b & c)", "(a | b) & (a | c)")] // Distributivity
+    // (the dual, "a | (b & c)" vs "(a | b) & (a | c)", is pinned per-row against a C# oracle by
+    //  TruthTable_FactorizationEquivalence_ShouldBeCorrect above — strictly stronger than this row)
     [InlineData("!(a & b)", "!a | !b")] // De Morgan (AND)
     [InlineData("!(a | b)", "!a & !b")] // De Morgan (OR)
     [InlineData("!!a", "a")] // Double negation

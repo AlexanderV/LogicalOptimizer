@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "input": "a & & b",
+  "sourceFormat": "expression",
   "error": {
     "code": "UnexpectedToken",
     "message": "Unexpected token & at position 4",

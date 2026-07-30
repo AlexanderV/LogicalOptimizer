@@ -20,6 +20,7 @@ internal static class SnapshotSetup
     }
 }
 
+[Collection(ConsoleCollection.Name)]
 public class SnapshotTests
 {
     private static string CaptureConsole(Action action)
@@ -53,9 +54,10 @@ public class SnapshotTests
     [Fact]
     public Task CliOutput_Json()
     {
-        var result = new BooleanExpressionOptimizer().OptimizeExpression("a & b | a & c | b & c");
+        const string expression = "a & b | a & c | b & c";
+        var result = new BooleanExpressionOptimizer().OptimizeExpression(expression);
         var writer = new StringWriter();
-        JsonReportWriter.Write(writer, result);
+        JsonReportWriter.Write(writer, result, expression, CliInputSource.Expression);
         return Verifier.Verify(writer.ToString());
     }
 

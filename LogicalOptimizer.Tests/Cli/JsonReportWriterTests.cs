@@ -15,7 +15,7 @@ public class JsonReportWriterTests
     {
         var result = new BooleanExpressionOptimizer().OptimizeExpression(expression);
         var writer = new StringWriter();
-        JsonReportWriter.Write(writer, result);
+        JsonReportWriter.Write(writer, result, expression, CliInputSource.Expression);
         return JsonDocument.Parse(writer.ToString()).RootElement;
     }
 
@@ -55,7 +55,8 @@ public class JsonReportWriterTests
     public void WriteError_EmitsErrorObject_WithoutResultFields()
     {
         var writer = new StringWriter();
-        JsonReportWriter.WriteError(writer, "a & & b", "Unexpected token & at position 4");
+        JsonReportWriter.WriteError(writer, "a & & b", CliInputSource.Expression,
+            "Unexpected token & at position 4");
         var root = JsonDocument.Parse(writer.ToString()).RootElement;
 
         Assert.Equal(1, root.GetProperty("schemaVersion").GetInt32());

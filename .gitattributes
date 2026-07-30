@@ -15,3 +15,9 @@
 *.cmd text eol=crlf
 *.ps1 text eol=crlf
 *.sh text eol=lf
+
+# Two trailing spaces are Markdown's hard line break, and the README/docs hero lines rely on it.
+# Without this, `git diff --check` reports those lines as trailing-whitespace errors and a real
+# whitespace defect elsewhere would be lost in the noise. Trailing whitespace stays an error
+# everywhere else, where it is genuinely meaningless.
+*.md whitespace=-trailing-space

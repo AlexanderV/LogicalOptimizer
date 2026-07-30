@@ -9,7 +9,7 @@ namespace LogicalOptimizer.Tests.Spikes;
 //  of variables (the "projection scope") that can be extended to a satisfying assignment of
 //  the formula. The remaining variables are "projected out" (existentially forgotten).
 //
-//  The overcount trap (roadmap POST_V3_ROADMAP.md section 9): after projecting variables out
+//  The overcount trap: after projecting variables out
 //  you MUST NOT simply drop their literals, sum OR-branch counts, or assume that d-DNNF
 //  determinism survives forgetting. Different full models can collapse onto ONE projected
 //  model, so naive summation OVERCOUNTS. See the worked example in

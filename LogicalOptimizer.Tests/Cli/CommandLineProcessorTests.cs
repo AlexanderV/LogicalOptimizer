@@ -14,9 +14,10 @@ namespace LogicalOptimizer.Tests
             // Act
             var options = CommandLineProcessor.ParseArguments(new string[0]);
 
-            // Assert
+            // Assert - the message is what the user actually reads, and it is deterministic, so
+            // pin it. NotEmpty passed on an internal exception string leaking through.
             Assert.False(options.IsValid);
-            Assert.NotEmpty(options.ErrorMessage);
+            Assert.Equal("No arguments provided. Use --help for usage information.", options.ErrorMessage);
         }
 
         [Theory]

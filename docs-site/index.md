@@ -36,6 +36,7 @@ logical-optimizer "a & b | a & c"
 | [Optimizer & options](articles/optimizer-and-options.md) | `BooleanExpressionOptimizer`, `OptimizationOptions`, AIG rewriting (v3.0 default), quality analysis |
 | [Operation contracts & statuses](articles/contracts-and-statuses.md) | `MinimizationStatus`, `ComputationStatus`, what "provably minimal" means |
 | [Resource budgets & the zone model](articles/budgets-and-zones.md) | `ResourceBudget`, `PerformanceValidator`, variable-count routing |
+| [Diagnostic trace](articles/diagnostic-trace.md) | `--trace` / `IncludeTrace`: which engine ran and why, budgets, candidate costs, adoption and fallback |
 | [Normal forms & transformations](articles/normal-forms.md) | CNF / DNF / ANF, `Transformations`, equisatisfiable Tseitin CNF, `TruthTable` |
 | [Two-level minimization](articles/minimization.md) | `TruthTableMinimizer`, don't-cares, CSV parsing, multi-output tables |
 | [SAT solving, cardinality, PB & MaxSAT](articles/sat-solving.md) | `SatSolver`, assumptions, unsat cores, DRAT, `CardinalityEncoder`, `PseudoBooleanEncoder`, `MaxSatSolver` |
@@ -44,9 +45,12 @@ logical-optimizer "a & b | a & c"
 | [Equivalence & backbones](articles/equivalence-and-backbones.md) | `FormulaAnalysis`, `EquivalenceChecker`, `CheckWithProof`, pluggable checkers |
 | [Export formats](articles/exporters.md) | DIMACS / BLIF / Verilog / LaTeX / CSV / C# code generation |
 | [Packages & architecture](articles/packages-and-architecture.md) | The 7-package split, layering, `FormulaFactory`, canonical n-ary AST |
-| [CLI usage](articles/cli-usage.md) | Every flag with verified example outputs |
+| [CLI usage](articles/cli-usage.md) | Every flag with verified example outputs, plus the `solve` / `maxsat` / `solve-pb` / `count` standard-format verbs |
 | [Migration to v2.0](articles/migration-v2.md) | Breaking changes and how to adapt |
-| [Testing overview](articles/testing-overview.md) | The ten-technique testing strategy |
+| [Benchmarks & comparison](articles/benchmarks.md) | Result size and timing against SymPy and PyEDA on a pinned corpus, and the BenchmarkDotNet suite |
+| [Choosing a tool](articles/choosing-a-tool.md) | Scenario by scenario against Z3, ABC, LogicNG, SymPy and PyEDA — including where this project is weakest |
+| [Case studies](articles/case-studies.md) | Measured end-to-end examples |
+| [Testing overview](articles/testing-overview.md) | The structured functional suite and the ten techniques layered on it |
 | [API Reference](api/index.md) | Generated from the XML doc comments of the seven library packages |
 
 Every code example across these articles is mirrored by an executed, asserted test in

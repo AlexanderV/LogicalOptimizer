@@ -7,17 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Turning shipped capabilities into a versioned, independently verifiable product contract. No
-public API change; no runtime behaviour change.
+## [3.2.0] - 2026-07-30
+
+Turning shipped capabilities into a versioned, independently verifiable product contract. The
+public API grows additively — `OptimizationTrace` / `OptimizationTraceEntry` /
+`OptimizationTraceCategory`, `OptimizationOptions.IncludeTrace`, `OptimizationResult.Trace`,
+`FormulaFactory.TryParse` with `ParseDiagnostic` / `ParseErrorCode`, and `FormulaParseException`
+(an `ArgumentException`, so the throwing parser API stays source- and binary-compatible). No
+existing member changed shape and no runtime behaviour changed, so an upgrade from 3.1.x needs no
+code change.
 
 ### Added
 
 - **Published JSON Schema for the CLI report.** The `--format=json` document is now a contract
   rather than a convention: [`schema/cli-report-v1.schema.json`](schema/cli-report-v1.schema.json)
-  (Draft 2020-12, served from the docs site at the `$id` it declares), seven golden example
+  (Draft 2020-12, served from the docs site at the `$id` it declares), eight golden example
   reports in [`schema/examples/`](schema/examples) covering success, `BudgetExceeded` minimality, a
-  `TooLarge` normal form, the optional `advanced` field, `--trace`, a structured parse error and a
-  bare processing error, and [`schema/README.md`](schema/README.md) spelling out what may change
+  `TooLarge` normal form, the optional `advanced` field, a CSV source, `--trace`, a structured parse
+  error and a bare processing error, and [`schema/README.md`](schema/README.md) spelling out what may change
   within a version and what requires a new one. `CliReportSchemaTests` validates the committed
   examples *and* freshly generated output against the schema, checks the schema's enums are exactly
   the CLR enums (`MinimizationStatus`, `ComputationStatus`, `OptimizationTraceCategory`,
@@ -88,6 +95,53 @@ public API change; no runtime behaviour change.
 
 ### Fixed
 
+- **The equivalence guarantee did not cover the returned result.** `RewriteEngine`'s soundness guard
+  only compares the rewrite phase's output to its own input. Everything after it — the exact
+  Quine–McCluskey candidate, the SAT prime cover, the subcircuit library, AIG rewriting — imports an
+  expression built by a *different* engine, and the winner of the cost comparison was never compared
+  to the parsed input at all. The documented promise ("every optimization is verified equivalent to
+  the input before it is returned") therefore described a stronger guarantee than the code provided;
+  `IsEquivalent()` only checked afterwards, and only if the caller asked.
+  A **final guard** now runs immediately before `OptimizationResult` is built: truth table up to 12
+  variables (reusing the exact path's ON-set, so no second table is built), SAT miter above. Failing
+  to *prove* equivalence — refuted, or the SAT budget exhausted — rolls the result back to the input,
+  drops the minimality status to `Heuristic`, and re-derives the normal forms from the input, so a
+  returned document can never mix a rolled-back expression with forms of a refuted candidate.
+- **Claim-critical exhaustive evidence never ran automatically.** README and `doc/CLAIMS.md` cite the
+  exhaustive 4-variable sweeps as what backs the `verified` and `MinimalProven` claims, but both are
+  `Exhaustive`-category and every automated filter excluded them — nothing re-proved them for the
+  commit being published. They now also carry a `ReleaseEvidence` category, run as a gate **before
+  `dotnet pack`** (~2 minutes for all 65534 functions, twice), and land in the evidence bundle as
+  `exhaustive-evidence.json`; `-RequireAll` fails the release without it. The full `Exhaustive`
+  category runs nightly ([`exhaustive.yml`](.github/workflows/exhaustive.yml)).
+- **The published JSON Schema accepted a self-contradictory report.** The two outcomes were expressed
+  as `anyOf`, which validates a document carrying *both* `optimized` and `error` — so schema
+  validation alone could not tell a consumer which outcome occurred. Now `oneOf` with explicit `not`
+  clauses: a success report requires `optimized`/`equivalent`/`minimality` and forbids `error`; an
+  error report forbids every result-only field. Negative tests cover all three cases. This is a
+  schema defect fix, not a contract change — the CLI has never emitted such a document, so nothing
+  that was valid before became invalid.
+- **A JSON report for a CSV truth table could not name its own input.** The schema defines `input`
+  as "the argument exactly as received", but the CSV path overwrote the received argument with the
+  sum-of-products it derived from the table, and the report wrote *that* into `input` — so a
+  consumer could not tell which CSV, or which `*.csv` file, a report came from, and the error path
+  (which always wrote the received argument) disagreed with the success path about what the field
+  meant. Single-output CSV plus `--format=json` is a supported combination — only `--outputs` is
+  rejected with JSON — so this was a real gap, not an invalid invocation. `input` is now the
+  received argument on both paths; two additive fields carry the rest: **`sourceFormat`**
+  (`expression` | `csv`, present in every report) and **`analyzedExpression`** (the derived
+  expression, present only when it differs from `input`). Every verdict in the report is about the
+  analyzed expression, which the schema now states field by field. New
+  [`CliJsonInputContractTests`](LogicalOptimizer.Tests/Cli/CliJsonInputContractTests.cs) drives
+  `Program.Main` for inline CSV, a `*.csv` file, auto-detected CSV, malformed CSV and a plain
+  expression, and checks stdout carries exactly one schema-valid document with the CSV progress
+  messages kept on stderr — the seam the writer-level tests structurally could not reach.
+- **Documented CLI transcripts had drifted from the CLI.** `docs-site/articles/cli-usage.md` claims
+  "All outputs shown are verified against the built CLI", yet its default-output block (and
+  `introduction.md`'s) predated the `Equivalent` / `Minimality` / `Cost` lines the formatter now
+  always prints. Both are updated, and `DocumentedCliOutputTests` makes the promise executable: every
+  documented transcript is compared line-by-line against output from the same formatter the CLI uses,
+  with a guard test so a reformatted block cannot silently turn the check into a no-op.
 - **The release evidence bundle silently omitted benchmark provenance.**
   `build_evidence_bundle.ps1` only recorded a `benchmarks` item when `-BenchmarkManifest` was
   passed, and `release.yml` never passed it — so every bundle would have shipped without the
@@ -104,6 +158,71 @@ public API change; no runtime behaviour change.
   dependencies" become "no third-party runtime dependency" in README, `SECURITY.md`, the facade
   package README and three documentation pages — a shipped LogicalOptimizer package does reference
   other LogicalOptimizer packages, so the unqualified form was not true.
+- **Narrowed the deterministic-build wording** in `RELEASING.md`: `ContinuousIntegrationBuild=true`
+  normalizes source paths, which makes the build deterministic *for a fixed SDK, OS and dependency
+  graph* — it is not a full reproducible-build guarantee across environments, and is no longer
+  described as one. What each release does verify (checksums, provenance attestation) is stated
+  instead.
+- **`git diff --check` no longer flags Markdown hard line breaks.** Two trailing spaces are
+  Markdown's line-break syntax and the README/docs hero lines depend on it; `*.md
+  whitespace=-trailing-space` in `.gitattributes` keeps the check meaningful everywhere else instead
+  of drowning a real defect in expected warnings.
+
+### Documentation
+
+- **The standard-format CLI verbs are documented.** `solve` (DIMACS CNF), `maxsat` (WCNF),
+  `solve-pb` (OPB) and `count --engine dnnf` (exact `#SAT`) existed and were listed in
+  `--help`, but appeared in no README and on no documentation-site page — a whole capability
+  area was reachable only by running `--help`. They now have a section in
+  [`docs-site/articles/cli-usage.md`](docs-site/articles/cli-usage.md) with the input file, the
+  verified output and the error/exit-code behaviour of each, a short section in the README and
+  in the CLI package README, a pointer from the `LogicalOptimizer.Formats` package README, and
+  a parse-level pin — `DocExamplesTests.Cli_RecognizesEveryDocumentedStandardFormatVerb` — so a
+  renamed verb fails the build the way a renamed flag already does.
+- **Published figures re-measured against the current suite.** Test count `1175 → 1254` and audit
+  date `2026-07-29 → 2026-07-30` in the README; the whole per-area table in
+  [`docs-site/articles/testing-overview.md`](docs-site/articles/testing-overview.md) (it still
+  reported the pre-reorganization 1 152-case layout). Coverage was published as "~89% line" with
+  no statement of *what* was measured; it is now the measured 92.7% line / 84.6% branch on the
+  `LogicalOptimizer` facade assembly — the module the CI gate actually covers and applies its 80%
+  floor to.
+- **Corrected an exporter example that had gone stale.** `doc/ADVANCED_FEATURES.md` showed
+  `ToLatex("a & b | c")` returning `a \land b \lor c`; since exporters parse through
+  `FormulaFactory` the real output is canonically ordered, `c \lor a \land b`. The same file's
+  feature list predated the SAT / BDD / d-DNNF / AIG engines and claimed "1150+ tests"; it is now
+  scoped to the tooling it actually documents, with the invented per-expression timings replaced
+  by a pointer to the recorded benchmark artifacts.
+- **The documentation-site map is complete again.** `docs-site/index.md` omitted four articles
+  that are in the table of contents and shipped: diagnostic trace, benchmarks & comparison,
+  choosing a tool, and case studies.
+- **The facade's package scope is stated correctly.** `docs-site/articles/introduction.md` said the
+  `LogicalOptimizer` facade installs "everything"; it installs Core + Sat + Bdd + Minimization, and
+  `.Dnnf` / `.Formats` have to be added alongside it (or `LogicalOptimizer.Full` used instead).
+- **`[3.1.1]` added below** — the tag was published but the release had no changelog section.
+- **Historical planning documents removed from the repository root.** Fourteen point-in-time
+  files — code-review reports, refactoring and positioning plans, four roadmaps, `TODO.md` and
+  three superseded library comparisons — were deleted. They recorded intermediate states that the
+  shipped documentation now covers: measured comparison results live in [`doc/comparison/`](doc/comparison)
+  and [Choosing a Tool](docs-site/articles/choosing-a-tool.md), the claim inventory in
+  [`doc/CLAIMS.md`](doc/CLAIMS.md), release history here, and the projected-model-counting design
+  in [`doc/decisions/`](doc/decisions) and [`doc/spikes/`](doc/spikes). The handful of prose
+  citations pointing into them (in `doc/CLAIMS.md`, `doc/ADOPTION.md`, the comparison workflow,
+  the evidence-bundle and reproduction-verifier scripts, the spike and decision records, and
+  `ClaimsConsistencyTests`) were rewritten to state the substance inline, so no claim lost its
+  backing — `Claims_EveryEvidenceReference_StillResolves` still passes. `MIGRATION-v2.md` is
+  kept: it is live upgrade documentation, not a plan.
+
+## [3.1.1] - 2026-07-29
+
+Whitespace-only patch release. No public API change, no behaviour change, no new or removed
+functionality — recorded here because the tag was published and every released version belongs in
+this file.
+
+### Fixed
+
+- Whitespace formatting in `LogicalOptimizer.Dnnf/DnnfCircuit.cs`,
+  `LogicalOptimizer.Sat/CardinalityEncoder.cs`, `LogicalOptimizer.Sat/MaxSatSolver.cs` and three
+  test files, so `dotnet format --verify-no-changes` passes in CI.
 
 ## [3.1.0] - 2026-07-29
 

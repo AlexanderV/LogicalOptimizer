@@ -22,18 +22,35 @@ finding softer wording.
 > **Approved wording:** "every optimization is verified equivalent to the input", "verified
 > Boolean reasoning", "equivalence-verified".
 
-**Meaning.** Before `OptimizeExpression` returns, the optimized expression is checked against the
-input by an oracle independent of the rewriting that produced it: an exhaustive truth-table
-comparison up to 12 variables, a CDCL SAT miter (`EquivalenceChecker`) beyond that. If the check
-refutes the result, the pipeline **rolls back to the input** rather than returning the smaller
-form; `OptimizationResult.IsEquivalent()` reports the outcome of that check.
+**Meaning.** Before `OptimizeExpression` returns, the expression it is about to return is checked
+against the **parsed input** by an oracle independent of whichever engine produced it: an exhaustive
+truth-table comparison up to 12 variables, a CDCL SAT miter (`EquivalenceChecker`) beyond that. If
+the check does not *prove* equivalence — whether it refutes the candidate or the SAT budget runs out
+— the pipeline **rolls back to the input**, drops the minimality claim to `Heuristic`, and re-derives
+the normal forms from the input, rather than returning an unverified result.
+
+There are two guards, and the claim rests on the second:
+
+| Guard | Covers |
+|---|---|
+| `RewriteEngine`'s guard | the rewrite phase only — its output against its own input |
+| **The final guard** in `BooleanExpressionOptimizer` | the **returned** expression against the parsed input, whichever engine produced it: exact Quine–McCluskey, the SAT prime cover, the subcircuit library, AIG rewriting, or the rewriter |
+
+The second matters because every path except the rewriter *imports a candidate built by a different
+engine*, and the winner of the cost comparison would otherwise never be compared to the input at
+all. `OptimizationResult.IsEquivalent()` re-runs the same check on demand; it is a consumer-facing
+report of a property already established, not the first time it is checked.
 
 **Evidence.**
 
 | What | Where |
 |---|---|
-| All 254 non-constant 3-variable functions preserve semantics, and the soundness guard never fires | [`OptimizerSoundnessTests.Optimize_AllThreeVariableFunctions_PreserveSemantics`](../LogicalOptimizer.Tests/Optimizers/OptimizerSoundnessTests.cs) |
-| All 65534 non-constant 4-variable functions, same two assertions (`Exhaustive` category) | [`OptimizerSoundnessTests.Optimize_AllFourVariableFunctions_PreserveSemantics`](../LogicalOptimizer.Tests/Optimizers/OptimizerSoundnessTests.cs) |
+| The final guard runs in every zone (exact QM, SAT prime cover, rewrite) and proves the returned result | [`FinalSoundnessGuardTests.EveryZone_RunsTheFinalGuard_AndProvesTheReturnedResult`](../LogicalOptimizer.Tests/Optimizers/FinalSoundnessGuardTests.cs) |
+| A non-equivalent candidate is refused — including the dropped-minterm shape of the historical consensus bug | [`FinalSoundnessGuardTests.NonEquivalentCandidate_IsRefused`](../LogicalOptimizer.Tests/Optimizers/FinalSoundnessGuardTests.cs) |
+| When equivalence cannot be *proven*, the input is returned and no minimality is claimed | [`FinalSoundnessGuardTests.WhenEquivalenceCannotBeProven_TheInputIsReturnedInsteadOfAnUnverifiedResult`](../LogicalOptimizer.Tests/Optimizers/FinalSoundnessGuardTests.cs) |
+| The two verification routes (reused ON-set, full truth table) are the same predicate over every ordered pair of 3-variable functions | [`FinalSoundnessGuardTests.OnSetReuse_AgreesWithTheFullTruthTable_OnEveryThreeVariableFunctionPair`](../LogicalOptimizer.Tests/Optimizers/FinalSoundnessGuardTests.cs) |
+| All 254 non-constant 3-variable functions preserve semantics, and the rewrite guard never fires | [`OptimizerSoundnessTests.Optimize_AllThreeVariableFunctions_PreserveSemantics`](../LogicalOptimizer.Tests/Optimizers/OptimizerSoundnessTests.cs) |
+| All 65534 non-constant 4-variable functions, same two assertions. Re-run as a **gate before every publish** (`ReleaseEvidence`) and recorded in the release evidence bundle | [`OptimizerSoundnessTests.Optimize_AllFourVariableFunctions_PreserveSemantics`](../LogicalOptimizer.Tests/Optimizers/OptimizerSoundnessTests.cs) |
 | The pinned golden corpus stays equivalent for `Optimized`, `CNF` *and* `DNF` — so the golden master cannot legitimize a wrong pinned result | [`CharacterizationTests.GoldenCorpus_EveryPinnedResultIsStillEquivalent`](../LogicalOptimizer.Tests/Techniques/CharacterizationTests.cs) |
 | Independent external oracle: Z3 agrees on equivalence | [`Z3DifferentialTests`](../LogicalOptimizer.Tests/Techniques/Z3DifferentialTests.cs) |
 | Property-based and metamorphic sweeps over generated expressions | [`PropertyBasedTests`](../LogicalOptimizer.Tests/Techniques/PropertyBasedTests.cs), [`MetamorphicTests`](../LogicalOptimizer.Tests/Techniques/MetamorphicTests.cs) |
@@ -41,13 +58,21 @@ form; `OptimizationResult.IsEquivalent()` reports the outcome of that check.
 **Limits.**
 
 - This is a **per-result check by an in-process oracle**, not a machine-checked proof of the
-  library's own correctness. It catches an unsound rewrite on the input it was given; it is not a
+  library's own correctness. It catches an unsound result on the input it was given; it is not a
   formal verification of the optimizer.
+- Above 12 variables the oracle is a **budgeted** SAT miter. An exhausted budget is not treated as
+  success: the input comes back untouched. Tightening `ResourceBudget.SoundnessGuardConflictLimit`
+  far enough will therefore trade optimization away for the guarantee — deliberately, in that order.
 - There has been **no external formal audit** of the code.
 - `verified` says nothing about performance. See `benchmark result` below.
 - The CLI report's `equivalent` field is documented as a boolean, but the optimize path is not
   expected to emit `false`: the guard runs before the result is returned, so `false` would indicate
   a bug worth reporting. See [`schema/README.md`](../schema/README.md).
+- "the input" here means **the expression that was parsed and optimized**. When the CLI is given a
+  CSV truth table it first *derives* an expression from the table; the guard then verifies the
+  result against that derived expression — reported as `analyzedExpression` — and not against the
+  table itself. The derivation is ordinary sum-of-products construction, not something this claim
+  covers.
 
 ---
 
@@ -72,7 +97,7 @@ The returned multi-level expression never has more literals than that cover.
 | What | Where |
 |---|---|
 | Every non-constant 3-variable function reports `MinimalProven` **and** is still the input function | [`TruthTableMinimizerTests.OptimizeExpression_AllThreeVariableFunctions_MinimalProven`](../LogicalOptimizer.Tests/Engines/Minimization/TruthTableMinimizerTests.cs) |
-| All 65534 non-constant 4-variable functions, same two assertions (`Exhaustive` category) | [`TruthTableMinimizerTests.OptimizeExpression_AllFourVariableFunctions_MinimalProven`](../LogicalOptimizer.Tests/Engines/Minimization/TruthTableMinimizerTests.cs) |
+| All 65534 non-constant 4-variable functions, same two assertions. Re-run as a **gate before every publish** (`ReleaseEvidence`) and recorded in the release evidence bundle | [`TruthTableMinimizerTests.OptimizeExpression_AllFourVariableFunctions_MinimalProven`](../LogicalOptimizer.Tests/Engines/Minimization/TruthTableMinimizerTests.cs) |
 | A `proven` claim under *any* budget really is the true minimum, against a brute-force oracle | [`TruthTableMinimizerTests.MinimalSopWithStatus_ProvenClaimUnderAnyBudget_ImpliesTrueMinimum`](../LogicalOptimizer.Tests/Engines/Minimization/TruthTableMinimizerTests.cs) |
 | A tiny step limit downgrades the status instead of over-claiming | [`TruthTableMinimizerTests.MinimalSopWithStatus_TinyStepLimit_ReportsUnproven`](../LogicalOptimizer.Tests/Engines/Minimization/TruthTableMinimizerTests.cs) |
 | Beyond the exact range the status becomes `Heuristic`, not a silent proven | [`TruthTableMinimizerTests.OptimizeExpression_BeyondExactRange_ReportsHeuristic`](../LogicalOptimizer.Tests/Engines/Minimization/TruthTableMinimizerTests.cs) |
@@ -86,6 +111,9 @@ The returned multi-level expression never has more literals than that cover.
   budget and may legitimately end as `BudgetExceeded`. Above that the result is `Heuristic`.
 - Exhaustive verification covers 3 and 4 variables. For 5–10 variables the guarantee rests on the
   algorithm plus randomized and property-based tests, not on an exhaustive sweep.
+- The 4-variable sweep is too slow for a per-push gate, so it runs before **publishing**, not on
+  every commit: a commit on a branch has not necessarily been through it. The full `Exhaustive`
+  category runs nightly ([`exhaustive.yml`](../.github/workflows/exhaustive.yml)).
 - `CnfMinimizationStatus` is reported separately from the top-level status; a proven SOP does not
   imply a proven POS.
 
@@ -178,8 +206,9 @@ corpus, in a specific environment, against pinned competitor versions.
 - **No independent third-party reproduction exists yet.** All published numbers come from this
   project's own runners. The documented sequence is rehearsed on a clean checkout and mechanically
   verified, which removes the "the scripts were broken" failure mode — but a rehearsal on our own
-  runner is not independent reproduction. That gap is tracked as V3 in
-  [`POSITIONING_IMPROVEMENT_PLAN.md`](../POSITIONING_IMPROVEMENT_PLAN.md).
+  runner is not independent reproduction. This is the one piece of evidence the project cannot
+  produce for itself: it stays open until someone outside the project runs
+  [`doc/COMPARISON_METHODOLOGY.md`](COMPARISON_METHODOLOGY.md) and reports the result.
 - Comparisons cover the propositional scope both sides implement. They are not a general
   "better than Z3/LogicNG" statement, and no absolute superlative is used anywhere in public
   material.

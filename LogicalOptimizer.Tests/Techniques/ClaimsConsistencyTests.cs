@@ -41,9 +41,9 @@ public class ClaimsConsistencyTests
     };
 
     /// <summary>
-    ///     Absolute competitive claims. POSITIONING_IMPROVEMENT_PLAN.md sections 2 and 7 rule these
-    ///     out until there is external comparative evidence; the pinned comparison measures scope
-    ///     and size, which supports concrete differentiators but not a superlative.
+    ///     Absolute competitive claims, ruled out until there is external comparative evidence;
+    ///     the pinned comparison measures scope and size, which supports concrete differentiators
+    ///     but not a superlative.
     /// </summary>
     private static readonly string[] BannedSuperlatives =
     {
@@ -57,7 +57,7 @@ public class ClaimsConsistencyTests
         "world-class"
     };
 
-    /// <summary>The terms POSITIONING_IMPROVEMENT_PLAN.md V2 requires a shared definition for.</summary>
+    /// <summary>The terms doc/CLAIMS.md must carry a shared definition for.</summary>
     private static readonly string[] RequiredGlossaryTerms =
     {
         "verified",
@@ -171,7 +171,7 @@ public class ClaimsConsistencyTests
     {
         AssertNoPhrase(BannedSuperlatives,
             "An absolute competitive claim needs external comparative evidence, and none exists yet " +
-            "(no independent benchmark reproduction - see V3 in POSITIONING_IMPROVEMENT_PLAN.md).",
+            "(no independent benchmark reproduction - see the 'benchmark result' limits in doc/CLAIMS.md).",
             "a concrete, checkable differentiator plus a link to doc/comparison/");
     }
 
@@ -184,7 +184,7 @@ public class ClaimsConsistencyTests
         var text = File.ReadAllText(path);
         foreach (var term in RequiredGlossaryTerms)
             Assert.True(text.Contains(term, StringComparison.OrdinalIgnoreCase),
-                $"doc/CLAIMS.md does not define '{term}', which POSITIONING_IMPROVEMENT_PLAN.md V2 requires.");
+                $"doc/CLAIMS.md does not define '{term}', which the public material relies on.");
     }
 
     [Fact]

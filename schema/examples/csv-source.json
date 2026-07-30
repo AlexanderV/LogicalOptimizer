@@ -1,26 +1,26 @@
-﻿{
+{
   "schemaVersion": 1,
-  "input": "a & b | a & c | b & c",
-  "sourceFormat": "expression",
-  "optimized": "b & c | a & (b | c)",
+  "input": "a,b,Result\\n0,0,0\\n0,1,1\\n1,0,1\\n1,1,1",
+  "sourceFormat": "csv",
+  "analyzedExpression": "(!a & b) | (a & !b) | (a & b)",
+  "optimized": "a | b",
   "equivalent": true,
   "minimality": "MinimalProven",
   "cost": {
     "originalLiterals": 6,
-    "optimizedLiterals": 5
+    "optimizedLiterals": 2
   },
   "cnf": {
-    "expression": "(a | b) & (a | c) & (b | c)",
+    "expression": "a | b",
     "status": "Computed",
     "minimality": "MinimalProven"
   },
   "dnf": {
-    "expression": "a & b | a & c | b & c",
+    "expression": "a | b",
     "status": "Computed"
   },
   "variables": [
     "a",
-    "b",
-    "c"
+    "b"
   ]
 }

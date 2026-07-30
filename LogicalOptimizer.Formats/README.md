@@ -24,4 +24,7 @@ Add `.Formats` when you exchange problems with other tools through DIMACS / WCNF
 run the toolkit over an existing competition/benchmark corpus. A parsed `CnfProblem` can
 `Solve()` on the in-house solver, or convert `ToFormula()` for the BDD and d-DNNF engines.
 
+To do the same from the command line without writing code, `LogicalOptimizer.Cli` exposes
+this package as the `solve`, `maxsat`, `solve-pb` and `count` verbs.
+
 📚 Full documentation: <https://AlexanderV.github.io/LogicalOptimizer/>

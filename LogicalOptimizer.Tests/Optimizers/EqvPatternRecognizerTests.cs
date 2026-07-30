@@ -143,10 +143,9 @@ public class EqvPatternRecognizerTests
     }
 
     [Theory]
+    // One row is enough: the other three differed only in variable NAMES, and renaming
+    // invariance is pinned globally by MetamorphicTests.Renaming_CommutesWithOptimization.
     [InlineData("a", "b")]
-    [InlineData("p", "q")]
-    [InlineData("x", "y")]
-    [InlineData("var1", "var2")]
     public void EqvPatternRecognition_TheoryTest(string var1Name, string var2Name)
     {
         // Arrange
@@ -192,8 +191,12 @@ public class EqvPatternRecognizerTests
         // Act
         var result = recognizer.TryReplaceWithEqv(eqvPattern);
 
-        // Assert - should still detect EQV pattern despite commutation
-        Assert.NotNull(result);
-        Assert.IsType<EqvNode>(result);
+        // Assert - detected despite commutation AND with the right operands. The order follows the
+        // first conjunct of the first AND, so the commuted "(b & a)" yields b ↔ a; ↔ is symmetric
+        // so that is correct, and it is deterministic, so it is pinned rather than left to a bare
+        // IsType check that accepted an EqvNode over any pair.
+        var eqvNode = Assert.IsType<EqvNode>(result);
+        Assert.Equal("b", ((VariableNode)eqvNode.Left).Name);
+        Assert.Equal("a", ((VariableNode)eqvNode.Right).Name);
     }
 }

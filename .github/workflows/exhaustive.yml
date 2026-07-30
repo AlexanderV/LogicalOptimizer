@@ -1,0 +1,50 @@
+name: Exhaustive sweeps
+
+# The Exhaustive category holds the tests that enumerate an entire function space - all 65534
+# non-constant 4-variable functions, the full NPN classification, every cardinality encoding at a
+# given width. They are far too slow for a per-push gate (ci.yml and release.yml both exclude
+# them), which left them relying on someone remembering to run them locally.
+#
+# Two entry points, deliberately different in scope:
+#   * this workflow - the WHOLE Exhaustive category, nightly, non-blocking;
+#   * release.yml   - only the ReleaseEvidence subset, as a gate before publishing, because those
+#                     two sweeps are what README and doc/CLAIMS.md cite as evidence for the
+#                     "verified" and "MinimalProven" claims.
+#
+# A failure here is a real defect in a claim-bearing area, so the .trx is always uploaded - a red
+# run must leave behind enough to diagnose it.
+on:
+  schedule:
+    # 03:20 UTC daily. Off-peak for GitHub-hosted runners, and far from the release window.
+    - cron: '20 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  exhaustive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build (Release, warnings as errors)
+        run: dotnet build LogicalOptimizer.sln --configuration Release -warnaserror
+
+      - name: Run the Exhaustive category
+        run: >
+          dotnet test LogicalOptimizer.sln --no-build --configuration Release
+          --filter "Category=Exhaustive"
+          --logger "trx;LogFileName=exhaustive.trx" --results-directory TestResults
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exhaustive-results
+          path: TestResults/**
+          if-no-files-found: error

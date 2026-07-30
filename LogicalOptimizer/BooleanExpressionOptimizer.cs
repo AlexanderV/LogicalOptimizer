@@ -63,6 +63,9 @@ public class BooleanExpressionOptimizer
             var computeEquivalentCnf = options.ComputeCnf && options.CnfMode == CnfMode.Equivalent;
 
             var exactCompleted = false;
+            // Kept beyond the exact branch so the final soundness guard can reuse it instead of
+            // rebuilding a second 2^n table for the same input.
+            HashSet<int>? inputOnSet = null;
             var minimizationStatus = MinimizationStatus.Heuristic;
             // POS (equivalent CNF) minimality is tracked separately: its cover search can hit
             // the budget independently of the SOP one, so a shared status would be dishonest.
@@ -123,6 +126,7 @@ public class BooleanExpressionOptimizer
                         });
 
                     var onSet = ComputeOnSet(ast, variables, token);
+                    inputOnSet = onSet;
                     var (rawMinSop, provenMinimal) = TruthTableMinimizer.MinimalSopWithStatus(variables, onSet,
                         pairComparisonLimit: qmBudget, cancellationToken: token,
                         coverStepLimit: coverStepLimit);
@@ -357,6 +361,55 @@ public class BooleanExpressionOptimizer
                 }
             }
 
+            // FINAL soundness guard. RewriteEngine's guard covers only the rewrite phase; after it,
+            // the exact QM path, the SAT prime cover, the subcircuit library and the AIG pass each
+            // import a candidate produced by a DIFFERENT engine, and the winner of SelectCheapest
+            // was never compared to `ast` itself. This is the check the public claim describes:
+            // "every optimization is verified equivalent to the input before it is returned".
+            // Not proven (refuted, or the SAT budget ran out) is treated as failure - the input is
+            // returned untouched rather than an unverified result, consistent with the project's
+            // "no silent fallbacks" rule.
+            token.ThrowIfCancellationRequested();
+            var byTruthTable = variables.Count <= PerformanceValidator.MAX_EQUIVALENCE_CHECK_VARIABLES;
+            var finalVerdict = VerifyAgainstInput(ast, optimized, variables, inputOnSet,
+                options.Budget, token);
+
+            trace?.Add(finalVerdict ? OptimizationTraceCategory.Proof : OptimizationTraceCategory.Fallback,
+                "FinalSoundnessGuard",
+                finalVerdict
+                    ? $"final result proven equivalent to the input by {(byTruthTable ? "truth table" : "SAT miter")}"
+                    : $"final result NOT proven equivalent by {(byTruthTable ? "truth table" : "SAT miter")} " +
+                      "(refuted, or SAT budget exhausted) — returning the input untouched",
+                new Dictionary<string, string>
+                {
+                    ["method"] = byTruthTable ? "truth-table" : "sat-miter",
+                    ["variables"] = variables.Count.ToString(),
+                    ["reusedInputOnSet"] = inputOnSet != null ? "true" : "false",
+                    ["proven"] = finalVerdict ? "true" : "false"
+                });
+
+            if (!finalVerdict)
+            {
+                // Reaching here means one of the engines produced a wrong candidate: a bug, not a
+                // budget outcome (except an exhausted SAT miter above the truth-table range).
+                // Roll the whole result back to something that is true by construction.
+                optimized = ast;
+                if (metrics != null)
+                {
+                    metrics.RuleApplicationCount.TryAdd("FinalSoundnessRollback", 0);
+                    metrics.RuleApplicationCount["FinalSoundnessRollback"]++;
+                    metrics.OptimizedNodes = AstMetrics.CountNodes(optimized);
+                }
+
+                // Every claim derived from the rejected candidate goes with it: no minimality is
+                // proven for an untouched input, and normal forms are re-derived from `ast` so the
+                // returned document cannot mix a rolled-back expression with forms of a refuted one.
+                minimizationStatus = MinimizationStatus.Heuristic;
+                cnfMinimizationStatus = MinimizationStatus.Heuristic;
+                (cnfText, cnfStatus, dnfText, dnfStatus) =
+                    RederiveNormalForms(ast, options, cnfStatus, dnfStatus);
+            }
+
             token.ThrowIfCancellationRequested();
             var advancedForms = "";
             if (options.ComputeAdvancedForms &&
@@ -493,6 +546,85 @@ public class BooleanExpressionOptimizer
             ? "candidate refuted by the equivalence checker (rewrite bug) — discarded"
             : "equivalence unproven within the SAT budget — discarded rather than shipped unverified";
         return null;
+    }
+
+    /// <summary>
+    ///     Proves <paramref name="candidate" /> computes the same function as <paramref name="input" />,
+    ///     by an oracle independent of whichever engine produced the candidate. Truth table inside the
+    ///     exhaustive range, SAT miter above it. Returns <c>false</c> both for a refutation and for an
+    ///     exhausted SAT budget: an unproven result is not shipped either way.
+    ///     <para>
+    ///         <c>inputOnSet</c> is the input's ON-set when the exact path already built it; reusing it
+    ///         verifies the candidate in ONE 2^n sweep instead of building a second full truth table
+    ///         for the input. Pass <c>null</c> when it is not available.
+    ///     </para>
+    /// </summary>
+    // internal, not private: FinalSoundnessGuardTests exercises the refutation path directly,
+    // which cannot be reached through the public API without planting a bug in an engine.
+    internal static bool VerifyAgainstInput(AstNode input, AstNode candidate, List<string> variables,
+        HashSet<int>? inputOnSet, ResourceBudget budget, CancellationToken cancellationToken)
+    {
+        if (ReferenceEquals(input, candidate)) return true;
+
+        if (variables.Count > PerformanceValidator.MAX_EQUIVALENCE_CHECK_VARIABLES)
+            return EquivalenceChecker
+                .CheckWithSat(input, candidate, budget.SoundnessGuardConflictLimit, cancellationToken)
+                .AreEquivalent == true;
+
+        if (inputOnSet == null) return TruthTable.AreEquivalent(input, candidate);
+
+        var assignment = new Dictionary<string, bool>();
+        var numRows = 1 << variables.Count;
+        for (var minterm = 0; minterm < numRows; minterm++)
+        {
+            if ((minterm & 0xFF) == 0) cancellationToken.ThrowIfCancellationRequested();
+
+            for (var j = 0; j < variables.Count; j++)
+                assignment[variables[j]] = (minterm & (1 << j)) != 0;
+
+            if (TruthTable.Evaluate(candidate, assignment) != inputOnSet.Contains(minterm))
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    ///     Re-derives CNF/DNF from the input after the final guard rolled the result back, so a
+    ///     returned document never pairs a rolled-back expression with normal forms of the refuted
+    ///     candidate. Only ever runs on the guard's failure path.
+    /// </summary>
+    private static (string Cnf, ComputationStatus CnfStatus, string Dnf, ComputationStatus DnfStatus)
+        RederiveNormalForms(AstNode input, OptimizationOptions options,
+            ComputationStatus cnfStatus, ComputationStatus dnfStatus)
+    {
+        var converter = new NormalFormConverter();
+        var cnfText = "";
+        var dnfText = "";
+
+        if (options.ComputeCnf)
+            try
+            {
+                cnfText = options.CnfMode == CnfMode.Tseitin
+                    ? TseitinConverter.Convert(input).ToString()
+                    : Transformations.SubsumeCnf(converter.ConvertToCNF(input)).ToString();
+            }
+            catch (NormalFormTooLargeException)
+            {
+                (cnfText, cnfStatus) = ("-", ComputationStatus.TooLarge);
+            }
+
+        if (options.ComputeDnf)
+            try
+            {
+                dnfText = Transformations.SubsumeDnf(converter.ConvertToDNF(input)).ToString();
+            }
+            catch (NormalFormTooLargeException)
+            {
+                (dnfText, dnfStatus) = ("-", ComputationStatus.TooLarge);
+            }
+
+        return (cnfText, cnfStatus, dnfText, dnfStatus);
     }
 
     /// <summary>Minterm indices where the expression is true; bit j = value of variables[j].</summary>

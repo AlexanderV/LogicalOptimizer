@@ -1,9 +1,8 @@
 # Decision record: projected model counting public API (P1.4)
 
-**Status:** Accepted — resolves the open API questions from
-[`POST_V3_ROADMAP.md`](../../POST_V3_ROADMAP.md) §9. Targets **v3.3**. No API is shipped by
-this record; it fixes the contract the v3.3 implementation must follow so that the public
-surface is not left open (roadmap §16 decision 4, §17 decision 4).
+**Status:** Accepted — resolves the open API questions for projected model counting. Targets
+**v3.3**. No API is shipped by this record; it fixes the contract the v3.3 implementation must
+follow so that the public surface is not left open.
 
 **Basis:** the completed design spike
 [`doc/spikes/projected-model-counting.md`](../spikes/projected-model-counting.md) — SAT

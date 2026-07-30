@@ -8,6 +8,7 @@ namespace LogicalOptimizer.Tests;
 /// <summary>
 /// Tests for the OutputFormatter component - output formatting and display
 /// </summary>
+[Collection(ConsoleCollection.Name)]
 public class OutputFormatterTests
 {
     private readonly OutputFormatter _formatter;

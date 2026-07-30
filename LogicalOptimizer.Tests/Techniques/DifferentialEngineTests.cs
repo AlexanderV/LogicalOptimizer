@@ -223,6 +223,7 @@ public class DifferentialEngineTests
         // Independent minimizers: SAT-based prime cover vs QM must produce equivalent
         // covers; the SAT cover must never beat the PROVEN minimal QM cost
         var rng = new Random(66);
+        var provenComparisons = 0;
         for (var trial = 0; trial < 15; trial++)
         {
             var (variables, onSet) = RandomFunction(rng, rng.Next(3, 7));
@@ -235,10 +236,17 @@ public class DifferentialEngineTests
             Assert.True(TruthTable.AreEquivalent(qm, sat!),
                 $"Trial {trial}: SAT cover is not equivalent to QM cover");
 
-            if (proven)
-                Assert.True(AstMetrics.CountLiterals(sat!) >= AstMetrics.CountLiterals(qm),
-                    $"Trial {trial}: SAT cover beats a PROVEN minimal cover — QM proof is wrong");
+            if (!proven) continue;
+            provenComparisons++;
+            Assert.True(AstMetrics.CountLiterals(sat!) >= AstMetrics.CountLiterals(qm),
+                $"Trial {trial}: SAT cover beats a PROVEN minimal cover — QM proof is wrong");
         }
+
+        // The cost comparison — the assertion that actually cross-checks the PROOF — only runs on
+        // proven rows. If QM stopped proving anything the test would still pass on equivalence
+        // alone, so require that the proof path was genuinely exercised.
+        Assert.True(provenComparisons >= 10,
+            $"only {provenComparisons} proven covers were cost-compared against the SAT minimizer");
     }
 
     [Fact]
@@ -299,6 +307,7 @@ public class DifferentialEngineTests
         // Three independent size reducers on the same function: espresso and the
         // subcircuit pass must never beat a PROVEN exact minimum
         var rng = new Random(99);
+        var compared = 0;
         for (var trial = 0; trial < 20; trial++)
         {
             var (variables, onSet) = RandomFunction(rng, rng.Next(2, 6));
@@ -307,6 +316,7 @@ public class DifferentialEngineTests
 
             var (optimum, proven) = TruthTableMinimizer.MinimalSopWithStatus(variables, onSet);
             if (!proven) continue;
+            compared++;
             var optimumCost = AstMetrics.CountLiterals(optimum);
 
             var espresso = Transformations.MinimizeDnfHeuristic(canonical);
@@ -322,6 +332,11 @@ public class DifferentialEngineTests
                 Assert.True(AstMetrics.CountLiterals(subcircuit) <= optimumCost,
                     $"Trial {trial}: ≤3-var subcircuit rewrite missed the exact minimum");
         }
+
+        // Every assertion here is gated on `proven`; without a floor the test would go green the
+        // moment the exact minimizer stopped proving optimality.
+        Assert.True(compared >= 15,
+            $"only {compared} proven optima were compared against espresso/subcircuit rewrites");
     }
 
     [Fact]

@@ -2,8 +2,8 @@
 
 Status: **design spike** (v3.1). No public API is shipped by this spike. The deliverable is a
 validated recommendation plus working prototypes and an exhaustive validation harness. It feeds
-the eventual public feature P1.4 (roadmap `POST_V3_ROADMAP.md` §9) and implements the direction
-fixed in §17 decision 4.
+the eventual public feature P1.4, whose contract is fixed in
+[`doc/decisions/projected-model-counting-api.md`](../decisions/projected-model-counting-api.md).
 
 Spike artifacts:
 
@@ -231,11 +231,10 @@ per query; the two profiles diverge exactly where their respective worst cases b
 
 ## 6. References
 
-- `POST_V3_ROADMAP.md` §9 — Projected model counting (goal, overcount trap, approach, status
-  contract, acceptance criteria).
-- `POST_V3_ROADMAP.md` §17 decision 4 — MVP on SAT blocking enumeration with
-  `ProjectedModelCountResult{Count?, Status}`; exact d-DNNF projection after the spike; a partial
-  count is never exact.
+- [`doc/decisions/projected-model-counting-api.md`](../decisions/projected-model-counting-api.md)
+  — the accepted public contract: MVP on SAT blocking enumeration with
+  `ProjectedModelCountResult{Count?, Status}`; exact d-DNNF projection after this spike; a partial
+  count is never reported as exact.
 - Engines studied: `LogicalOptimizer.Dnnf/DnnfCircuit.cs`,
   `LogicalOptimizer.Dnnf/KnowledgeCompilation.cs`, `LogicalOptimizer.Sat/SatSolver.cs`,
   `LogicalOptimizer.Sat/TseitinConverter.cs`, `LogicalOptimizer.Bdd/BinaryDecisionDiagram.cs`.

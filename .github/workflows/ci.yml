@@ -26,10 +26,20 @@ jobs:
         run: dotnet restore LogicalOptimizer.sln
 
       # External differential oracle: SymPyDifferentialTests cross-checks our exact
-      # minimizer against SymPy's Quine-McCluskey (skips silently where unavailable)
+      # minimizer against SymPy's Quine-McCluskey.
       - name: Install SymPy oracle
+        id: sympy
         run: pip install sympy
         continue-on-error: true
+
+      # If the install SUCCEEDED, the oracle becomes mandatory for the rest of the job: without
+      # this, a sympy that stops importing leaves SymPyDifferentialTests reporting Passed while
+      # asserting nothing, and the external half of the differential technique disappears with no
+      # red test anywhere. A genuine install failure (registry outage) stays non-fatal — the step
+      # above is visibly failed in the log and the flag is simply not set.
+      - name: Require the SymPy oracle when it installed
+        if: steps.sympy.outcome == 'success'
+        run: echo "LOGICALOPTIMIZER_REQUIRE_SYMPY=1" >> "$GITHUB_ENV"
 
       - name: Format check
         run: dotnet format LogicalOptimizer.sln --verify-no-changes --no-restore

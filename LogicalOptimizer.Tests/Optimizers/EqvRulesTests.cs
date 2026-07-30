@@ -4,7 +4,15 @@ using Xunit;
 namespace LogicalOptimizer.Tests;
 
 /// <summary>
-/// Tests for EQV optimization rules
+///     Tests for EQV optimization rules.
+///     <para>
+///         These pin WHICH node each rule returns (and that it declines to fire otherwise). They are
+///         deliberately NOT the only evidence: a shape read off the implementation cannot detect a
+///         wrong constant or a flipped polarity, so the semantics of every
+///         <c>ExtendedOptimizationRules</c> rule — EQV included — is swept against a truth-table
+///         oracle by <c>ExtendedOptimizationRulesTests.EveryRule_WhenItFires_PreservesSemantics</c>.
+///         Add new rules to that sweep, not just here.
+///     </para>
 /// </summary>
 public class EqvRulesTests
 {

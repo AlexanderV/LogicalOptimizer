@@ -15,10 +15,66 @@ every CI build and checks that
 - every example validates against the schema;
 - the report the CLI produces **today** for each scenario validates **and** still byte-equals its
   committed example;
+- the two outcomes are **mutually exclusive**: a document carrying both `optimized` and `error` is
+  rejected, a success report missing `equivalent`/`minimality` is rejected, and an error report
+  carrying a result-only field is rejected;
 - the schema's enums are exactly the CLR enums (`MinimizationStatus`, `ComputationStatus`,
   `OptimizationTraceCategory`, `ParseErrorCode`) — so the schema cannot fall behind the code;
 - an undeclared field is **rejected**, which is what makes the promises below verifiable rather
   than aspirational.
+
+Those tests start from an already-computed result, so they cannot see how an input *reached* the
+CLI. [`CliJsonInputContractTests`](../LogicalOptimizer.Tests/Cli/CliJsonInputContractTests.cs)
+covers that seam by driving `Program.Main` itself and validating what lands on stdout — including
+that stdout carries exactly one document and that progress messages stay on stderr.
+
+## What `input` is, and what the verdicts are about
+
+`input` is the argument **exactly as the CLI received it** — never something derived from it.
+`sourceFormat` says what that argument was:
+
+| `sourceFormat` | `input` | `analyzedExpression` |
+|---|---|---|
+| `expression` | the boolean expression, analyzed as written | absent |
+| `csv` | the CSV truth table text, or the `*.csv` path | the sum-of-products derived from that table |
+
+Everything else in the report — `optimized`, `equivalent`, `minimality`, `cost`, `cnf`, `dnf`,
+`advanced`, `variables`, and `error.position`/`error.snippet` — is about **the analyzed
+expression**: `analyzedExpression` when it is present, `input` otherwise. For the ordinary
+expression invocation the two are the same string, which is why `analyzedExpression` is omitted
+there rather than echoed.
+
+This is what makes the document auditable: a report archived from a CI matrix names the CSV or the
+file it came from, and its success and error forms agree on what `input` means.
+
+> **Schema history.** Through the first published build, a run whose input was a CSV truth table
+> wrote the *derived* sum-of-products into `input`, so the report could not say which CSV or which
+> file produced it — while the error path for the same run wrote the received argument. The schema
+> has always defined `input` as the argument as received, so this was the CLI disagreeing with the
+> published contract, not a change of contract. `sourceFormat` and `analyzedExpression` are new
+> additive fields; no report that validated before became invalid.
+
+## Exactly one outcome
+
+A report is **either** a success or a failure, never both:
+
+| | success report | error report |
+|---|---|---|
+| Required | `optimized`, `equivalent`, `minimality` | `error` |
+| Forbidden | `error` | `optimized`, `equivalent`, `minimality`, `cost`, `cnf`, `dnf`, `advanced`, `variables`, `trace` |
+| Exit code | 0 | 2 |
+
+`schemaVersion`, `input` and `sourceFormat` are in **both** — they describe the run, not its
+outcome. `analyzedExpression` may appear in either: an error report carries it when the derivation
+from a CSV succeeded and the failure came afterwards.
+
+The schema enforces this with `oneOf` plus explicit `not` clauses. Branch on the presence of
+`error` and nothing else — a validating document cannot contradict itself.
+
+> **Schema history.** The first published copy of this file expressed the two outcomes as an
+> `anyOf`, which accepts a document carrying *both* `optimized` and `error`. That was a defect in
+> the schema, not a change of contract: the CLI has never emitted such a document, so no report
+> that was valid before became invalid. Tightening it is therefore a fix, not a new schema version.
 
 ## Using it
 
@@ -55,6 +111,7 @@ check-jsonschema --schemafile schema/cli-report-v1.schema.json report.json
 | [`budget-exceeded.json`](examples/budget-exceeded.json) | `minimality: "BudgetExceeded"` — sound result, optimality **not** proven |
 | [`form-too-large.json`](examples/form-too-large.json) | `cnf.status: "TooLarge"` — the normal form hit its size budget |
 | [`advanced-xor.json`](examples/advanced-xor.json) | The optional `advanced` field, present only for a real XOR/IMP/EQV pattern |
+| [`csv-source.json`](examples/csv-source.json) | `sourceFormat: "csv"` — `input` is the truth table, `analyzedExpression` the expression derived from it |
 | [`trace.json`](examples/trace.json) | `--trace`: how the result was reached (diagnostic, not contract — see below) |
 | [`parse-error.json`](examples/parse-error.json) | A structured parse diagnostic: `code`, `position`, `length`, `expected`, `snippet` |
 | [`processing-error.json`](examples/processing-error.json) | A failure with no structured diagnostic: `code: "processing_error"` |
@@ -107,6 +164,9 @@ Do not parse or assert on these; they change freely in any release:
 - the `trace` array: the number of entries, their order, and the text of `step`, `message`, and the
   keys of `data`. Only the shape (`category`/`step`/`message`/`data`) is stable, and `category` is
   the only field with an enumerated domain;
+- the exact textual form of `analyzedExpression` — the derivation from a truth table may produce a
+  different, equivalent cover in a later release. Its *presence* and meaning are contract; its
+  spelling is not;
 - the exact textual form of `optimized`, `cnf.expression`, and `dnf.expression`. A minor release
   may return a *smaller* expression for the same input. It will always be verified equivalent, and
   `MinimalProven` is never silently weakened — assert on `equivalent`, `minimality` and

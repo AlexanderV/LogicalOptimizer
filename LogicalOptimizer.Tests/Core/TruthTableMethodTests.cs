@@ -7,20 +7,10 @@ namespace LogicalOptimizer.Tests;
 /// </summary>
 public class TruthTableMethodTests
 {
-    [Fact]
-    public void TruthTable_GetResultsString_ShouldReturnCorrectFormat()
-    {
-        // Arrange
-        var table = TruthTable.Generate("a & b");
-
-        // Act
-        var result = table.GetResultsString();
-
-        // Assert
-        Assert.Equal("0001", result);
-        Assert.Equal(4, result.Length);
-        Assert.All(result, c => Assert.True(c == '0' || c == '1'));
-    }
+    // GetResultsString for "a & b" (== "0001") is pinned by
+    // TruthTableGenerationTests.TruthTable_TwoVariables_AND_ShouldGenerateCorrectTable, which
+    // additionally checks every row against a C# oracle. The length and the alphabet were implied
+    // by that exact-string equality, so the row here was a strict subset and was removed.
 
     [Fact]
     public void TruthTable_IsTautology_ShouldDetectCorrectly()
@@ -256,15 +246,9 @@ public class TruthTableMethodTests
         }
     }
 
-    [Fact]
-    public void TruthTable_EquivalenceReflexivity_ShouldWork()
-    {
-        // Arrange
-        var table = TruthTable.Generate("a & b | c");
-
-        // Act & Assert
-        Assert.True(table.IsEquivalentTo(table)); // Reflexivity: A = A
-    }
+    // Reflexivity against the SAME instance can only fail if IsEquivalentTo ignores its argument
+    // entirely, and TruthTable_IsEquivalentTo_SameTable_ShouldReturnTrue already pins reflexivity
+    // across two independently generated tables (plus symmetry). Removed as a vanity duplicate.
 
     [Fact]
     public void TruthTable_SpecialCases_ShouldHandleCorrectly()
@@ -304,70 +288,5 @@ public class TruthTableMethodTests
             var expected = oracle(row["a"], row["b"], row["c"], row["d"], row["e"]);
             Assert.Equal(expected, table.Results[i]);
         }
-    }
-}
-
-/// <summary>
-///     Tests for TruthTable comparison functionality and tabular output
-/// </summary>
-public class TruthTableComparisonTests
-{
-    [Fact]
-    public void TruthTable_ShouldShowTabularFormat()
-    {
-        // Arrange
-        var expression = "a & b";
-
-        // Act
-        var truthTable = TruthTable.Generate(expression);
-        var tableString = truthTable.ToString();
-
-        // Assert
-        Assert.Contains("| a | b | Result |", tableString);
-        Assert.Contains("| 0 | 0 | 0      |", tableString);
-        Assert.Contains("| 1 | 1 | 1      |", tableString);
-    }
-
-    [Fact]
-    public void TruthTable_CompareExpressions_EquivalentExpressions()
-    {
-        // Arrange
-        var original = "a & b";
-        var optimized = "b & a"; // Should be equivalent
-
-        // Act
-        var areEquivalent = TruthTable.AreEquivalent(original, optimized);
-        var comparison = TruthTable.CompareExpressions(original, optimized);
-
-        // Assert
-        Assert.True(areEquivalent);
-        Assert.Contains("Equivalent: True", comparison);
-        Assert.Contains("| a | b | Expr1 | Expr2 | Match |", comparison);
-    }
-
-    [Fact]
-    public void TruthTable_CompareExpressions_DifferentExpressions_ReportsMismatch()
-    {
-        // Arrange
-        var expr1 = "a & b";
-        var expr2 = "a | b"; // Different logic
-
-        // Act
-        var areEquivalent = TruthTable.AreEquivalent(expr1, expr2);
-        var comparison = TruthTable.CompareExpressions(expr1, expr2);
-
-        // Assert
-        Assert.False(areEquivalent);
-        Assert.Contains("Equivalent: False", comparison);
-
-        // Report format
-        Assert.Contains("=== Truth Table Comparison ===", comparison);
-        Assert.Contains($"Expression 1: {expr1}", comparison);
-        Assert.Contains($"Expression 2: {expr2}", comparison);
-        Assert.Contains("| a | b | Expr1 | Expr2 | Match |", comparison);
-        Assert.Contains("| 0 | 0 | 0     | 0     | ✓     |", comparison); // Both false when a=0, b=0
-        Assert.Contains("| 1 | 1 | 1     | 1     | ✓     |", comparison); // Both true when a=1, b=1
-        Assert.Contains("| 0 | 1 | 0     | 1     | ✗     |", comparison); // Different when a=0, b=1
-        Assert.Contains("| 1 | 0 | 0     | 1     | ✗     |", comparison); // Different when a=1, b=0
     }
 }

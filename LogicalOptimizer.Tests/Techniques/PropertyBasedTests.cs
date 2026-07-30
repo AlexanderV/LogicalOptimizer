@@ -193,10 +193,14 @@ public class PropertyBasedTests
     }
 
     [Fact]
-    public void Property_ProvenMinimalDnfIsNeverBeatenByAnyEquivalentCover()
+    public void Property_ProvenMinimalDnfIsIrredundant()
     {
-        // For proven-minimal results, spot-check the claim: drop any single term from
-        // the minimal DNF and it must stop being equivalent (irredundancy)
+        // The falsifiable half of the minimality claim: drop any single term from a PROVEN
+        // minimal DNF and it must stop being equivalent. (Irredundancy is necessary, not
+        // sufficient, for minimality — the sufficient direction is checked against independent
+        // minimizers in DifferentialEngineTests.SatCoverMinimizer_AgreesWithQuineMcCluskey, which
+        // is why this test is not named "never beaten by any equivalent cover".)
+        var checkedTerms = 0;
         AnyAst.Sample(ast =>
         {
             var variables = ast.GetVariables().OrderBy(v => v).ToList();
@@ -216,8 +220,18 @@ public class PropertyBasedTests
                 var weakened = kept.Aggregate((l, r) => (AstNode)new OrNode(l, r));
                 Assert.False(TruthTable.AreEquivalent(ast, weakened),
                     $"Term {terms[drop]} of the PROVEN minimal DNF of '{ast}' is redundant");
+                checkedTerms++;
             }
         }, iter: 100);
+
+        // Four filters stand between the generator and the assertion (variable count, proven
+        // status, DNF availability, multi-term cover). Without this the property would report
+        // green after a change that stopped producing multi-term proven-minimal DNFs at all.
+        // (CsCheck draws a fresh seed per run, so the floor sits well under the observed ~30-40
+        // rather than at it — the point is to catch a collapse toward zero, not to pin a count.)
+        Assert.True(checkedTerms >= 15,
+            $"only {checkedTerms} terms reached the irredundancy check — the filters made the " +
+            "property (near-)vacuous");
     }
 
     [Fact]

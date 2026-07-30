@@ -39,6 +39,17 @@ jobs:
           --filter "Category!=Performance&Category!=Exhaustive"
           --logger "trx;LogFileName=release.trx" --results-directory TestResults
 
+      # Claim-critical evidence. README and doc/CLAIMS.md cite the exhaustive 4-variable sweeps as
+      # what backs the "verified" and "MinimalProven" claims, but those tests are Exhaustive-category
+      # and the suite above excludes them - so nothing re-proved them for the commit being published.
+      # This gate does, before anything is packed, and its .trx goes into the evidence bundle.
+      # ~2 minutes for all 65534 four-variable functions, twice over.
+      - name: Claim-critical exhaustive evidence
+        run: >
+          dotnet test LogicalOptimizer.sln --no-build --configuration Release
+          --filter "Category=ReleaseEvidence"
+          --logger "trx;LogFileName=release-evidence.trx" --results-directory TestResults
+
       - name: Pack
         run: |
           dotnet pack LogicalOptimizer.Core/LogicalOptimizer.Core.csproj -c Release --no-build -o artifacts /p:Version=${{ env.VERSION }}
@@ -130,6 +141,7 @@ jobs:
           -NuGetIndexReport nuget-index-report.json
           -AotReport aot-package-smoke.json
           -TrxPath TestResults/release.trx
+          -ExhaustiveTrxPath TestResults/release-evidence.trx
           -ChecksumsPath artifacts/SHA256SUMS.txt
           -BenchmarkManifest doc/comparison
           -Repository ${{ github.repository }}
