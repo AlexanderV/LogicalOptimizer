@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+
+No behaviour change anywhere below: every result, every cover and every proof status is
+identical. Validated after each step by the gate suite (1255) and the full `Exhaustive`
+category — all 65534 four-variable functions asserted `MinimalProven` **and** equivalent.
+
+- **Exact minimization is 7.7x faster** (`QuineMcCluskeyTenVariables` 18.75 ms → 2.44 ms).
+  Profiling put 83% of the time in the covering-table reductions, and the cause was control
+  flow rather than arithmetic: column dominance removed a *single* dominated candidate and then
+  restarted the whole fixpoint — rescanning essentials, rebuilding both bitmask tables (rows x
+  candidates coverage tests apiece) and redoing row dominance — to delete one more column. With a
+  few hundred candidates that is a few hundred full rounds. Dominated columns are now collected in
+  one pass and dropped together, which is sound because the dominance relation is transitive. The
+  essentials pass had already been changed this way; columns had been missed.
+- **Espresso-style minimization is 3.0x faster** (`EspressoLite_FortyVariableCover` 14.88 ms →
+  4.98 ms). Choosing the most binate variable for the tautology recursion was O(variables x cubes)
+  and ran at nearly every node — 22,219 scans across 34,544 nodes, ~44 million bit tests per call.
+  Cubes are sparse (a couple of literals out of forty variables), so the tally now walks only the
+  set bits.
+- **Allocation is down 75% across the gated benchmarks** (18.7 MB → 4.65 MB per operation in
+  total), chiefly by not rebuilding working memory inside the hottest loops: EspressoLite
+  6,596,502 → 171,878 bytes (-97%), Quine–McCluskey 3,404,038 → 274,432 (-92%), the 10-variable
+  optimize path 6,288,111 → 1,836,605 (-71%). The largest single item was in truth-table
+  evaluation, where `Operands.All/Any` captured the assignment dictionary and so allocated a
+  closure, a delegate and an enumerator per n-ary node **per row** — 1024 rows per table, two
+  tables per equivalence check.
+
+### Fixed
+
+- **The performance gate no longer fails on measurement noise.** It flagged a regression whenever
+  a benchmark exceeded its baseline by 10%, which was reasonable when baselines were megabytes and
+  is not now that several are in the hundreds of kilobytes: measured bytes/op for the smaller
+  benchmarks is *bimodal* across runs of the same binary — `FormulaFactory_ImportFortyVarCover`
+  reports either ~102 KB or ~110 KB, an 8% spread, and the same run composition produces both. A
+  regression must now clear an absolute floor as well (32 KB, about four times the observed
+  spread); rows over the relative threshold but under the floor are reported as `noise` rather
+  than failing the build. Demonstrated both ways: +25% on a small benchmark (22,728 bytes) passes,
+  +25% on a large one (367,331 bytes) still fails.
+- **`doc/perf-baseline.json` re-recorded** for the improvements above. Without this the gate would
+  have stayed green while being blind — a regression of EspressoLite from 172 KB back to 6.5 MB
+  would still have been under the old 6.6 MB baseline and reported OK.
+
 ### Changed
 
 - **Allocation baseline re-recorded for the mid-range zone.**

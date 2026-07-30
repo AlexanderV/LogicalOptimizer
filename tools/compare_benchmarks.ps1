@@ -64,6 +64,11 @@ param(
     [ValidateRange(0.0, 100.0)]
     [double] $Threshold = 0.10,
 
+    # Absolute companion to -Threshold: growth must exceed this many bytes as well before it counts
+    # as a regression. 32 KB is roughly four times the ~8 KB run-to-run spread observed on the
+    # small benchmarks, so genuine regressions still fail while measurement noise does not.
+    [long] $MinimumRegressionBytes = 32768,
+
     [switch] $UpdateBaseline
 )
 
@@ -178,6 +183,7 @@ function Write-Baseline {
             'never asserted (wall-clock is noisy on shared CI runners). Regenerate with: ' +
             'pwsh tools/compare_benchmarks.ps1 -Current RESULTS_DIR -UpdateBaseline.')
         thresholdDefault = $Threshold
+        minimumRegressionBytes = $MinimumRegressionBytes
         generatedUtc     = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
         environment      = $Run.Environment
         benchmarks       = $benchmarks
@@ -255,9 +261,22 @@ foreach ($id in $commonIds) {
         $deltaPct = (($curAlloc - $baseAlloc) / [double]$baseAlloc) * 100.0
     }
 
+    # A regression must be BOTH relatively and absolutely significant.
+    #
+    # The relative test alone is unusable once a benchmark's allocation is small: measured
+    # bytes/op for the smaller benchmarks is bimodal across runs of the SAME binary - e.g.
+    # FormulaFactory_ImportFortyVarCover reports either ~102 KB or ~110 KB, an 8% spread with no
+    # code change, and the same run composition produces both. With a 10% relative threshold and
+    # baselines that are now in the hundreds of kilobytes rather than megabytes, that noise sits
+    # right at the failure line and the gate starts flagging changes that never happened.
+    # Requiring an absolute increase as well keeps the gate meaningful where it matters - a real
+    # regression of any consequence moves far more than this - without it crying wolf.
     $limit = [double]$baseAlloc * (1.0 + $Threshold)
-    $isRegression = $curAlloc -gt $limit
-    $status = if ($isRegression) { 'REGRESSION' } else { 'OK' }
+    $absoluteGrowth = $curAlloc - $baseAlloc
+    $isRegression = ($curAlloc -gt $limit) -and ($absoluteGrowth -gt $MinimumRegressionBytes)
+    $status = if ($isRegression) { 'REGRESSION' }
+              elseif ($curAlloc -gt $limit) { 'noise' }
+              else { 'OK' }
     if ($isRegression) { [void]$regressions.Add($id) }
 
     $shortId = $id
@@ -310,10 +329,11 @@ if ($missing.Count -gt 0) {
 Write-Host ''
 Write-Host '==== Result ==================================================================='
 if ($regressions.Count -gt 0) {
-    Write-Host ("  {0} benchmark(s) compared, {1} REGRESSION(S)." -f $commonIds.Count, $regressions.Count)
+    Write-Host ("  {0} benchmark(s) compared, {1} REGRESSION(S). (Rows marked 'noise' are over the" -f $commonIds.Count, $regressions.Count)
+    Write-Host ("  relative threshold but under the {0:N0}-byte absolute floor, so they are not failures.)" -f $MinimumRegressionBytes)
     Write-Error ("Allocation regression over threshold {0:P0}: {1}" -f $Threshold, ($regressions -join ', '))
     exit 1
 }
 
-Write-Host ("  {0} benchmark(s) compared, all within {1:P0} allocation threshold. OK." -f $commonIds.Count, $Threshold)
+Write-Host ("  {0} benchmark(s) compared, all within {1:P0} + {2:N0} bytes allocation threshold. OK." -f $commonIds.Count, $Threshold, $MinimumRegressionBytes)
 exit 0
