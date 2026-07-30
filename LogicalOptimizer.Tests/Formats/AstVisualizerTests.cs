@@ -131,16 +131,17 @@ public class AstVisualizerTests
         // Act
         var result = AstVisualizer.VisualizeTree(ast);
 
-        // Assert
-        Assert.Contains("AND (&)", result);
-        Assert.Contains("OR (|)", result);
-        Assert.Contains("Variable: 'a'", result);
-        Assert.Contains("Variable: 'b'", result);
-        Assert.Contains("Variable: 'c'", result);
-        Assert.Contains("Variable: 'd'", result);
-        // Should have proper tree structure with multiple levels
-        var lines = result.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        Assert.True(lines.Length >= 6); // At least 6 nodes in the tree
+        // Assert - the rendering is fully deterministic, so pin the whole tree. The point of the
+        // test is that each nesting level is indented one step further and the continuation bars
+        // are drawn for it; a `lines.Length >= 6` count passed on any flat or mis-indented render.
+        Assert.Equal(string.Join(Environment.NewLine,
+            "└─ AND (&)",
+            "   ├─ Variable: 'a'",
+            "   └─ OR (|)",
+            "      ├─ Variable: 'b'",
+            "      └─ AND (&)",
+            "         ├─ Variable: 'c'",
+            "         └─ Variable: 'd'"), result.TrimEnd());
     }
 
     [Fact]

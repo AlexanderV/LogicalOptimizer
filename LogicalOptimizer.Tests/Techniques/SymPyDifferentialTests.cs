@@ -79,8 +79,9 @@ public class SymPyDifferentialTests
     [Fact]
     public void MinimalDnf_AgreesWithSymPyQuineMcCluskey()
     {
-        if (!SympyAvailable()) return; // environment without python/sympy
-
+        // OUR side is built first, on purpose. Its floors need no python, so a corpus that stopped
+        // producing comparable cases is reported even in an environment that cannot run the oracle —
+        // whereas an availability check at the top made the whole test a green no-op.
         var rng = new Random(818);
         var cases = new List<(string Expression, OptimizationResult Result)>();
         var optimizer = new BooleanExpressionOptimizer();
@@ -94,7 +95,18 @@ public class SymPyDifferentialTests
                 cases.Add((expression, result));
         }
 
-        Assert.NotEmpty(cases);
+        Assert.True(cases.Count >= 25,
+            $"only {cases.Count}/30 generated expressions produced a computed DNF — the corpus is " +
+            "too thin to be a differential test");
+
+        // The cost comparison below — the half that cross-checks the minimality PROOF rather than
+        // mere equivalence — only fires on MinimalProven rows, so require that they exist.
+        var proven = cases.Count(c => c.Result.MinimizationStatus == MinimizationStatus.MinimalProven);
+        Assert.True(proven >= 20,
+            $"only {proven} of {cases.Count} cases are MinimalProven — SymPy would be compared " +
+            "against almost no proofs");
+
+        if (!ExternalOracle.ShouldRun("SymPy", SympyAvailable(), "pip install sympy")) return;
 
         var stdin = string.Join("\n", cases.Select(c => ToSymPySyntax(c.Expression))) + "\n";
         var output = RunPython(BatchMinimizeScript, stdin);

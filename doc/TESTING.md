@@ -1,6 +1,26 @@
 # Testing Strategy — Analysis, Actuality & Checklist
 
-**Last audited:** 2026-07-29 (four-criteria re-audit: nine parallel read-only reviewers covered
+**Last audited:** 2026-07-30 (four-criteria re-audit of the branch change-set plus the
+logical-expression core; the ten techniques re-run against current behavior and their inventories
+refreshed). The headline finding was a **representativeness** one: the extended-operator rule
+library (`ExtendedOptimizationRules` — XOR/NAND/NOR/EQV rules and the NAND/NOR functional-
+completeness bases) carried 46 cases that asserted only the SHAPE the implementation happens to
+build, over 2-4 hand-picked operand pairs per rule and with no oracle at all — so a rule that
+fires on the WRONG operand kind was invisible. Demonstrated, not assumed: widening
+`NandRules.ZeroAbsorption` to match any constant (making `NAND(1, a)` return `1` instead of `!a`)
+leaves all 52 pre-existing cases green and is caught only by the new sweep. Both files now sit on a
+truth-table sweep over a 64-pair operand grid, with a per-rule firing counter so a narrowed guard
+cannot leave a rule silently unchecked. Weak assertions pinned
+where the output is deterministic (advanced-form rendering, EQV operand pairs, the visualizer's
+nested tree, the CLI's `error.code` and no-args message); three of those pins were wrong on first
+run and **exposed real contract facts** the old assertions had hidden (`ConvertToAdvancedForms`
+returns *null* for null input, not `""`; EQV operand order follows the first conjunct). Vacuity
+floors added to the three tests whose real assertion sits behind a `proven`/status filter.
+Exact-duplicate rows removed. Six test classes that were hiding in files named after a different
+class were given their own file under the folder for their subject, and the layout rule is now a
+test rather than a convention. Gate suite 1261 → **1254** green (−11 duplicate/vanity rows, +2
+oracle-backed sweeps, +2 layout guards).
+**Previous audit:** 2026-07-29 (four-criteria re-audit: nine parallel read-only reviewers covered
 every test file — representative, logically-correct, strong, non-duplicating — verified each
 flagged finding against production code, and re-ran the ten techniques against current behavior.
 ~30 fixes applied. The one genuine circular oracle was in the flagship minimizer honesty test
@@ -38,27 +58,35 @@ construction-time canonicalization)
 
 This matrix covers the **cross-cutting layer only**. It sits on top of the structured functional
 suite organized by subject (Part 2) — the tests that pin what the library must *do*, and the ones
-that fail first when a behavior changes. Of the 1230 discovered cases, 1085 are subject tests
-(Core 134 · Optimizers 186 · Engines 338 · Facade+Analysis 187 · Formats 116 · Cli 77 ·
-Documentation 47) and 109 live in `Techniques/` (the ten below plus the API-surface, claims and
-package-contract guards); the rest are the test infrastructure's own tests and the
-projected-model-counting spike. The techniques are cross-checks on that base, not a replacement
-for it — read Part 2's audit rules first.
+that fail first when a behavior changes. The gate suite is **1254** cases:
+
+- **1119** subject tests — Core 165 · Optimizers 196 · Engines 306 · Facade 180 · Analysis 10 ·
+  Formats 116 · Cli 92 · Documentation 54;
+- **101** in `Techniques/` — the ten below plus the API-surface, claims, package-contract and
+  suite-layout guards;
+- **24** in the two projected-model-counting suites (the facade one and the `Spikes/` one share a
+  class name, so they are counted together);
+- **10** the test infrastructure's own tests.
+
+Performance- and Exhaustive-category cases are excluded from that count and run in their own CI
+jobs (`Category=Exhaustive` also gates publishing — see the `ReleaseEvidence` category). The
+techniques are cross-checks on the subject base, not a replacement for it — read Part 2's audit
+rules first.
 
 Status legend: ☑ current and verified in the last audit · ◪ present with known gaps · ☐ not started.
 
 | # | Technique | Applicability | Status | Coverage today | Effort to extend | Priority |
 |---|-----------|:---:|:---:|---|:---:|:---:|
-| 1 | **Property-Based (CsCheck)** | ★★★★★ | ☑ | 14 properties incl. extended-operator generators, `Techniques/PropertyBasedTests.cs` | Med | P0 |
+| 1 | **Property-Based (CsCheck)** | ★★★★★ | ☑ | 14 properties incl. extended-operator generators; the SAT cross-check verified to still call `CheckWithSat` (not degenerated to truth-table-vs-truth-table), and the proven-minimal irredundancy property now carries a vacuity floor. `Techniques/PropertyBasedTests.cs` | Med | P0 |
 | 2 | **Metamorphic** | ★★★★★ | ☑ | 11 relations (permutation AND renaming MRs pin byte-identical canonical output; AIG idempotent-duplication compares the canonical Root), `Techniques/MetamorphicTests.cs` | Med | P0 |
-| 3 | **Mutation (Stryker.NET)** | ★★★★☆ | ☑ | per-module runs + killer tests (Part 5); Transformations.cs 100% | Low | P1 |
-| 4 | **Algebraic** | ★★★★★ | ☑ | all axioms as laws, `Techniques/AlgebraicLawTests.cs` | Low | P1 |
-| 5 | **Snapshot / Approval (Verify)** | ★★★★☆ | ☑ | 7 approved snapshots, `Techniques/SnapshotTests.cs` | Low | P1 |
-| 6 | **Architecture (ArchUnitNET)** | ★★★☆☆ | ☑ | 9 rules incl. pinned public-API list (58 types, now incl. the typed budget/size exceptions `ComputationBudgetExceededException`/`NodeBudgetExceededException`/`NormalFormTooLargeException`) + `IRewriteRule`-in-`Rewrite`-namespace, `Techniques/ArchitectureTests.cs` | Low | P2 |
-| 7 | **Differential** | ★★★★★ | ☑ | internal-engine suites (incl. a >12-var SAT-miter-vs-BDD test) + SymPy oracle (CI) + Z3 oracle (Microsoft.Z3, runs locally) | Med | P0 |
-| 8 | **Fuzzing** | ★★★★☆ | ☑ | deterministic fuzzers (factory-invariant walker now checks dedup/complement/sortedness), `Techniques/FuzzingTests.cs` | Med | P2 |
-| 9 | **Characterization** | ★★★☆☆ | ☑ | 32-expression golden master, `Techniques/CharacterizationTests.cs` | Low | P3 |
-| 10 | **Combinatorial / Pairwise** | ★★★☆☆ | ☑ | covering array over 7 option axes + full 2⁷ grid | Low | P3 |
+| 3 | **Mutation (Stryker.NET)** | ★★★★☆ | ☑ | per-module runs + killer tests (Part 5); Transformations.cs 100%. 2026-07-30: a hand-planted mutant in `ExtendedOperators.cs` proved the rule library's shape-only tests could not kill an operand-kind mutant; the new truth-table sweep does (Part 5, last row) | Low | P1 |
+| 4 | **Algebraic** | ★★★★★ | ☑ | 13 laws — every axiom, with commuted operands additionally pinned to an identical canonical string, `Techniques/AlgebraicLawTests.cs` | Low | P1 |
+| 5 | **Snapshot / Approval (Verify)** | ★★★★☆ | ☑ | 8 approved snapshots (CLI default/verbose/**json**, C# exporter, AST visualizer, truth table, debug dump, `OptimizationResult.ToString`), `Techniques/SnapshotTests.cs` | Low | P1 |
+| 6 | **Architecture (ArchUnitNET)** | ★★★☆☆ | ☑ | 9 rules incl. the pinned public-API list — now **80 types across seven assemblies** (Core 27 · Sat 14 · Bdd 1 · Dnnf 2 · Formats 9 · Minimization 5 · facade 22) — plus `IRewriteRule`-in-`Rewrite`-namespace, `Techniques/ArchitectureTests.cs` | Low | P2 |
+| 7 | **Differential** | ★★★★★ | ☑ | internal-engine suites (10 tests incl. a 16-var SAT-miter-vs-BDD proof+refutation) + SymPy oracle (CI) + Z3 oracle (4 tests, Microsoft.Z3, runs where the native library loads). The proof cross-checks carry vacuity floors, and the EXTERNAL oracles no longer skip silently — `LOGICALOPTIMIZER_REQUIRE_SYMPY` / `_Z3` turn an absent oracle into a failure where it is expected (`ci.yml` sets the SymPy one iff `pip install` succeeded) | Med | P0 |
+| 8 | **Fuzzing** | ★★★★☆ | ☑ | 10 deterministic fuzzers; factory-invariant walker checks flattening, dedup, complement pairs, constant-freedom AND sortedness/interning (`Assert.Same` on rebuild), `Techniques/FuzzingTests.cs` | Med | P2 |
+| 9 | **Characterization** | ★★★☆☆ | ☑ | 32-expression golden master + an equivalence guard over Optimized AND CNF AND DNF, `Techniques/CharacterizationTests.cs` | Low | P3 |
+| 10 | **Combinatorial / Pairwise** | ★★★☆☆ | ☑ | covering array over 7 option axes (self-checked for pair coverage) + full 2⁷ grid | Low | P3 |
 
 Former gaps — all closed 2026-07-25:
 - **Mutation**: per-module Stryker runs executed (see Part 5); survivors analyzed —
@@ -86,48 +114,99 @@ The suite is organized by subject under `LogicalOptimizer.Tests/`; the ten techn
 above live in `Techniques/` and cut across all subjects.
 
 ```
-LogicalOptimizer.Tests/
-├── Core/                  Lexer, Parser (canonical output), AST node contracts, TruthTable
+LogicalOptimizer.Tests/                                                  (gate cases per folder)
+├── Core/                  Lexer, Parser (canonical output), AST node contracts, TruthTable   165
 │     LexerTests · ParserTests · NaryNodeContractTests (n-ary invariants: ≥2 operands,
 │     defensive copy, order-sensitive equality, cached hash, Clone==this; + derived-op
 │     contracts) · FormulaFactoryTests (canonicalization + interning) ·
-│     TruthTableGenerationTests · TruthTableMethodTests · TruthTableAdvancedTests
-├── Optimizers/            rewrite rules (RewriteEngine/IRewriteRule), pattern detection
+│     FormulaParseDiagnosticsTests (ParseErrorCode / position contract) ·
+│     TruthTableGenerationTests · TruthTableMethodTests · TruthTableAdvancedTests ·
+│     TruthTableComparisonTests
+├── Optimizers/            rewrite rules (RewriteEngine/IRewriteRule), pattern detection      196
 │     CanonicalOrderingTests (construction-time sort) · DistributiveExpanderTests ·
-│     ConsensusRuleTests · RuleCompletenessTests · OptimizerSoundnessTests ·
-│     SoundnessGuardUnknownTests (SAT-Unknown → rollback contract) ·
-│     SubcircuitRewriteTests · ExtendedOptimizationRulesTests (dormant rule library) ·
-│     EqvRulesTests · AdvancedPatternDetectorTests · EqvPatternRecognizerTests ·
-│     TransformationsTests
-├── Engines/
+│     ConsensusRuleTests · RuleCompletenessTests (13+ vars, past the QM gate) ·
+│     OptimizerSoundnessTests · SoundnessGuardUnknownTests (SAT-Unknown → rollback) ·
+│     FinalSoundnessGuardTests (the post-rewrite guard: every zone's returned result is
+│     proven against the parsed INPUT, incl. the sat-miter zone and the rollback contract) ·
+│     SubcircuitRewriteTests · ExtendedOptimizationRulesTests + EqvRulesTests (the
+│     XOR/NAND/NOR/EQV rule library and the NAND/NOR functional-completeness bases —
+│     `internal`, currently with no production consumer; per-rule shape pins PLUS a
+│     truth-table sweep over the whole operand grid, since shape alone re-states the code) ·
+│     AdvancedPatternDetectorTests · EqvPatternRecognizerTests · TransformationsTests
+├── Engines/                                                                                  305
 │   ├── Sat/               SatSolverTests · SatSolverMutationKillerTests ·
-│   │                      IncrementalSatTests · DratProofTests
-│   ├── Bdd/               BinaryDecisionDiagramTests · BddOperationsTests
-│   ├── Aig/               AndInverterGraphTests
+│   │                      IncrementalSatTests · DratProofTests ·
+│   │                      MaxSatSolverTests · CoreGuidedMaxSatTests ·
+│   │                      CoreGuidedMaxSatExhaustiveTests ·
+│   │                      SatCorpusRegressionTests (Performance)
+│   ├── Bdd/               BinaryDecisionDiagramTests · BddOperationsTests · BddSiftingTests
+│   ├── Aig/               AndInverterGraphTests · AigRewriteTests · AigRewriteFacadeTests ·
+│   │                      AigRewriteLibraryTests · AigMinLibraryTests ·
+│   │                      AigCutEnumerationTests · AigReferenceCountingTests ·
+│   │                      NpnCanonicalizationTests
+│   ├── Dnnf/              KnowledgeCompilationTests (exact #SAT vs ROBDD) ·
+│   │                      DnnfConditioningTests · DnnfSamplingTests
 │   ├── Minimization/      TruthTableMinimizerTests · SatTwoLevelMinimizerTests ·
-│   │                      EspressoLiteTests
-│   └── Encodings/         TseitinConverterTests (n-ary clause counts) ·
-│                          CnfEncodingTests (Plaisted–Greenbaum) · CardinalityAndMaxSatTests
-├── Analysis/              FormulaAnalysisTests (backbone, model enumeration)
-├── Facade/                BooleanExpressionOptimizer end-to-end
+│   │                      MultiOutputSharingTests · EspressoLiteTests
+│   ├── Encodings/         TseitinConverterTests (n-ary clause counts) ·
+│   │                      CnfEncodingTests (Plaisted–Greenbaum) ·
+│   │                      CardinalityEncoderTests · PseudoBooleanEncoderTests ·
+│   │                      EncodingPortfolioTests
+│   └── Serialization/     CircuitSerializationTests (typed CircuitSerializationException)
+├── Analysis/              FormulaAnalysisTests (backbone, model enumeration)                   10
+├── Facade/                BooleanExpressionOptimizer end-to-end                               172
 │     OptimizerTests · EdgeCaseTests · OptimizerTruthTableTests · NormalFormTests ·
-│     OptimizationMetricsTests (n-ary cost model) · OptimizationQualityAnalyzerTests ·
-│     OptimizationResultTests · EqvIntegrationTests · ConsoleTestedCasesTests
-│     (unique regression rows) · ConsoleInterfaceTests (limits) ·
+│     AlgebraicNormalFormTests (ANF/Reed–Muller) · OptimizationMetricsTests (n-ary cost
+│     model + convergence/allocation telemetry) · OptimizationQualityAnalyzerTests ·
+│     OptimizationResultTests (incl. the scalable >20-var IsEquivalent SAT path) ·
+│     EquivalenceCheckerTests · EquivalenceCheckerImplementationsTests ·
+│     OptimizationTraceTests · ProjectedModelCountingTests · EqvIntegrationTests ·
+│     ConsoleTestedCasesTests (unique regression rows) · ConsoleInterfaceTests (limits) ·
 │     MidFlightCancellationTests (Performance; mid-flight cancellation is timing-dependent so
-│     it lives here, not the gate — the gate has ResourceBudgetAndCancellationTests' deterministic
-│     pre-cancelled-token checks) ·
+│     it lives here, not the gate — the gate has ResourceBudgetAndCancellationTests'
+│     deterministic pre-cancelled-token checks) ·
 │     ResourceBudgetAndCancellationTests · PerformanceValidatorTests (input validation)
-├── Formats/               CsvTruthTableParserTests · MultiOutputCsvTests · ExportTests
+├── Formats/               CsvTruthTableParserTests · MultiOutputCsvTests · ExportTests        116
 │                          (n-ary BLIF/Verilog gates) · CSharpExpressionExporterTests
-│                          (flat n-ary render) · AstVisualizerTests
-├── Cli/                   CommandLineProcessorTests · OutputFormatterTests
-├── Techniques/            the ten cross-cutting suites (see Part 3) + CanonicalInvariantTests
-│                          (v2 interning/canonical-shape/Tseitin counts) + snapshots
-├── TestInfrastructure/    RandomExpressions · TruthTableAssert · SatTestOracles ·
-│                          ExpressionGeneratorTests
-└── TestData/              characterization.golden.txt · PublicApi.approved.txt
+│                          (flat n-ary render) · AstVisualizerTests · DimacsFormatTests ·
+│                          WcnfFormatTests · OpbFormatTests · FormatFuzzingTests
+├── Cli/                   CommandLineProcessorTests · OutputFormatterTests ·                  92
+│                          JsonReportWriterTests · CliReportSchemaTests (writer vs the
+│                          published schema/cli-report-v1.schema.json) ·
+│                          CliJsonInputContractTests (drives Program.Main: one JSON document
+│                          on stdout, progress on stderr, documented exit codes, CSV seam) ·
+│                          PublishedCliSchema + ConsoleCollection (shared fixtures — the
+│                          collection serializes every suite that redirects Console)
+├── Documentation/         DocExamplesTests (every runnable doc recipe asserts its own          54
+│                          output) · DocumentedCliOutputTests (each documented CLI
+│                          transcript compared line-for-line against the real formatter)
+├── Spikes/                ProjectedModelCounting spike + its tests (a DIFFERENT production
+│                          API from the facade suite: BddExistentialAbstraction)
+├── Techniques/            the ten cross-cutting suites (see Part 3)                           108
+│                          + CanonicalInvariantTests (v2 interning/canonical-shape/Tseitin
+│                          counts) + ApiSurfaceTests (member-level baseline) +
+│                          ClaimsConsistencyTests (doc/CLAIMS.md vocabulary) +
+│                          MetaPackageTests (package contract) +
+│                          TestSuiteLayoutTests (this hierarchy, enforced — see below) +
+│                          Z3DifferentialTests / SymPyDifferentialTests + snapshots
+├── TestInfrastructure/    RandomExpressions · TruthTableAssert · SatTestOracles ·              10
+│                          DimacsCnf · SatCorpusGenerator · ExpressionGeneratorTests
+└── TestData/              characterization.golden.txt · PublicApi.approved.txt ·
+                           Serialization/
 ```
+
+**The hierarchy is enforced, not just described.** `Techniques/TestSuiteLayoutTests.cs` requires that
+every class declaring an xUnit test method lives in a file named after it, and that no test class sits
+in the project root. That is the whole rule — deliberately NOT a rule about which folder anything
+belongs in, since folder placement is a judgement call and encoding taste in a test makes it brittle.
+It exists because the tree above silently stopped being true: `EquivalenceCheckerTests` lived inside
+`Engines/Sat/SatSolverTests.cs`, so it appeared in no folder tally and no version of this tree, and
+was found only by accident. A test that cannot be located by subject is one somebody duplicates later.
+Helper and fixture types (`SnapshotSetup`, `ConsoleCollection`, the `TestInfrastructure` oracles) are
+exempt by construction — they declare no test methods. A wholesale re-layout was deliberately NOT
+done: no criterion in the four (representative / logically correct / strong / non-duplicating) is a
+property of file placement, and namespaces stay flat (`LogicalOptimizer.Tests`) because per-folder
+namespaces would add a `using` to every file for no test-quality gain.
 
 Audit rules that keep the hierarchy healthy (enforced in review):
 1. **One behavior — one test.** A duplicate is deleted, keeping the stronger variant
@@ -141,6 +220,16 @@ Audit rules that keep the hierarchy healthy (enforced in review):
    deterministic effort budget (conflict/node limits), not `Stopwatch < N ms`.
 5. **Weak assertions are bugs**: `Assert.NotEmpty`, unfalsifiable disjuncts and
    `>= small-constant` checks get strengthened or deleted.
+6. **A shape assertion is not an oracle.** Asserting that a rewrite returned
+   `Not(And(l, r))` re-states the implementation's own formula: it survives a rule that
+   returns the wrong constant, the wrong operand or the wrong polarity, because the
+   expectation was read off the code. Pair every structural pin on a *semantic*
+   transformation with an independent evaluation (truth table over the operands is
+   usually enough), or the test only proves the code equals itself.
+7. **A filtered assertion needs a floor.** When the assertion that matters sits behind
+   `if (!proven) continue`, a status guard or a size cap, count how often it actually ran
+   and assert a floor. Otherwise the day the filter stops matching, the test reports green
+   while checking nothing — the failure mode is indistinguishable from success.
 
 ---
 
@@ -152,8 +241,13 @@ Generated ASTs (depth ≤ 4, up to 6 variables, constants included) run through
 universally quantified properties: optimization preserves semantics against the
 truth-table oracle, re-optimization never increases literal count, print→parse→print
 is a fixpoint, whitespace at token boundaries is insignificant, Tseitin stays linear
-in formula size, and every term of a proven-minimal DNF is irredundant. CsCheck
-shrinks failures and prints a reproducing seed (`Set seed: "..." to reproduce`).
+in formula size, and every term of a proven-minimal DNF is irredundant. That last one
+(`Property_ProvenMinimalDnfIsIrredundant`) is deliberately named for what it proves:
+irredundancy is *necessary* for minimality, not sufficient — the sufficient direction is
+cross-checked against an independent minimizer in `DifferentialEngineTests`. It sits behind
+four filters, so it counts how many terms actually reached the assertion and fails if the
+property went (near-)vacuous. CsCheck shrinks failures and prints a reproducing seed
+(`Set seed: "..." to reproduce`).
 
 ### Metamorphic — `Techniques/MetamorphicTests.cs`
 
@@ -172,6 +266,14 @@ Every axiom — commutativity, associativity, distributivity, De Morgan, absorpt
 idempotence, complement/identity, consensus, Shannon expansion — asserted as a law
 over random subexpressions F, G, H. Commuted operands must additionally produce an
 *identical canonical output string*, not just an equivalent one.
+
+The extended-operator axioms (XOR/NAND/NOR/EQV neutral, absorbing, idempotent and complement
+laws, plus the NAND-only and NOR-only functional-completeness bases) are held to the same bar in
+`Optimizers/ExtendedOptimizationRulesTests.cs`: each rule is applied across an operand grid and
+every rewrite it performs must agree with its input on all four assignments over {a, b}. The
+per-rule structural pins stay as the *behavior* contract (which node comes back, and that the rule
+declines to fire otherwise), but they are no longer the only evidence — a shape read off the
+implementation cannot detect a wrong constant or a flipped polarity (Part 2, audit rule 6).
 
 ### Differential — `Techniques/DifferentialEngineTests.cs`, `Techniques/SymPyDifferentialTests.cs`
 
@@ -207,9 +309,12 @@ zone; above it the CNF may be an equisatisfiable Tseitin encoding).
 
 ### Snapshot / approval (Verify) — `Techniques/SnapshotTests.cs`
 
-CLI output (default + verbose), C# exporter, AST visualizer, truth-table rendering
-and the debug dump are approved as `Techniques/SnapshotTests.*.verified.txt`. A change
-produces `*.received.txt`; approve by replacing the verified file.
+Eight approved files under `Techniques/SnapshotTests.*.verified.txt`: CLI output (default,
+verbose and the `--format=json` report), the C# exporter, the AST visualizer, truth-table
+rendering, the debug dump and `OptimizationResult.ToString()`. A change produces
+`*.received.txt`; approve by replacing the verified file. Note the deliberate boundary —
+convergence and allocation telemetry is kept OUT of `OptimizationMetrics.ToString()` so these
+snapshots stay deterministic; it is covered by direct assertions in `OptimizationMetricsTests`.
 
 ### Architecture (ArchUnitNET + reflection) — `Techniques/ArchitectureTests.cs`
 
@@ -218,9 +323,10 @@ the rewrite pipeline stays internal; every rewrite rule (`IRewriteRule`) lives i
 `LogicalOptimizer.Rewrite` namespace; AST nodes are sealed/abstract and **fully immutable**
 (no exceptions — the v1 `ForceParentheses` display-hint setter was removed in v2, rendering
 now flows through the precedence-based `AstFormatter`); expensive public entry points take a
-`CancellationToken`; the public API surface is pinned to an explicit reviewed list of 58 types
-across the six assemblies (Core 23 · Sat 10 · Bdd 1 · Dnnf 2 · Minimization 5 · facade 17) — any new
-public type fails the build until consciously added, and any removal (the v2 narrowing:
+`CancellationToken`; the public API surface is pinned to an explicit reviewed list of 80 types
+across the seven assemblies (Core 27 · Sat 14 · Bdd 1 · Dnnf 2 · Formats 9 · Minimization 5 ·
+facade 22) — any new public type fails the build until consciously added, and any removal
+(the v2 narrowing:
 `Lexer`/`Parser`/`Token`/`AndInverterGraph` and the SAT/BDD low-level internals) is a
 deliberate major-version decision.
 
@@ -247,6 +353,133 @@ Standard mutation level, string mutations ignored, thresholds 80/60 with `break:
 ---
 
 ## Part 4: Audit log
+
+**2026-07-30 — four-criteria re-audit of the branch change-set and the logical-expression core;
+ten techniques re-run and their inventories refreshed.** Every test added or changed on
+`perf/minimizer-and-nuget-verify` was graded representative / logically-correct / strong /
+non-duplicating, the expression core (Core, Optimizers, the facade laws) was re-graded, and the
+whole suite was swept mechanically for the anti-patterns rules 1–7 name.
+
+Representativeness — the extended-operator rule library:
+- `ExtendedOptimizationRulesTests` (35 cases) + `EqvRulesTests` (11) exercised
+  `ExtendedOptimizationRules` — an `internal` class with **no production consumer** — and every
+  assertion was a SHAPE assertion read off the implementation (`Assert.IsType<NotNode>` then
+  `Assert.Same(a, notNode.Operand)`), over 2-4 hand-picked operand pairs per rule. Those pins are
+  tight on the pairs they cover; the gap is what they never cover. Verified with a planted mutant
+  rather than argued: widening `NandRules.ZeroAbsorption`'s guard from
+  `ConstantNode { Value: false }` to `ConstantNode` — so `NAND(1, a)` returns `1` where the answer
+  is `!a` — left **all 52 pre-existing cases green**, because no test ever fed a `1` to that rule.
+- The six `FunctionalCompleteness` cases were the sharpest case of the same thing: they asserted
+  that `ThroughNand.Or(a, b)` builds `NAND(NAND(a,a), NAND(b,b))` without ever checking that the
+  result computes `a | b` — the one thing a functionally complete basis is *for*.
+- Fixed by adding two oracle-backed tests rather than deleting the file: a sweep applying all 17
+  rules across an 8×8 operand grid (constants, both polarities of two variables, a composite and its
+  negation) and asserting **pointwise truth-table equality between input and rewrite**, and a
+  semantic check of both NAND and NOR bases against the basic operators they claim to reproduce.
+  The sweep counts firings per rule and fails if any rule never matched, so a narrowed guard cannot
+  quietly leave a rule unchecked (rules 6 and 7, both added to Part 2 from this audit). The planted
+  mutant above now dies with a readable message naming the operand pair and the assignment.
+- The dead-code observation is filed, not acted on: the library is `internal` and unreferenced, so
+  removing it is a production decision, not a test-suite one.
+
+Weak assertions pinned — and three of the pins were wrong on first run, which is the point:
+- `AdvancedPatternDetectorTests.ConvertToAdvancedForms_VariousPatterns` `Contains("XOR")`/`Contains("→")`
+  → exact renderings (`"a XOR b"`, `"a → b"`).
+- `ConvertToAdvancedForms_NullInput` asserted `string.IsNullOrEmpty` — an unfalsifiable disjunct.
+  Pinning it revealed the method returns **null**, not `""`, for null input (`""` in → `""` out).
+  The test is renamed to state that, so a caller that concatenates the result can rely on it.
+- The two `EqvPattern_WithCommutativeAnd_*` tests asserted only `Assert.IsType<EqvNode>` and
+  accepted an EQV over any pair at all. Pinning the operands revealed the detector's order follows
+  the **first conjunct of the first AND** (`(b & a) | …` → `b ↔ a`) — correct, since ↔ is
+  symmetric, and now pinned rather than assumed.
+- `AstVisualizerTests.VisualizeTree_DeepNesting` `lines.Length >= 6` + six `Contains` checks →
+  the exact seven-line tree, so a flat or mis-indented render fails (the indentation is the only
+  thing the test exists to check).
+- `CliJsonInputContractTests` `Assert.NotEmpty(error.code)` → the exact `processing_error` code
+  (a consumer branches on it; "non-empty" accepted any code at all);
+  `CommandLineProcessorTests` `Assert.NotEmpty(ErrorMessage)` → the exact no-args message.
+
+Vacuity floors (rule 7) added where the load-bearing assertion sits behind a filter:
+- `PropertyBasedTests.Property_ProvenMinimalDnfIsIrredundant` — four filters (variable count,
+  `MinimalProven`, DNF availability, multi-term cover) stand between the generator and the
+  assertion; ~27-40 terms actually reach it, so a floor of 15 now fails a collapse toward zero.
+  Also **renamed** from `…IsNeverBeatenByAnyEquivalentCover`: it asserts irredundancy, which is
+  necessary but not sufficient for minimality, and the docstring now says which test covers the
+  sufficient direction.
+- `DifferentialEngineTests.SatCoverMinimizer_AgreesWithQuineMcCluskey` and
+  `…EspressoAndSubcircuitRewrites_AgreeWithExactMinimumOnCost` — both gate their cost comparison
+  (the part that cross-checks the *proof*) on `proven`; floors of 10 and 15 comparisons added.
+
+Duplicates removed (kept the stronger home): `ConsoleTestedCasesTests`' `(a | b) & (a | c)` and
+`a & (b | c) & d` rows (verbatim copies at equal strength of `OptimizerTruthTableTests.
+Optimizer_Factorization` and `OptimizerTests.Optimizer_SmartCommutativity` — the 2026-07-29 pass
+deduped these out of `OptimizerTruthTableTests` but missed the console corpus);
+`TruthTableAdvancedTests.TruthTable_BasicLaws`' distributivity dual row (the same pair is checked
+per-row against a C# oracle by `TruthTable_FactorizationEquivalence` in the same file);
+`TruthTableMethodTests.TruthTable_GetResultsString_ShouldReturnCorrectFormat` (a strict subset of
+`TruthTableGenerationTests.TruthTable_TwoVariables_AND`) and `…EquivalenceReflexivity` (reflexivity
+against the SAME instance, already pinned across two instances plus symmetry); six rename-only
+theory rows in the two EQV suites (renaming invariance is pinned globally by the metamorphic MR).
+
+**The techniques were checked for EXECUTION, not just for a green result** — "passed" and "actually
+ran" are different claims, and for a self-skipping suite they come apart:
+- **SymPy oracle (technique 7) was a green no-op.** `MinimalDnf_AgreesWithSymPyQuineMcCluskey`
+  opened with `if (!SympyAvailable()) return;`, so on a machine without sympy it reported **Passed**
+  in 105 ms having asserted nothing — indistinguishable in the results from a run where SymPy
+  agreed on all 30 cases. The same shape guarded the four Z3 tests. This is audit rule 7 one level
+  up: the failure mode is not a weak assertion but a whole technique quietly leaving the suite.
+  Fixed with `TestInfrastructure/ExternalOracle.cs`: an absent oracle still skips locally, but
+  `LOGICALOPTIMIZER_REQUIRE_SYMPY` / `_Z3` turn the skip into a failure naming the oracle and the
+  fix. `ci.yml` now sets the SymPy flag **iff `pip install sympy` succeeded**, so a sympy that stops
+  importing goes red instead of vanishing, while a registry outage stays non-fatal (the install step
+  is `continue-on-error` and visibly failed in the log).
+  Its corpus floors were also moved AHEAD of the availability gate — they need no python, so a
+  corpus that stopped producing comparable cases is now reported even where the oracle cannot run —
+  and `Assert.NotEmpty(cases)` became real floors (≥25 of 30 with a computed DNF, ≥20 `MinimalProven`,
+  since the cost comparison that cross-checks the *proof* only fires on those).
+- **Z3 oracle verified to genuinely run here:** 0.45-1 s per test, not the 0 ms of an early return.
+  It stays un-required in CI because the ubuntu-latest native library does not match these bindings.
+- **SymPy could not be executed on this machine** (the local pip index is a private registry that
+  rejects the download), so the SymPy half of technique 7 is unverified in this audit and rests on
+  CI. That is exactly why the strict flag was added rather than left as a comment.
+- **Performance category run** (29/29 green): the five `MidFlightCancellationTests` were checked for
+  degeneration into entry-point cancellation and are genuine — 242 ms-2 s of real work before the
+  token fires. **Exhaustive category run** (13/13 green, 21 min). No stray `*.received.txt` outside
+  `bin/` and `TestData/PublicApi.received.txt` (gitignored), so no snapshot or golden-master drift
+  is sitting unapproved.
+
+Hierarchy — a surgical pass, not a re-layout. Six test classes were hiding in files named after a
+different class, which is how `EquivalenceCheckerTests` (a **facade** type) came to live in
+`Engines/Sat/SatSolverTests.cs` and appear in no folder tally, no Part 2 tree and no coverage
+discussion until a Performance run surfaced it by accident. MaxSat coverage was split across three
+folders, one of them `Techniques/` — which by this document's own definition holds cross-cutting
+suites, not subjects. Each was given its own file under the folder for its subject:
+`EquivalenceCheckerTests` and `EquivalenceCheckerImplementationsTests` → `Facade/`;
+`MaxSatSolverTests`, `CoreGuidedMaxSatTests`, `CoreGuidedMaxSatExhaustiveTests` → `Engines/Sat/`;
+`PseudoBooleanEncoderTests` split out and `CardinalityAndMaxSatTests.cs` renamed to
+`CardinalityEncoderTests.cs`; `TruthTableComparisonTests` → `Core/`; `MultiOutputSharingTests` →
+`Engines/Minimization/`. Then the rule was made a test rather than a convention
+(`TestSuiteLayoutTests`, +2 cases), because an unenforced layout convention decays exactly the way
+this tree did — negative-tested by renaming a file and confirming the failure names the class.
+A full re-layout (per-folder namespaces, ~105 files) was rejected: it changes no assertion, and
+"ideal hierarchy" has no oracle.
+
+Techniques re-validated against current behavior (Part 1 inventories refreshed): the critical
+failure mode — a degenerated cross-engine miter — was re-checked and is NOT present
+(`PropertyBasedTests` and `DifferentialEngineTests` both call `EquivalenceChecker.CheckWithSat`
+explicitly, so the second engine really runs on ≤6-var inputs). Stale numbers corrected: Verify
+snapshots 7 → **8** (the branch added `CliOutput_Json`), the pinned public surface 58 types across
+six assemblies → **80 across seven** (Core 27 · Sat 14 · Bdd 1 · Dnnf 2 · Formats 9 ·
+Minimization 5 · facade 22). Part 2's hierarchy was two dozen files out of date and now lists the
+Aig/Dnnf/Serialization engine suites, the Formats parsers, the CLI schema/contract suites, the
+`Documentation/` folder and `Spikes/`, with per-folder gate case counts.
+
+Net: gate suite 1261 → **1254 cases** (−11 duplicate/vanity rows, +2 oracle-backed sweeps, +2
+layout guards); every removed behavior is still pinned by a stronger surviving test. Runs on this
+audit: gate suite 1254/1254 green, `Category=Exhaustive` 13/13 green (21 min — the 3- and 4-variable soundness and
+`MinimalProven` sweeps, the 65 536-function AIG library check and the core-guided MaxSat sweep),
+`Category=Performance` 29/29 green. Not done and worth doing: a scoped Stryker score for
+`ExtendedOperators.cs` (see Part 5) and a local SymPy run (blocked by the pip index here).
 
 **2026-07-29 — four-criteria full-suite re-audit (nine parallel read-only reviewers; ten
 techniques re-run against current behavior).** Every test file was re-graded representative /
@@ -486,6 +719,7 @@ instead of rethrow), pattern-recognition cap unified with the CLI path (5 → 10
 | SatSolver.cs | 52.5% | 121 survivors triaged: real gaps → `SatSolverMutationKillerTests` (ctor/AddClause validation, growth-gated subsumption soundness vs brute force, unsat-core sufficiency contract, zero-budget Unknown); the dominant survivor class is verdict-neutral search heuristics (VSIDS activity/heap ordering, restart schedule, learnt-DB reduction triggers, phase saving) — these change only the search path and are unkillable by correctness assertions by design |
 | TruthTableMinimizer.cs | 82.6% | 32 survivors triaged: real gaps → killer tests in `TruthTableMinimizerTests` (MinimalPos don't-care handling; the PROOF-HONESTY sweep asserting that a proven claim under ANY step budget equals the reference optimum — covering the LimitHit/best-update/lower-bound mutant class); the rest are tie-break guards, dominance-gate boundaries and greedy-fallback ordering — cover-equivalent by construction |
 | RewriteEngine.cs | 75.3% | 2026-07-28 scoped run. The **soundness-guard mutant that matters is killed**: `.AreEquivalent == true` (RewriteEngine.cs:114) → `!= true` dies to `SoundnessGuardUnknownTests` (a budget-`Unknown` must roll back). Survivors are the bounded **expand-reduce** gate (`MaxExpandReduceInputNodes`/`MaxExpandedNodes` boundary `<`/`>`/`<=`, the reduce-loop iteration bound, and the `strictly-cheaper?reduced:node` guard) — heuristic size cut-offs where either branch stays sound, plus one `SoundnessRollback` `countAsApplied:false→true` metrics-only mutant (a rollback is not an applied rule; not worth a brittle exact-`AppliedRules` pin) |
+| ExtendedOperators.cs | n/a (targeted) | 2026-07-30. No scoped Stryker score yet — a run was started and abandoned as not worth the wall-clock on an `internal`, unreferenced library. Instead the gap was demonstrated directly: the operand-kind mutant `NandRules.ZeroAbsorption` `ConstantNode { Value: false }` → `ConstantNode` (so `NAND(1, a)` = `1`, not `!a`) **survived all 52 shape-only cases** and is killed by `EveryRule_WhenItFires_PreservesSemantics`. The rules are 3-6 lines each with no branching beyond the guard, so the mutant classes are exactly: wrong constant returned (killed by the existing exact-string pins), wrong operand returned (killed by the existing `Assert.Same` pins), and wrong operand KIND matched (killed only by the new sweep) |
 | OptimizationQualityAnalyzer.cs | 31.8% | 2026-07-28 scoped run. The **honesty mutant that matters is killed**: `IsOptimal = MinimizationStatus == MinimalProven` (line 44) → `!=` dies to `AnalyzeOptimization_HighScoreButUnproven_IsNotOptimal` + `…ShouldIndicateOptimal`. The low score is by design and matches the SatSolver class: `CalculateOptimalityScore` is an explicitly **heuristic** rating (thresholds `0.5/0.7/0.9`, bonuses `+30/+20/+10/+5`) with no ground-truth to pin — every such boundary/constant mutant is equivalent, and `IsOptimal` no longer depends on the score. Real rendering gaps in the new report section were then killed by `GenerateQualityReport_WithMetrics_RendersProvenMinimalAndTelemetry` (asserts the report prints the `Proven minimal (two-level)`, `Convergence trace` and `Allocated memory` lines); the residual `>=0` boundary mutants on those guards are true equivalents (the counters are always ≥1 in a metrics run) |
 
 ```powershell

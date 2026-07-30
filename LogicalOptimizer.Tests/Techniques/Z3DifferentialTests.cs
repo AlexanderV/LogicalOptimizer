@@ -5,7 +5,12 @@ namespace LogicalOptimizer.Tests;
 /// <summary>
 ///     Differential fuzzing against Z3 as an external oracle: the optimizer, the built-in
 ///     CDCL SAT solver, the equivalence checker, and both Tseitin-style CNF encodings are
-///     cross-checked against Z3 verdicts on seeded random inputs. Every test degrades
+///     cross-checked against Z3 verdicts on seeded random inputs. An unavailable oracle skips, but
+///     through <see cref="ExternalOracle" />, so setting <c>LOGICALOPTIMIZER_REQUIRE_Z3=1</c> in an
+///     environment where Z3 is expected turns the skip into a failure instead of a green no-op.
+///     (CI cannot set it: the ubuntu-latest native library does not match these bindings — see the
+///     probe below. It is verified locally, where the four tests take 0.45-1 s each rather than the
+///     0 ms of an early return.) Every test degrades
 ///     gracefully (early return) when the native z3 library cannot be loaded, so the
 ///     suite stays green on machines without win-x64 native support.
 /// </summary>
@@ -75,7 +80,8 @@ public class Z3DifferentialTests
     [Fact]
     public void Optimizer_EquivalenceConfirmedByZ3()
     {
-        if (!Z3Available()) return;
+        if (!ExternalOracle.ShouldRun("Z3", Z3Available(),
+                "restore a Microsoft.Z3 native library matching the managed bindings")) return;
 
         var rng = new Random(20260724);
         var optimizer = new BooleanExpressionOptimizer();
@@ -102,7 +108,8 @@ public class Z3DifferentialTests
     [Fact]
     public void SatSolver_VerdictAgreesWithZ3()
     {
-        if (!Z3Available()) return;
+        if (!ExternalOracle.ShouldRun("Z3", Z3Available(),
+                "restore a Microsoft.Z3 native library matching the managed bindings")) return;
 
         var rng = new Random(1902);
         using var ctx = new Context();
@@ -147,7 +154,8 @@ public class Z3DifferentialTests
     [Fact]
     public void EquivalenceChecker_CounterexampleConfirmedByZ3()
     {
-        if (!Z3Available()) return;
+        if (!ExternalOracle.ShouldRun("Z3", Z3Available(),
+                "restore a Microsoft.Z3 native library matching the managed bindings")) return;
 
         var rng = new Random(424242);
         using var ctx = new Context();
@@ -174,7 +182,8 @@ public class Z3DifferentialTests
     [Fact]
     public void TseitinAndPlaistedGreenbaum_EquisatisfiableByZ3()
     {
-        if (!Z3Available()) return;
+        if (!ExternalOracle.ShouldRun("Z3", Z3Available(),
+                "restore a Microsoft.Z3 native library matching the managed bindings")) return;
 
         var rng = new Random(77_1024);
         using var ctx = new Context();

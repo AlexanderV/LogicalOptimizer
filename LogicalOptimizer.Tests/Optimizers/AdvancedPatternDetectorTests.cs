@@ -190,17 +190,18 @@ public class AdvancedPatternDetectorTests
     #region ConvertToAdvancedForms
 
     [Theory]
-    [InlineData("(a & !b) | (!a & b)", "XOR")]
-    [InlineData("(x & !y) | (!x & y)", "XOR")]
-    [InlineData("!a | b", "→")]
-    [InlineData("!x | y", "→")]
-    public void ConvertToAdvancedForms_VariousPatterns_ShouldConvert(string input, string expectedContent)
+    [InlineData("(a & !b) | (!a & b)", "a XOR b")]
+    [InlineData("(x & !y) | (!x & y)", "x XOR y")]
+    [InlineData("!a | b", "a → b")]
+    [InlineData("!x | y", "x → y")]
+    public void ConvertToAdvancedForms_VariousPatterns_ShouldConvert(string input, string expected)
     {
         // Act
         var result = _detector.ConvertToAdvancedForms(input);
 
-        // Assert
-        Assert.Contains(expectedContent, result, StringComparison.OrdinalIgnoreCase);
+        // Assert - the string entry point renders deterministically, so pin the whole form. A
+        // Contains("XOR")/Contains("→") check passed on swapped or extra operands.
+        Assert.Equal(expected, result);
     }
 
     [Fact]
@@ -237,13 +238,16 @@ public class AdvancedPatternDetectorTests
     }
 
     [Fact]
-    public void ConvertToAdvancedForms_NullInput_ShouldReturnEmpty()
+    public void ConvertToAdvancedForms_NullInput_ReturnsNull()
     {
         // Act
         var result = _detector.ConvertToAdvancedForms(null!);
 
-        // Assert
-        Assert.True(string.IsNullOrEmpty(result));
+        // Assert - null in, null OUT (not ""). Which of the two comes back matters to a caller
+        // that concatenates or compares the result, and the previous IsNullOrEmpty assertion hid
+        // the difference: the method is pass-through for null, while ""
+        // (ConvertToAdvancedForms_EmptyExpression_ShouldReturnOriginal) comes back as "".
+        Assert.Null(result);
     }
 
     [Theory]
@@ -397,10 +401,9 @@ public class AdvancedPatternDetectorTests
     }
 
     [Theory]
+    // One row is enough: the other three differed only in variable NAMES, and renaming
+    // invariance is pinned globally by MetamorphicTests.Renaming_CommutesWithOptimization.
     [InlineData("x", "y")]
-    [InlineData("var1", "var2")]
-    [InlineData("a", "b")]
-    [InlineData("p", "q")]
     public void TryFindDirectEqvPattern_ValidPattern_TheoryTest(string var1Name, string var2Name)
     {
         // Arrange - (var1 & var2) | (!var1 & !var2)
@@ -433,9 +436,13 @@ public class AdvancedPatternDetectorTests
         // Act
         var result = _detector.TryFindDirectEqvPattern(eqvPattern);
 
-        // Assert - should still detect EQV pattern despite commutation
-        Assert.NotNull(result);
-        Assert.IsType<EqvNode>(result);
+        // Assert - the EQV is detected despite commutation AND carries the right operands. The
+        // order follows the FIRST conjunct of the first AND, so the commuted input "(b & a)"
+        // yields b ↔ a; ↔ is symmetric, so that is correct, but it is deterministic and therefore
+        // pinned (a bare IsType check accepted an EqvNode built from any pair at all).
+        var eqvNode = Assert.IsType<EqvNode>(result);
+        Assert.Equal("b", ((VariableNode)eqvNode.Left).Name);
+        Assert.Equal("a", ((VariableNode)eqvNode.Right).Name);
     }
 
     [Fact]

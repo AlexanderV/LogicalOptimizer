@@ -11,8 +11,9 @@ public class ConsoleTestedCasesTests
     // equal strength and was removed. Each expected string below is confirmed against
     // the CLI output.
     [Theory]
-    [InlineData("(a | b) & (a | c)", "a | b & c")] // Reverse factorization (no parens: AND binds tighter)
-    [InlineData("a & (b | c) & d", "a & d & (b | c)")] // Complex expression preservation with smart commutativity
+    // ("(a | b) & (a | c)" → "a | b & c" is pinned in OptimizerTruthTableTests.Optimizer_Factorization,
+    //  and "a & (b | c) & d" → "a & d & (b | c)" in OptimizerTests.Optimizer_SmartCommutativity —
+    //  both were verbatim copies at equal strength, so they live there, not here.)
     [InlineData("x | !x & y & z", "x | y & z")] // Extended absorption within a larger AND term
     [InlineData("p & (!p | q | r)", "p & (q | r)")] // Reverse extended absorption within an OR term
     public void ConsoleTested_UniqueCases_ShouldMatchExpectedResults(string input, string expected)

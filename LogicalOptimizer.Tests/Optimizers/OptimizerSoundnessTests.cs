@@ -8,7 +8,7 @@ namespace LogicalOptimizer.Tests;
 ///     Guards against unsound rewrite rules, e.g. the simultaneous consensus-removal
 ///     bug that silently dropped minterms of XOR-shaped functions.
 ///     Tests assert both logical equivalence AND that the pipeline's soundness guard
-///     did not fire â€” rules must be sound on their own, the guard is a last resort.
+///     did not fire - rules must be sound on their own, the guard is a last resort.
 /// </summary>
 public class OptimizerSoundnessTests
 {

@@ -174,7 +174,11 @@ public class CliJsonInputContractTests
 
         // No expression was ever derived, so there is nothing to report as analyzed.
         Assert.Null(Optional(report, "analyzedExpression"));
-        Assert.NotEmpty(report.GetProperty("error").GetProperty("code").GetString()!);
+
+        // The code is what a machine consumer branches on, so pin it. A CSV that is not a truth
+        // table carries no per-character parse diagnostic, so the documented catch-all is correct
+        // here — but it has to be asserted, not accepted as "any non-empty string".
+        Assert.Equal("processing_error", report.GetProperty("error").GetProperty("code").GetString());
     }
 
     [Fact]
