@@ -369,6 +369,27 @@ foreach ($entry in $contract) {
     }
 
     # --- symbols ------------------------------------------------------------------------------
+    # Whatever the package kind, a .snupkg that exists must not be EMPTY: nuget.org rejects a
+    # symbol package containing no .pdb with 400, and because `dotnet nuget push` walks the glob
+    # in order and aborts on the first failure, one such package halts the publish part-way
+    # through - leaving some packages live and the rest missing. That is exactly how 3.2.0
+    # shipped 3 of 9 (the code-less meta-package inherited IncludeSymbols from
+    # Directory.Build.props and packed an empty .snupkg). The per-kind contract below only ever
+    # asserted that libraries HAVE pdbs; nothing checked the packages it skipped, so the
+    # pre-publish gate passed on a package nuget.org was going to refuse.
+    if (Test-Path $snupkgPath) {
+        $anySymbols = [System.IO.Compression.ZipFile]::OpenRead($snupkgPath)
+        try {
+            $anyPdb = @($anySymbols.Entries | Where-Object { $_.FullName -like '*.pdb' }).Count
+            $checks.Add((New-Check -Name 'symbols-package-not-empty' -Ok ($anyPdb -gt 0) `
+                -Detail $(if ($anyPdb -gt 0) { "$anyPdb pdb(s) present" }
+                          else { "$id.$Version.snupkg contains no .pdb - nuget.org will reject it with 400 and abort the publish" })))
+        }
+        finally {
+            $anySymbols.Dispose()
+        }
+    }
+
     # The tool package is an executable, not a referenced library; symbols are only contracted
     # for the library packages a consumer can step into.
     if ($entry.Kind -eq 'library') {

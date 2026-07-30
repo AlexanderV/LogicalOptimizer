@@ -12,6 +12,14 @@
          exactly what a meta-package is, so suppress it (TreatWarningsAsErrors would
          otherwise turn the expected pack warning into a build failure). -->
     <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <!-- No code means no symbols. Directory.Build.props turns IncludeSymbols on for every
+         package, which is right for the seven libraries and the CLI but produces an EMPTY
+         .snupkg here - and nuget.org rejects a symbol package with no .pdb outright
+         (400 "The package does not contain any symbol (.pdb) files."). Since `dotnet nuget
+         push` walks the glob in order and aborts on the first failure, that rejection halts
+         the whole publish part-way through, which is how 3.2.0 shipped 3 of 9 packages.
+         Opt this project out rather than weakening the setting for the packages that need it. -->
+    <IncludeSymbols>false</IncludeSymbols>
 
     <!-- Shared package metadata is centralized in ..\Directory.Build.props. -->
     <PackageId>LogicalOptimizer.Full</PackageId>
