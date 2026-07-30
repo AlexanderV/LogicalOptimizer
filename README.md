@@ -1,21 +1,89 @@
-# LogicalOptimizer - Boolean Expression Optimizer
+# LogicalOptimizer
 
-📚 **Documentation site: [https://AlexanderV.github.io/LogicalOptimizer/](https://AlexanderV.github.io/LogicalOptimizer/)** — API reference (generated from the library XML doc comments) plus conceptual articles with a runnable example for every capability area: getting started, formula construction, optimizer & options, operation contracts & statuses, budgets & the zone model, normal forms & transformations, minimization, SAT solving, BDDs, knowledge compilation, equivalence & backbones, exporters, packages & architecture, CLI usage, migration, testing. **Every code example in the docs (and in this README) is mirrored by an executed, asserted test** in `LogicalOptimizer.Tests/Documentation/DocExamplesTests.cs`, so the shown outputs are real and cannot silently drift. Built by the [`Docs` workflow](.github/workflows/docs.yml) from `docs-site/` and deployed to GitHub Pages on every push to `main`.
+[![CI](https://github.com/AlexanderV/LogicalOptimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/AlexanderV/LogicalOptimizer/actions/workflows/ci.yml)
+[![Native AOT](https://github.com/AlexanderV/LogicalOptimizer/actions/workflows/aot.yml/badge.svg)](https://github.com/AlexanderV/LogicalOptimizer/actions/workflows/aot.yml)
+[![NuGet](https://img.shields.io/nuget/v/LogicalOptimizer.svg)](https://www.nuget.org/packages/LogicalOptimizer/)
+[![Downloads](https://img.shields.io/nuget/dt/LogicalOptimizer.svg)](https://www.nuget.org/packages/LogicalOptimizer/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://AlexanderV.github.io/LogicalOptimizer/)
 
-> **🤖 AI-Assisted Development Notice**
-> 
-> This project was developed with extensive assistance from Large Language Models (LLM), including:
-> - Architecture design and implementation guidance
-> - Code generation and optimization techniques
-> - Comprehensive testing framework creation
-> - Documentation and specification writing
-> - Best practices implementation and code quality improvements
->
-> The collaboration between human creativity and AI capabilities resulted in a robust, well-tested boolean expression optimization system with advanced features and comprehensive documentation.
+> **Verified Boolean reasoning toolkit for .NET**  
+> Optimize, compare, count, and solve Boolean formulas with zero third-party runtime dependencies.
+
+LogicalOptimizer is a dependency-free .NET toolkit for **verified** Boolean optimization,
+equivalence checking, SAT solving, model counting, and knowledge compilation. Every
+optimization result is checked for equivalence with the input; minimality and
+resource-limit outcomes are reported explicitly — there are no silent fallbacks.
+
+## Why LogicalOptimizer
+
+- **Verified results** — every optimization is proven equivalent to the input before it is returned (truth table up to 12 variables, built-in SAT miter beyond).
+- **Explicit proof status** — minimality is never silently downgraded: `OptimizationResult.MinimizationStatus` reports `MinimalProven` / `BudgetExceeded` / `Heuristic`.
+- **Pure managed .NET** — no third-party runtime dependency in any shipped package (the
+  LogicalOptimizer packages reference each other); Native AOT and trimming verified in CI.
+
+Each of those three words is defined, and linked to the test or CI check that backs it, in
+**[doc/CLAIMS.md](doc/CLAIMS.md)** — including what they explicitly do *not* claim.
+
+## Install
+
+```bash
+dotnet add package LogicalOptimizer            # facade: Core + Sat + Bdd + Minimization
+# dotnet add package LogicalOptimizer.Full     # everything in one install
+# dotnet tool install -g LogicalOptimizer.Cli  # CLI, command: logical-optimizer
+```
+
+## Quick example
+
+```csharp
+using LogicalOptimizer;
+
+var result = new BooleanExpressionOptimizer().OptimizeExpression("a & b | a & c");
+
+Console.WriteLine(result.Optimized);          // a & (b | c)
+Console.WriteLine(result.IsEquivalent());     // True          (verified against the input)
+Console.WriteLine(result.MinimizationStatus); // MinimalProven
+```
+
+The point isn't only the smaller expression — it's that the library tells you **what it
+proved**. The CLI prints the same result as a proof report:
+
+```text
+Original: a & b | a & c
+Optimized: a & (b | c)
+Equivalent: proven
+Minimality: proven
+Cost: 4 -> 3 literals
+```
+
+## Choosing a tool
+
+| Need | Recommended choice |
+|---|---|
+| Managed .NET with no native dependencies | **LogicalOptimizer** |
+| Verified Boolean expression optimization | **LogicalOptimizer** |
+| Equivalence checking with a counterexample | **LogicalOptimizer** |
+| Full SMT and arithmetic theories | Z3 |
+| Competition-scale raw SAT throughput | Kissat or CaDiCaL |
+| Industrial logic synthesis | Berkeley ABC |
+| Mature JVM propositional ecosystem | LogicNG |
+
+The table maps needs to tools honestly; it is not a claim of universal superiority — the full
+scenario-by-scenario breakdown, including where the project is weakest (adoption history), is in
+**[Choosing a Tool](docs-site/articles/choosing-a-tool.md)**, with measured examples in
+**[Case Studies](docs-site/articles/case-studies.md)**.
+
+Need to know *why* a result came out the way it did? Turn on the
+**[diagnostic trace](docs-site/articles/diagnostic-trace.md)** (`IncludeTrace`, or `--trace` on
+the CLI): it records the engine chosen and the threshold behind it, the budgets in force, every
+candidate's cost, what was adopted or rejected, which proof path discharged equivalence, and any
+fallback.
+
+📚 **Full documentation:** [AlexanderV.github.io/LogicalOptimizer](https://AlexanderV.github.io/LogicalOptimizer/) — API reference plus a runnable example for every capability area. **Every code example in the docs and this README is mirrored by an executed, asserted test** in `LogicalOptimizer.Tests/Documentation/DocExamplesTests.cs`, so the shown outputs are real and cannot silently drift. Built by the [`Docs` workflow](.github/workflows/docs.yml) and deployed to GitHub Pages on every push to `main`.
 
 ## Overview
 
-LogicalOptimizer is a lightweight, dependency-free .NET library and CLI for parsing, optimizing and transforming boolean expressions. Exact minimization is attempted up to 12 variables and **optimality is reported explicitly when proven**: `OptimizationResult.MinimizationStatus` is `MinimalProven` when the exact minimum-cover search completed (the normal case for ≤10 variables — verified for every 3- and 4-variable function), `BudgetExceeded` when a work limit interrupted the proof, and `Heuristic` beyond the exact range. There are no silent fallbacks. **Every** optimization is verified equivalent to the input before being returned — by truth table up to 12 variables, by the built-in CDCL SAT solver (miter proof) beyond that.
+LogicalOptimizer is a lightweight .NET library and CLI, with no third-party runtime dependency, for parsing, optimizing and transforming boolean expressions. Exact minimization is attempted up to 12 variables and **optimality is reported explicitly when proven**: `OptimizationResult.MinimizationStatus` is `MinimalProven` when the exact minimum-cover search completed (the normal case for ≤10 variables — exhaustively verified for every 3- and 4-variable function), `BudgetExceeded` when a work limit interrupted the proof, and `Heuristic` beyond the exact range. There are no silent fallbacks. **Every** optimization is verified equivalent to the input before being returned — by truth table up to 12 variables, by the built-in CDCL SAT solver (miter proof) beyond that. What each of these terms means, what backs it, and what it does not claim: [doc/CLAIMS.md](doc/CLAIMS.md).
 
 **Cost model**: the minimal two-level cover is chosen by total literal count, then term count; the final multi-level expression is chosen by literal count, then AST node count. Since v2.0 the AST is n-ary, and one n-ary `AndNode`/`OrNode` counts as **1 node** regardless of how many operands it has. This is not the same as minimal gate count, circuit depth, or delay.
 
@@ -47,7 +115,7 @@ LogicalOptimizer is a lightweight, dependency-free .NET library and CLI for pars
 - ✅ **Truth Table Generation**: up to 20 variables; equivalence checking itself scales beyond that via the SAT miter (`EquivalenceChecker`, and `OptimizationResult.IsEquivalent()` / three-valued `CheckEquivalence()`)
 - ✅ **Multiple Export Formats**: DIMACS, BLIF, Verilog, CSV, Mathematical notation, LaTeX
 - ✅ **Performance Analytics**: Detailed metrics and benchmarking
-- ✅ **Comprehensive Testing**: 1152 audited CI tests (repeatedly audited for representativeness, logical correctness, strength and non-duplication — most recently 2026-07-29) across ten systematic techniques — property-based (CsCheck), metamorphic, algebraic, differential (with SymPy and Z3 as external oracles), fuzzing, characterization golden master, snapshot approval (Verify), architecture rules (ArchUnitNET), pairwise option coverage, and Stryker.NET mutation testing with per-module survivor triage (see [doc/TESTING.md](doc/TESTING.md))
+- ✅ **Comprehensive Testing**: 1175 audited CI tests (repeatedly audited for representativeness, logical correctness, strength and non-duplication — most recently 2026-07-29) across ten systematic techniques — property-based (CsCheck), metamorphic, algebraic, differential (with SymPy and Z3 as external oracles), fuzzing, characterization golden master, snapshot approval (Verify), architecture rules (ArchUnitNET), pairwise option coverage, and Stryker.NET mutation testing with per-module survivor triage (see [doc/TESTING.md](doc/TESTING.md))
 - ✅ **Error Protection**: Input validation and infinite loop prevention
 
 ## Result quality vs SymPy / PyEDA
@@ -59,7 +127,7 @@ because the default output is **multi-level (factored)**, not two-level SOP:
 
 | Function | Vars | LogicalOptimizer | SymPy | PyEDA |
 |----------|-----:|:----------------:|:-----:|:-----:|
-| maj4 | 4 | **9** | 12 | 12 |
+| maj4 | 4 | **8** | 12 | 12 |
 | xor3 | 3 | **10** | 12 | 12 |
 | pos6 | 6 | **6** | 24 | 24 |
 | collapse14 | 14 | **7** | `timeout` | 7 |
@@ -111,6 +179,9 @@ dotnet run --project LogicalOptimizer.Cli -- "a & b | a & c"
 # Output:
 # Original: a & b | a & c
 # Optimized: a & (b | c)
+# Equivalent: proven
+# Minimality: proven
+# Cost: 4 -> 3 literals
 # CNF: a & (b | c)
 # DNF: a & b | a & c
 # Variables: [a, b, c]
@@ -122,6 +193,9 @@ dotnet run --project LogicalOptimizer.Cli -- "a & !b | !a & b"
 # Output:
 # Original: a & !b | !a & b
 # Optimized: a & !b | b & !a
+# Equivalent: proven
+# Minimality: proven
+# Cost: 4 -> 4 literals
 # CNF: (a | b) & (!a | !b)
 # DNF: a & !b | b & !a
 # Variables: [a, b]
@@ -132,6 +206,9 @@ dotnet run --project LogicalOptimizer.Cli -- "((a & !b) | (!a & b)) & ((!c | d) 
 # Output:
 # Original: ((a & !b) | (!a & b)) & ((!c | d) | (e & f))
 # Optimized: (d | !c | e & f) & (a & !b | b & !a)
+# Equivalent: proven
+# Minimality: proven
+# Cost: 8 -> 8 literals
 # CNF: (a | b) & (!a | !b) & (d | e | !c) & (d | f | !c)
 # DNF: a & d & !b | b & d & !a | a & !b & !c | b & !a & !c | a & e & f & !b | b & e & f & !a
 # Variables: [a, b, c, d, e, f]
@@ -180,6 +257,47 @@ dotnet run --project LogicalOptimizer.Cli -- --benchmark
 # Help
 dotnet run --project LogicalOptimizer.Cli -- --help
 ```
+
+### Machine-readable output (`--format=json`)
+
+For CI and tooling, `--format=json` (alias `--json`, spaced `--format json` also works) emits
+a stable, versioned report to stdout — human diagnostics stay on stderr:
+
+```bash
+dotnet run --project LogicalOptimizer.Cli -- --format=json "a & b | a & c"
+```
+
+```json
+{
+  "schemaVersion": 1,
+  "input": "a & b | a & c",
+  "optimized": "a & (b | c)",
+  "equivalent": true,
+  "minimality": "MinimalProven",
+  "cost": { "originalLiterals": 4, "optimizedLiterals": 3 },
+  "cnf": { "expression": "a & (b | c)", "status": "Computed", "minimality": "MinimalProven" },
+  "dnf": { "expression": "a & b | a & c", "status": "Computed" },
+  "variables": ["a", "b", "c"]
+}
+```
+
+`advanced` (an `a XOR b`-style pattern) appears only when one is detected. On an invalid
+expression the document carries an `error` object with a structured parse diagnostic — `code`,
+`position`, `length`, `expected`, `snippet` — instead of the result fields.
+**Exit codes:** `0` success · `1` usage error · `2` processing error (e.g. an invalid expression).
+
+This is a **published contract**, not just a documented shape:
+
+- [`schema/cli-report-v1.schema.json`](schema/cli-report-v1.schema.json) — JSON Schema
+  (Draft 2020-12), also served from the
+  [docs site](https://AlexanderV.github.io/LogicalOptimizer/schema/cli-report-v1.schema.json);
+- [`schema/examples/`](schema/examples) — a golden report for every outcome you must handle:
+  success, `BudgetExceeded` minimality, a `TooLarge` normal form, `--trace`, a parse error;
+- [`schema/README.md`](schema/README.md) — what may change within `schemaVersion: 1` (new optional
+  fields, new enum members) and what requires a new version.
+
+The schema is closed and CI validates both the committed examples and freshly generated output
+against it, so no field can appear, disappear or change type without a reviewed schema diff.
 
 ## Supported Operators
 
@@ -431,6 +549,7 @@ article; the examples are executed and asserted in
 | Equivalence & backbones | `FormulaAnalysis`, `EquivalenceChecker`, `Bdd`/`HybridEquivalenceChecker` | [Equivalence & backbones](docs-site/articles/equivalence-and-backbones.md) |
 | Exporters & code generation | `BooleanExpressionExporter`, `CSharpExpressionExporter` | [Exporters](docs-site/articles/exporters.md) |
 | Contracts, statuses & budgets | `MinimizationStatus`, `CnfMinimizationStatus`, `ComputationStatus`, `ResourceBudget` | [Contracts & statuses](docs-site/articles/contracts-and-statuses.md), [Budgets & zones](docs-site/articles/budgets-and-zones.md) |
+| Diagnostics: why this result | `OptimizationTrace`, `OptimizationTraceEntry`, `OptimizationTraceCategory` | [Diagnostic trace](docs-site/articles/diagnostic-trace.md) |
 | CLI (all flags incl. `--anf`) | `logical-optimizer` | [CLI usage](docs-site/articles/cli-usage.md) |
 
 - 🔀 **[Migration Guide v1 → v2](MIGRATION-v2.md)** - Breaking changes in 2.0.0 and how to adapt
@@ -575,7 +694,7 @@ graph LR
 
 ## Project Statistics
 
-- **Total tests**: 1152 CI cases (all passing; performance and exhaustive-sweep categories run outside CI via --filter; count is a snapshot, not a contract; suite fully audited 2026-07-29 — see doc/TESTING.md Part 4)
+- **Total tests**: 1175 CI cases (all passing; performance and exhaustive-sweep categories run outside CI via --filter; count is a snapshot, not a contract; suite fully audited 2026-07-29 — see doc/TESTING.md Part 4)
 - **Code coverage**: ~89% line coverage (CI enforces an 80% floor)
 - **Mutation scores** (Stryker.NET, per module): Transformations 100%, TruthTableMinimizer 82.6%, EspressoLite 72.5%, SatSolver 52.5% — every survivor killed or classified equivalent (doc/TESTING.md Part 5)
 - **Minimization engines**: 4 zones — exact QM (≤12 vars, proven ≤10), SAT prime cover (13–24), Espresso-lite cube lists (beyond), plus the precomputed 3-input subcircuit library
@@ -586,13 +705,54 @@ graph LR
 - **Truth table capacity**: Up to 20 variables (1M+ combinations)
 - **Platform support**: Cross-platform (packages net8.0/net10.0; CLI net10.0)
 
+## AI-assisted development
+
+This project was developed with extensive assistance from large language models (architecture design, code generation, the testing framework, documentation and code-quality work). The combination produced a robust, well-tested Boolean-expression toolkit with comprehensive documentation.
+
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+Fork, branch, and open a pull request. Before you do, reproduce the CI gate locally
+(`dotnet format --verify-no-changes`, `dotnet build -warnaserror`, the filtered `dotnet test`) —
+and note that the public API surface is pinned by tests, so an API change has to be regenerated
+deliberately. The details, including the snapshot-approval and API-baseline workflows, are in
+**[CONTRIBUTING.md](CONTRIBUTING.md)**.
+
+## Support & security
+
+- **Questions, bug reports, feature requests** → [SUPPORT.md](SUPPORT.md) — also carries the
+  lifecycle policy: what is and is not a stability contract, CLI exit-code and JSON-schema
+  stability, the 12-month support window for the previous major, and the deprecation process
+- **Security vulnerabilities** → [SECURITY.md](SECURITY.md) — report privately, never as a
+  public issue
+- **What you use it for, or why you chose something else** →
+  [use-case report](https://github.com/AlexanderV/LogicalOptimizer/issues/new?template=use_case_report.yml).
+  There is no telemetry, so this is the only roadmap input; a compiled evaluator, batch APIs and
+  additional engines are deliberately gated on it ([doc/ADOPTION.md](doc/ADOPTION.md))
+
+## Supply chain
+
+Releases are published from a tagged commit by the
+[Release workflow](.github/workflows/release.yml) using nuget.org Trusted Publishing (OIDC), so
+no long-lived API key exists. Each release is built deterministically, ships SourceLink metadata
+and a separate `.snupkg` symbol package, carries SHA-256 checksums and a GitHub
+[build provenance attestation](https://docs.github.com/actions/security-guides/using-artifact-attestations).
+
+Before anything is pushed, [`tools/verify_package_contract.ps1`](tools/verify_package_contract.ps1)
+opens every `.nupkg` and audits its contents — package-specific README, distinct description, tags,
+project/repository URLs, Apache-2.0 SPDX expression, symbols with a `.pdb`, the documented target
+frameworks, and **no third-party runtime dependency anywhere**. A published package cannot be
+withdrawn, so this gates the publish rather than reporting on it afterwards. After the push the
+release verifies that every package is indexed on nuget.org, that each modular package works
+installed on its own into a clean project outside the repository, and that a **Native AOT** binary
+built against the *published* package produces the right answer.
+
+All of that lands in a single **release evidence bundle** attached to the release: the contract
+audit, the index check, the AOT result, test counts, checksums, this version's claim changes, and
+step-by-step instructions to reproduce every check yourself. Starting point:
+
+```bash
+gh attestation verify LogicalOptimizer.3.1.0.nupkg --repo AlexanderV/LogicalOptimizer
+```
 
 ## License
 

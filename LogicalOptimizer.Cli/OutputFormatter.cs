@@ -48,6 +48,9 @@ internal class OutputFormatter
         {
             DisplayStandardOutput(result);
         }
+
+        // --trace is orthogonal to the output mode: append it to whatever was rendered.
+        DisplayTraceIfRequested(result);
     }
 
     private void DisplayTruthTableOnly(string expression)
@@ -92,6 +95,16 @@ internal class OutputFormatter
     {
         Console.WriteLine($"Original: {result.Original}");
         Console.WriteLine($"Optimized: {result.Optimized}");
+
+        // Proof report — the key differentiator over a plain expression simplifier:
+        // report WHAT was proven about the smaller expression, not just the expression.
+        Console.WriteLine($"Equivalent: {(result.IsEquivalent() ? "proven" : "unverified")}");
+        Console.WriteLine($"Minimality: {DescribeMinimality(result.MinimizationStatus)}");
+        var originalLiterals = CliExpressionMetrics.TryCountLiterals(result.Original);
+        var optimizedLiterals = CliExpressionMetrics.TryCountLiterals(result.Optimized);
+        if (originalLiterals is { } before && optimizedLiterals is { } after)
+            Console.WriteLine($"Cost: {before} -> {after} literals");
+
         Console.WriteLine($"CNF: {result.CNF}");
         Console.WriteLine($"DNF: {result.DNF}");
         Console.WriteLine($"Variables: [{string.Join(", ", result.Variables)}]");
@@ -109,6 +122,28 @@ internal class OutputFormatter
         }
 
         DisplayTruthTableIfSmall(result);
+    }
+
+    /// <summary>Opt-in diagnostic trace: why this result, engine by engine.</summary>
+    private static void DisplayTraceIfRequested(OptimizationResult result)
+    {
+        if (result.Trace == null) return;
+
+        Console.WriteLine();
+        Console.WriteLine("Trace:");
+        foreach (var entry in result.Trace.Entries)
+            Console.WriteLine($"  {entry}");
+    }
+
+    /// <summary>Friendly rendering of the minimality provenance for the standard proof report.</summary>
+    private static string DescribeMinimality(MinimizationStatus status)
+    {
+        return status switch
+        {
+            MinimizationStatus.MinimalProven => "proven",
+            MinimizationStatus.BudgetExceeded => "unproven (budget exceeded)",
+            _ => "heuristic"
+        };
     }
 
     private void DisplayTruthTableIfSmall(OptimizationResult result)

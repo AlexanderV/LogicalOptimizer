@@ -96,6 +96,7 @@ namespace LogicalOptimizer
         public bool EnableAigRewriting { get; init; }
         public bool IncludeDebugInfo { get; init; }
         public bool IncludeMetrics { get; init; }
+        public bool IncludeTrace { get; init; }
         public bool IncludeTruthTables { get; init; }
         public static LogicalOptimizer.OptimizationOptions Default { get; }
         public static LogicalOptimizer.OptimizationOptions Everything { get; }
@@ -135,9 +136,35 @@ namespace LogicalOptimizer
         public LogicalOptimizer.TruthTable? OptimizedTruthTable { get; set; }
         public string Original { get; set; }
         public LogicalOptimizer.TruthTable? OriginalTruthTable { get; set; }
+        public LogicalOptimizer.OptimizationTrace? Trace { get; set; }
         public System.Collections.Generic.List<string> Variables { get; set; }
         public LogicalOptimizer.EquivalenceCheckResult CheckEquivalence() { }
         public bool IsEquivalent() { }
+        public override string ToString() { }
+    }
+    public sealed class OptimizationTrace
+    {
+        public System.Collections.Generic.IReadOnlyList<LogicalOptimizer.OptimizationTraceEntry> Entries { get; }
+        public System.Collections.Generic.IEnumerable<LogicalOptimizer.OptimizationTraceEntry> OfCategory(LogicalOptimizer.OptimizationTraceCategory category) { }
+        public override string ToString() { }
+    }
+    public enum OptimizationTraceCategory
+    {
+        EngineSelection = 0,
+        Budget = 1,
+        Candidate = 2,
+        Adopted = 3,
+        Rejected = 4,
+        Proof = 5,
+        Fallback = 6,
+        Status = 7,
+    }
+    public sealed class OptimizationTraceEntry
+    {
+        public LogicalOptimizer.OptimizationTraceCategory Category { get; }
+        public System.Collections.Generic.IReadOnlyDictionary<string, string> Data { get; }
+        public string Message { get; }
+        public string Step { get; }
         public override string ToString() { }
     }
     public enum ProjectedCountStatus
@@ -269,8 +296,13 @@ namespace LogicalOptimizer
         public LogicalOptimizer.AstNode Or(params LogicalOptimizer.AstNode[] operands) { }
         public LogicalOptimizer.AstNode Or(System.Collections.Generic.IEnumerable<LogicalOptimizer.AstNode> operands) { }
         public LogicalOptimizer.AstNode Parse(string expression) { }
+        public bool TryParse(string expression, out LogicalOptimizer.AstNode? formula, out LogicalOptimizer.ParseDiagnostic? diagnostic) { }
         public LogicalOptimizer.AstNode Variable(string name) { }
         public LogicalOptimizer.AstNode Xor(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right) { }
+    }
+    public sealed class FormulaParseException : System.ArgumentException
+    {
+        public LogicalOptimizer.ParseDiagnostic Diagnostic { get; }
     }
     public sealed class ImpNode : LogicalOptimizer.BinaryNode
     {
@@ -339,6 +371,28 @@ namespace LogicalOptimizer
         public OrNode(System.Collections.Generic.IReadOnlyList<LogicalOptimizer.AstNode> operands) { }
         public OrNode(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right) { }
         public override string Operator { get; }
+    }
+    public sealed class ParseDiagnostic
+    {
+        public LogicalOptimizer.ParseErrorCode Code { get; }
+        public System.Collections.Generic.IReadOnlyList<string> Expected { get; }
+        public int Length { get; }
+        public string Message { get; }
+        public int Position { get; }
+        public string Snippet { get; }
+        public string Source { get; }
+        public override string ToString() { }
+    }
+    public enum ParseErrorCode
+    {
+        EmptyExpression = 0,
+        UnexpectedCharacter = 1,
+        InvalidConstant = 2,
+        VariableStartsWithDigit = 3,
+        UnexpectedToken = 4,
+        ExpectedToken = 5,
+        UnexpectedEndOfInput = 6,
+        NestingTooDeep = 7,
     }
     public sealed class ResourceBudget
     {

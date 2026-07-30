@@ -1,5 +1,8 @@
 ﻿Original: a & b | a & c | b & c
 Optimized: b & c | a & (b | c)
+Equivalent: proven
+Minimality: proven
+Cost: 6 -> 5 literals
 CNF: (a | b) & (a | c) & (b | c)
 DNF: a & b | a & c | b & c
 Variables: [a, b, c]

@@ -90,10 +90,37 @@ public sealed class FormulaFactory
         return Or(And(left, Not(right)), And(Not(left), right));
     }
 
-    /// <summary>Parse text through the standard grammar, building canonical nodes via this factory.</summary>
+    /// <summary>
+    ///     Parse text through the standard grammar, building canonical nodes via this factory.
+    ///     Throws <see cref="FormulaParseException" /> (a subclass of <see cref="ArgumentException" />)
+    ///     on invalid input; use <see cref="TryParse" /> to avoid the exception.
+    /// </summary>
     public AstNode Parse(string expression)
     {
-        return new Parser(new Lexer(expression).Tokenize(), this).Parse();
+        return new Parser(new Lexer(expression).Tokenize(), this, expression).Parse();
+    }
+
+    /// <summary>
+    ///     Attempts to parse <paramref name="expression" />. On success returns <c>true</c> with the
+    ///     canonical tree in <paramref name="formula" />; on invalid input returns <c>false</c> with a
+    ///     structured <paramref name="diagnostic" /> (position, length, expected tokens, machine-readable
+    ///     code and a caret snippet) instead of throwing. A <c>null</c> expression is still a contract
+    ///     violation and throws <see cref="System.ArgumentNullException" />.
+    /// </summary>
+    public bool TryParse(string expression, out AstNode? formula, out ParseDiagnostic? diagnostic)
+    {
+        try
+        {
+            formula = new Parser(new Lexer(expression).Tokenize(), this, expression).Parse();
+            diagnostic = null;
+            return true;
+        }
+        catch (FormulaParseException ex)
+        {
+            formula = null;
+            diagnostic = ex.Diagnostic;
+            return false;
+        }
     }
 
     /// <summary>

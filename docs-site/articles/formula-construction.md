@@ -64,6 +64,28 @@ AstMetrics.CountOperators(ast);  // 2
 AstMetrics.GetDepth(ast);        // 3
 ```
 
+## `TryParse` — structured error handling
+
+For untrusted input (an API body, a configuration UI, a build tool), `TryParse` avoids
+exceptions and returns a structured [`ParseDiagnostic`](xref:LogicalOptimizer.ParseDiagnostic)
+instead — with the error position, offending length, expected tokens, a stable
+`ParseErrorCode`, and a caret snippet:
+
+```csharp
+if (f.TryParse("a & b", out var formula, out _))
+    Console.WriteLine(formula);            // a & b
+
+if (!f.TryParse("a & & b", out _, out var diagnostic))
+{
+    Console.WriteLine(diagnostic!.Code);     // UnexpectedToken
+    Console.WriteLine(diagnostic.Position);  // 4
+    Console.WriteLine(diagnostic.Snippet);   // "a & & b" then a caret under the second '&'
+}
+```
+
+`Parse(string)` still throws on invalid input — a `FormulaParseException` (a subclass of
+`ArgumentException`) carrying the same `Diagnostic`.
+
 ## `AstVisualizer` — debugging trees
 
 `AstVisualizer.VisualizeTree(node)` returns an indented tree dump and

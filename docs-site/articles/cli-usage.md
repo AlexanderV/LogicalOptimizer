@@ -36,6 +36,8 @@ only when a pattern (XOR / implication / equivalence) is recognized.
 | `--anf` | Output only the Algebraic Normal Form (Zhegalkin / Reed–Muller polynomial) |
 | `--advanced` | Include advanced logical forms (XOR / `→` / `↔`) |
 | `--truth-table` | Output only the truth table |
+| `--format=json` (alias `--json`) | Machine-readable JSON report on stdout (stable `schemaVersion`); diagnostics stay on stderr |
+| `--trace` | Append the [diagnostic trace](diagnostic-trace.md): engine chosen and why, budgets, candidate costs, proof paths, fallbacks |
 | `--cnf-mode=tseitin` | Equisatisfiable linear-size CNF (Tseitin) instead of the distributive CNF |
 | `--cnf-mode=equivalent` | Distributive (logically equivalent) CNF — the default |
 | `--outputs=Name1,Name2 <csv>` | Multi-output CSV minimization with shared cubes |
@@ -109,6 +111,70 @@ Carry = a & b
 
 Adds a metrics block including the explicit minimality status, for example
 `Minimality: MinimalProven` (see [Operation contracts & statuses](contracts-and-statuses.md)).
+
+### `--format=json`
+
+Emits a stable, versioned report to stdout for CI and tooling (human diagnostics stay on
+stderr). `--json` is an alias, and the spaced form `--format json` also works.
+
+```bash
+logical-optimizer --format=json "a & b | a & c"
+```
+
+```json
+{
+  "schemaVersion": 1,
+  "input": "a & b | a & c",
+  "optimized": "a & (b | c)",
+  "equivalent": true,
+  "minimality": "MinimalProven",
+  "cost": { "originalLiterals": 4, "optimizedLiterals": 3 },
+  "cnf": { "expression": "a & (b | c)", "status": "Computed", "minimality": "MinimalProven" },
+  "dnf": { "expression": "a & b | a & c", "status": "Computed" },
+  "variables": ["a", "b", "c"]
+}
+```
+
+`advanced` appears only when an XOR/`→`/`↔` pattern is detected. On an invalid expression the
+document carries an `error` object instead of the result fields. Fields are only added within
+a `schemaVersion`, never renamed or removed.
+
+The report is a published contract, not just a convention:
+
+- **JSON Schema** (Draft 2020-12):
+  [`cli-report-v1.schema.json`](https://AlexanderV.github.io/LogicalOptimizer/schema/cli-report-v1.schema.json)
+  — validate a report with, for example,
+  `check-jsonschema --schemafile cli-report-v1.schema.json report.json`;
+- **golden examples** for every outcome a consumer must handle — success, `BudgetExceeded`
+  minimality, a `TooLarge` normal form, a structured parse error, and a bare processing error:
+  [`schema/examples/`](https://github.com/AlexanderV/LogicalOptimizer/tree/main/schema/examples);
+- **what may change and what may not**, in
+  [`schema/README.md`](https://github.com/AlexanderV/LogicalOptimizer/blob/main/schema/README.md).
+
+The schema is closed, and CI validates both the committed examples and freshly generated output
+against it, so a field cannot appear, disappear or change type without a reviewed schema diff.
+
+### `--trace`
+
+Explains how the result was reached — which engine ran and on what threshold, the budgets in
+force, every candidate's cost, which one was adopted or rejected, how equivalence and
+minimality were discharged, and any fallback. Works with both output formats:
+
+```bash
+logical-optimizer --trace "a & b | a & c"               # under a "Trace:" heading
+logical-optimizer --format=json --trace "a & b | a & c" # as a "trace" array
+```
+
+The trace is diagnostic: unlike the JSON report's fields, its wording and ordering are not a
+stability contract. See [Diagnostic Trace](diagnostic-trace.md).
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Success |
+| `1` | Usage error (invalid arguments) |
+| `2` | Processing error (e.g. an invalid expression) |
 
 ## Operators
 

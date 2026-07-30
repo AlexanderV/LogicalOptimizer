@@ -1,0 +1,38 @@
+<Project>
+
+  <!--
+    Repo-wide package metadata shared by every LogicalOptimizer package, so a release
+    only bumps the version in ONE place. Kept deliberately minimal: only values that are
+    identical across packages AND harmless on the non-packable projects (tests,
+    benchmarks, AOT smoke) live here. Build-, language- and AOT-analyzer settings stay in
+    the individual library .csproj on purpose — they must NOT apply to the reflection-using
+    test/benchmark projects, which would otherwise fail the trim/AOT analyzers under
+    TreatWarningsAsErrors.
+  -->
+  <PropertyGroup>
+    <Version>3.1.0</Version>
+    <Authors>Oleksandr Panasenko</Authors>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://AlexanderV.github.io/LogicalOptimizer/</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/AlexanderV/LogicalOptimizer.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+
+    <!-- Supply-chain hardening (P1.9). Symbols ship as a separate .snupkg so a consumer can
+         step into the library from a debugger without the symbols bloating the main package;
+         `dotnet nuget push` uploads an adjacent .snupkg automatically. Package validation
+         runs the SDK's static package checks (e.g. compatible-framework coverage) on pack. -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <EnablePackageValidation>true</EnablePackageValidation>
+  </PropertyGroup>
+
+  <!-- Deterministic builds: on a CI runner, source paths are normalized so the same commit
+       produces byte-identical output. Left off locally, where absolute paths make debugging
+       easier (both GITHUB_ACTIONS and the generic CI variable are set by GitHub Actions). -->
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true' or '$(CI)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+</Project>

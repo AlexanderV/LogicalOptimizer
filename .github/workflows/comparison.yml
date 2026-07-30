@@ -43,6 +43,17 @@ jobs:
           python -m pip install --quiet sympy || echo "sympy install failed; column stays pending"
           python tools/compare_sympy_pyeda.py --max-vars 14 --timeout 10 | tee sympy_pyeda_column.md
 
+      # Verifies the OUR-side run on its own terms: same corpus (by checksum), environment
+      # recorded, every row equivalent, every miter UNSAT, both counting engines agreeing.
+      # The competitor requirement is 0 here because this job only runs SymPy/PyEDA - the
+      # full competitor side is the reproduce-from-scratch job below.
+      - name: Verify the OUR-side run
+        shell: pwsh
+        run: >
+          pwsh tools/verify_comparison_reproduction.ps1
+          -RequireCompetitors 0
+          -ReportPath comparison-reproduction-report.json
+
       - name: Upload comparison artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -53,5 +64,58 @@ jobs:
             doc/comparison/summary.md
             doc/comparison/manifest.json
             doc/comparison/sat-cnf/**
+            comparison-reproduction-report.json
             sympy_pyeda_column.md
           if-no-files-found: ignore
+
+  # V3 in POSITIONING_IMPROVEMENT_PLAN.md: the comparison must be reproducible OUTSIDE this
+  # repository, by the exact sequence doc/COMPARISON_METHODOLOGY.md documents. That sequence was
+  # documented but never exercised, so script rot would have been discovered by the first outside
+  # reproducer - precisely the person whose confirmation the criterion depends on.
+  #
+  # This job is that rehearsal: a clean checkout, the two documented commands verbatim, then a
+  # verification that the run actually produced a report. It cannot satisfy V3 - the criterion needs
+  # a runner that is not ours - but it does guarantee that whoever tries will not hit a broken
+  # script. Manual, like the job above: this refreshes a credibility artifact, it is not a PR gate.
+  reproduce-from-scratch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Keep what is committed, so the fresh run can be diffed against it for determinism.
+      - name: Set aside the committed results
+        run: |
+          mkdir -p committed
+          cp doc/comparison/our-results.json committed/our-results.json
+          rm -f doc/comparison/*.md doc/comparison/*.json doc/comparison/*.html
+
+      # The two commands from doc/COMPARISON_METHODOLOGY.md, verbatim. Nothing else may be needed:
+      # if a step has to be added here, the documentation is wrong and that is the finding.
+      - name: docker build (documented command 1)
+        run: docker build -t logicopt-p0p2 tools/comparison
+
+      - name: docker run (documented command 2)
+        run: docker run --rm -v "$PWD:/work" logicopt-p0p2
+
+      # The adapters are best-effort by design, so the container exits 0 even if every competitor
+      # self-skipped. Require at least three populated columns here: on this runner the whole image
+      # built, so an all-pending report means the reproduction is broken, not that tools disagreed.
+      - name: Verify the reproduction
+        shell: pwsh
+        run: >
+          pwsh tools/verify_comparison_reproduction.ps1
+          -RequireCompetitors 3
+          -CompareWith committed/our-results.json
+          -ReportPath comparison-reproduction-report.json
+
+      - name: Upload the reproduced report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comparison-reproduced-from-scratch
+          path: |
+            comparison-reproduction-report.json
+            doc/comparison/**
+          if-no-files-found: error

@@ -160,3 +160,36 @@ DIMACS the OUR harness emits from it), applies the identical per-function timeou
 prints a Markdown column, and **self-skips** cleanly if the tool is absent — never
 fabricating a number. The merge fills the competitor columns of `merged.md`; `summary.md`
 keeps its `pending` competitor cells as the pure OUR-side artifact.
+
+### Verify the reproduction (step 3)
+
+Self-skipping is honest but it means the container **exits 0 even if every competitor skipped** —
+so "it ran" is not the same as "it reproduced". Check the run instead of trusting it:
+
+```bash
+pwsh tools/verify_comparison_reproduction.ps1 -RequireCompetitors 3 \
+     -CompareWith committed/our-results.json
+```
+
+It asserts that the corpus really is the committed one (by SHA-256, not by filename), that the
+environment is recorded, that **every** optimization/minimization row is `equivalent`, that every
+equivalence miter is `unsat`, that the BDD and d-DNNF counters agree on every model count, and that
+enough competitor columns are actually populated — failing an all-`pending` report instead of
+letting it look like a success. With `-CompareWith` it also enforces the determinism claim above:
+every non-timing field must match a previously committed run. Timing is never asserted.
+
+The output is `comparison-reproduction-report.json`, which records what it checked *and its own
+limitations*. The `reproduce-from-scratch` job in
+[`comparison.yml`](../.github/workflows/comparison.yml) runs exactly the three commands on this page
+from a clean checkout, so the documented sequence is rehearsed rather than assumed — but a run on
+this project's own runner is a rehearsal, not independent reproduction. That still needs someone
+else's machine.
+
+### If you reproduced it, please say so
+
+An independent reproduction is the single piece of evidence this project cannot produce for itself.
+If you ran the three commands above — **including if they failed** — please
+[open an issue](https://github.com/AlexanderV/LogicalOptimizer/issues/new) and attach
+`comparison-reproduction-report.json`. It already contains everything needed: the corpus checksum,
+your runtime and OS, which competitor columns populated, and every check's verdict. A report that
+the sequence *did not* work is more useful than silence, because it names the thing to fix.

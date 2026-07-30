@@ -91,31 +91,45 @@ internal class Program
                 expression = CsvProcessor.ProcessCsvInput(expression);
             }
 
-            // Optimize expression, computing only the artifacts the chosen mode displays
+            // Optimize expression, computing only the artifacts the chosen mode displays.
+            // JSON is a full report, so it always computes CNF/DNF/advanced.
+            var json = options.Format == CliOutputFormat.Json;
             var optimizer = new BooleanExpressionOptimizer();
             var optimizationOptions = new OptimizationOptions
             {
-                ComputeCnf = !options.DnfOnly && !options.Advanced && !options.AnfOnly,
-                ComputeDnf = !options.CnfOnly && !options.Advanced && !options.AnfOnly,
+                ComputeCnf = json || (!options.DnfOnly && !options.Advanced && !options.AnfOnly),
+                ComputeDnf = json || (!options.CnfOnly && !options.Advanced && !options.AnfOnly),
                 CnfMode = options.CnfMode,
-                ComputeAdvancedForms = !options.CnfOnly && !options.DnfOnly && !options.AnfOnly,
+                ComputeAdvancedForms = json || (!options.CnfOnly && !options.DnfOnly && !options.AnfOnly),
                 IncludeMetrics = options.Verbose,
                 IncludeTruthTables = options.Verbose,
-                IncludeDebugInfo = options.Verbose
+                IncludeDebugInfo = options.Verbose,
+                IncludeTrace = options.Trace
             };
 
             var result = optimizer.OptimizeExpression(expression, optimizationOptions);
 
             // Display results
-            var outputFormatter = new OutputFormatter();
-            outputFormatter.DisplayResult(result, options);
+            if (json)
+                JsonReportWriter.Write(Console.Out, result);
+            else
+                new OutputFormatter().DisplayResult(result, options);
 
             return 0;
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error processing expression: {ex.Message}");
-            return 1;
+            // The facade wraps a parse failure, so the structured diagnostic may be the inner one.
+            var diagnostic = (ex as FormulaParseException ?? ex.InnerException as FormulaParseException)?.Diagnostic;
+
+            if (options.Format == CliOutputFormat.Json)
+                JsonReportWriter.WriteError(Console.Out, options.Expression, ex.Message, diagnostic);
+
+            // Prefer the clean structured message over the facade's wrapped one.
+            Console.Error.WriteLine($"Error processing expression: {diagnostic?.Message ?? ex.Message}");
+            if (diagnostic is not null)
+                Console.Error.WriteLine(diagnostic.Snippet);
+            return 2;
         }
     }
 }

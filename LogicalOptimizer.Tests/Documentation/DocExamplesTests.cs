@@ -58,6 +58,19 @@ public class DocExamplesTests
         Assert.Equal(3, AstMetrics.GetDepth(ast));
     }
 
+    [Fact]
+    public void FormulaFactory_TryParse_ReportsStructuredDiagnostics()
+    {
+        var f = new FormulaFactory();
+
+        Assert.True(f.TryParse("a & b", out var formula, out _));
+        Assert.Equal("a & b", formula!.ToString());
+
+        Assert.False(f.TryParse("a & & b", out _, out var diagnostic));
+        Assert.Equal(ParseErrorCode.UnexpectedToken, diagnostic!.Code);
+        Assert.Equal(4, diagnostic.Position);
+    }
+
     // ----- Optimizer, options, result, quality analyzer -----
 
     [Fact]
@@ -141,6 +154,19 @@ public class DocExamplesTests
             .OptimizeExpression("a & b | a & c", includeMetrics: true);
         Assert.NotNull(result.Metrics);
         Assert.True(result.Metrics!.OriginalNodes >= result.Metrics.OptimizedNodes);
+    }
+
+    [Fact]
+    public void OptimizationTrace_ExplainsEngineChoiceAndProofPath()
+    {
+        var result = new BooleanExpressionOptimizer()
+            .OptimizeExpression("a & b | a & c", new OptimizationOptions { IncludeTrace = true });
+
+        var zone = result.Trace!.Entries.Single(e => e.Step == "ZoneSelection");
+        Assert.Equal("exact-qm", zone.Data["engine"]);
+
+        var guard = result.Trace.Entries.Single(e => e.Step == "SoundnessGuard");
+        Assert.Equal("truth-table", guard.Data["method"]);
     }
 
     [Fact]
@@ -522,6 +548,11 @@ public class DocExamplesTests
         Assert.True(CommandLineProcessor.ParseArguments(new[] { "--verbose", "a & b" }).Verbose);
         Assert.Equal(CnfMode.Tseitin,
             CommandLineProcessor.ParseArguments(new[] { "--cnf-mode=tseitin", "a & b" }).CnfMode);
+        Assert.Equal(CliOutputFormat.Json,
+            CommandLineProcessor.ParseArguments(new[] { "--format=json", "a & b" }).Format);
+        Assert.Equal(CliOutputFormat.Json,
+            CommandLineProcessor.ParseArguments(new[] { "--json", "a & b" }).Format);
+        Assert.True(CommandLineProcessor.ParseArguments(new[] { "--trace", "a & b" }).Trace);
 
         var multi = CommandLineProcessor.ParseArguments(new[] { "--outputs=Sum,Carry", "a,b,Sum,Carry" });
         Assert.Equal(new[] { "Sum", "Carry" }, multi.OutputColumns);

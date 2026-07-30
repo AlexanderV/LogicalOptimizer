@@ -16,18 +16,13 @@
     <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
 
+    <!-- Shared package metadata is centralized in ..\Directory.Build.props. -->
     <PackageId>LogicalOptimizer.Sat</PackageId>
-    <Version>3.1.0</Version>
-    <Authors>Oleksandr Panasenko</Authors>
     <Description>SAT layer of the LogicalOptimizer toolkit: dependency-free CDCL solver (incremental, assumptions, unsat cores, DRAT proofs), Tseitin and Plaisted-Greenbaum CNF encodings, cardinality/pseudo-Boolean constraints and weighted MaxSAT.</Description>
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>sat-solver;cdcl;tseitin;drat;maxsat;cardinality;pseudo-boolean</PackageTags>
-    <PackageProjectUrl>https://AlexanderV.github.io/LogicalOptimizer/</PackageProjectUrl>
+    <PackageTags>sat-solver;cdcl;tseitin;drat;maxsat;cardinality;pseudo-boolean;native-aot;pure-managed</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591;CS1570</NoWarn>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,7 +31,7 @@
     <InternalsVisibleTo Include="LogicalOptimizer.Dnnf" />
     <InternalsVisibleTo Include="LogicalOptimizer.Tests" />
     <InternalsVisibleTo Include="LogicalOptimizer.Cli" />
-    <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>

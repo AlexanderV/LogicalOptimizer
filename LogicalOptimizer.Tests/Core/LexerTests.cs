@@ -55,8 +55,8 @@ public class LexerTests
         // Arrange
         var lexer = new Lexer(input);
 
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() => lexer.Tokenize());
+        // Act & Assert (FormulaParseException is an ArgumentException)
+        Assert.ThrowsAny<ArgumentException>(() => lexer.Tokenize());
     }
 
     [Fact]

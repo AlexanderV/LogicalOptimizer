@@ -34,7 +34,8 @@
 ## Випуск версії
 
 Версія публікованих пакетів береться **з тега** (`/p:Version=${GITHUB_REF_NAME#v}`), тому
-`<Version>` у csproj — це dev/fallback-значення.
+`<Version>` — це dev/fallback-значення. Воно централізоване в
+[`Directory.Build.props`](Directory.Build.props) (одне місце на всі пакети), а не в кожному csproj.
 
 ```bash
 # 0) КОД МАЄ БУТИ НА GITHUB (workflow робить checkout тега):
@@ -45,9 +46,48 @@ git tag -a v2.1.0 -m "v2.1.0: BDD complement edges"
 git push origin v2.1.0
 ```
 
-`release.yml`: setup .NET 10 → `dotnet build -warnaserror` → `dotnet test` (CI-фільтр) →
-`dotnet pack` 7 пакетів → `dotnet nuget push --skip-duplicate` → **верифікація присутності в
-реєстрі**. Якщо тести впадуть — публікації не буде.
+`release.yml`: setup .NET 10 → `dotnet build -warnaserror` → `dotnet test` (CI-фільтр, `.trx`) →
+`dotnet pack` 9 пакетів → **audit вмісту пакетів (gate перед публікацією)** → **checksums +
+provenance attestation** → `dotnet nuget push --skip-duplicate` → **верифікація присутності в
+реєстрі** → **installation + Native AOT smoke test з опублікованих пакетів** → **release evidence
+bundle**. Якщо тести або audit впадуть — публікації не буде.
+
+**Supply-chain гарантії кожного релізу:**
+
+- **детермінований build** — `ContinuousIntegrationBuild=true` автоматично на CI (див.
+  [`Directory.Build.props`](Directory.Build.props)), тому той самий коміт дає ідентичний вихід;
+- **symbol-пакети** — `.snupkg` поруч із кожним `.nupkg` (`dotnet nuget push` вантажить їх
+  автоматично) + SourceLink, тож споживач може зайти дебагером у код;
+- **package validation** — статичні перевірки SDK під час `pack`;
+- **SHA-256 checksums** — `artifacts/SHA256SUMS.txt`, разом із пакетами прикріплюється до run;
+- **build provenance attestation** — підписане твердження, що ці байти зібрані цим workflow із
+  цього коміту. Перевірити опублікований пакет:
+  ```bash
+  gh attestation verify LogicalOptimizer.3.1.0.nupkg --repo AlexanderV/LogicalOptimizer
+  ```
+- **Trusted Publishing (OIDC)** — довготривалого API-ключа не існує взагалі.
+
+Підпис самих NuGet-пакетів author-сертификатом не робимо: для цього потрібен code-signing
+сертифікат. Provenance attestation + checksums дають публічно перевірюване походження без нього.
+
+**Audit вмісту пакетів (перед публікацією):** крок «Verify package contract» запускає
+[`tools/verify_package_contract.ps1`](tools/verify_package_contract.ps1), який **відкриває кожен
+`.nupkg` як zip** і перевіряє контракт: власний README всередині пакета (і що він згадує саме цей
+пакет), змістовний і **унікальний** `Description`, теги, `PackageProjectUrl` і repository
+url/type/commit, SPDX-вираз ліцензії, `.snupkg` із `.pdb` на кожен TFM, наявність контрактних
+target frameworks у `lib/` (і `tools/` + `DotnetToolSettings.xml` + `packageType=DotnetTool` для
+CLI), відсутність будь-якої **сторонньої** runtime-залежності, і що meta-пакет транзитивно тягне
+всі library-пакети. Запускається до `nuget push` — опублікований пакет уже не видалити. Той самий
+audit працює і в CI на кожному PR (там же артефакт `package-contract-report`).
+
+```bash
+dotnet pack LogicalOptimizer.sln -c Release -o artifacts /p:Version=3.1.0
+pwsh tools/verify_package_contract.ps1 -Version 3.1.0
+# аудит уже опублікованих пакетів: завантаж їх у теку й вкажи -ArtifactsPath
+```
+
+Звіт — `package-contract-report.json` (machine-readable, з переліком того, чого він **не**
+доводить). Наразі: 9 пакетів, 161 перевірка.
 
 **Автоматична перевірка присутності:** після push крок «Verify packages on nuget.org» запускає
 [`tools/verify_nuget.ps1`](tools/verify_nuget.ps1), який опитує flat-container-індекс
@@ -60,28 +100,59 @@ pwsh tools/verify_nuget.ps1 -Version 2.1.0
 # швидкий разовий чек без очікування: -MaxAttempts 1
 ```
 
-**Перевірка:** вкладка **Actions** → run «Release»; за ~5–15 хв пакети на nuget.org.
-Smoke-тест:
+**Автоматичний installation smoke test:** останній крок workflow запускає
+[`tools/smoke_install.ps1`](tools/smoke_install.ps1) — він створює тимчасовий проєкт **поза
+репозиторієм** (щоб `Directory.Build.props` і project-references не впливали), ставить
+опублікований пакет саме з nuget.org, проганяє оптимізацію через публічний API з перевіркою
+`IsEquivalent()`/`MinimizationStatus`, тоді ставить CLI як global tool і перевіряє його
+`--format=json` звіт. Присутність в індексі ще не означає придатність — цей крок доводить її.
+
+З `-IncludeAot` той самий консьюмерський проєкт додатково збирається з `PublishAot=true` і
+**запускається як нативний бінарник**. [`aot.yml`](.github/workflows/aot.yml) доводить
+AOT-сумісність лише через project reference — це не ловить поломку на рівні пакування, тож реліз
+перевіряє AOT саме **з опублікованого пакета** (звіт: `aot-package-smoke.json`). Потрібен нативний
+toolchain: clang + zlib headers на Linux, MSVC build tools на Windows (локально — з Developer
+Command Prompt, інакше `link.exe` не знайдеться).
 
 ```bash
-dotnet new console -n Probe && cd Probe
-dotnet add package LogicalOptimizer
-dotnet tool install --global logical-optimizer
-logical-optimizer "a & b | a & c"
+# локально проти вже опублікованої версії:
+pwsh tools/smoke_install.ps1 -Version 3.1.0
+# без частини з global tool:
+pwsh tools/smoke_install.ps1 -Version 3.1.0 -SkipTool
+# + Native AOT з пакета:
+pwsh tools/smoke_install.ps1 -Version 3.1.0 -IncludeAot -AotReportPath aot-package-smoke.json
 ```
+
+**Release evidence bundle:** останній крок збирає
+[`tools/build_evidence_bundle.ps1`](tools/build_evidence_bundle.ps1) — усі докази релізу в одній
+теці: audit пакетів, перевірка індексу, AOT-звіт, `test-summary.json` (з `.trx`), `SHA256SUMS.txt`,
+`claim-changes.md` (секція CHANGELOG цієї версії) і `verifying-provenance.md` — інструкція, як
+**самостійно** перевірити attestation, checksums, контракт пакетів, install/AOT і JSON-схему CLI.
+`INDEX.md` каже, що кожен файл доводить (і чого **не** доводить), `manifest.json` дублює це
+machine-readable із SHA-256 кожного файлу. `-RequireAll` валить job, якщо якогось ключового доказу
+немає, тож bundle не може виглядати повним, коли він неповний. Bundle вантажиться як run-артефакт
+`release-evidence-<version>` і, якщо GitHub release для тега вже існує, прикріплюється до нього.
+
+```bash
+# локальний dry run (без -RequireAll відсутні входи просто позначаються 'absent'):
+pwsh tools/build_evidence_bundle.ps1 -Version 3.1.0 -PackageContractReport package-contract-report.json
+```
+
+**Перевірка:** вкладка **Actions** → run «Release»; за ~5–15 хв пакети на nuget.org.
 
 ## Версіювання та порядок тегів
 
 - **Завжди push `main` → потім push тег** (щоб гілка й docs-сайт були актуальні; docs-workflow
   тригериться на push у `main`).
-- Поточна dev-версія в csproj — **3.0.0** (мажор: AIG DAG-aware rewriting увімкнено за
-  замовчуванням + доведено-мінімальна min-AIG бібліотека; `EnableAigRewriting=false` повертає
-  до-3.0 поведінку).
+- Поточна dev-версія — **3.1.0** (у [`Directory.Build.props`](Directory.Build.props)). Мажор 3.0
+  увімкнув AIG DAG-aware rewriting за замовчуванням + доведено-мінімальну min-AIG бібліотеку
+  (`EnableAigRewriting=false` повертає до-3.0 поведінку).
 - **Історична примітка щодо тегів:** BDD complement edges (C1) влилися комітом `247afcd`. Якщо
   потрібен окремий реліз-міграція **без** complement edges, тегни `v2.0.0` на коміті `9090092`
   (останній перед C1), а `v2.1.0` — на `HEAD`. Якщо це не потрібно — просто випусти все одним
   тегом `v2.1.0` (перший опублікований реліз міститиме і міграцію, і complement edges).
-- Перед новим мінорним/мажорним тегом: онови `<Version>` у 7 csproj і додай запис у
+- Перед новим мінорним/мажорним тегом: онови `<Version>` у
+  [`Directory.Build.props`](Directory.Build.props) (одне місце) і додай запис у
   [CHANGELOG.md](CHANGELOG.md).
 
 ## Після релізу

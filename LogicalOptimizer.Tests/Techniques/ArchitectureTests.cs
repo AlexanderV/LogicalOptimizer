@@ -126,12 +126,13 @@ public class ArchitectureTests
         // reviewed decision — extend the list together with the README/API docs
         var expected = new HashSet<string>
         {
-            // Core (24)
+            // Core (27)
             "AstNode", "NaryNode", "AndNode", "OrNode", "NotNode", "VariableNode", "ConstantNode",
             "BinaryNode", "ImpNode", "XorNode", "NandNode", "NorNode", "EqvNode",
             "FormulaFactory", "AstFormatter", "AstVisualizer", "TruthTable",
             "OptimizationMetrics", "AstMetrics", "ResourceBudget", "ComputationBudgetExceededException",
             "NodeBudgetExceededException", "NormalFormTooLargeException", "CircuitSerializationException",
+            "FormulaParseException", "ParseDiagnostic", "ParseErrorCode",
             // Sat (14)
             "SatSolver", "SatResult", "MaxSatSolver", "MaxSatResult", "MaxSatStatus", "MaxSatAlgorithm",
             "CnfBuilder", "CardinalityEncoder", "PseudoBooleanEncoder", "CnfEncodingStyle", "TseitinCnf",
@@ -147,9 +148,10 @@ public class ArchitectureTests
             // Minimization (5)
             "TruthTableMinimizer", "CsvTruthTableParser", "PartialTruthTable",
             "MultiOutputTable", "MultiOutputFunction",
-            // Facade (19)
+            // Facade (22)
             "BooleanExpressionOptimizer", "OptimizationResult", "OptimizationOptions",
             "CnfMode", "MinimizationStatus", "ComputationStatus",
+            "OptimizationTrace", "OptimizationTraceEntry", "OptimizationTraceCategory",
             "EquivalenceChecker", "EquivalenceCheckResult", "IEquivalenceChecker",
             "HybridEquivalenceChecker", "BddEquivalenceChecker",
             "FormulaAnalysis", "BackboneResult", "Transformations",

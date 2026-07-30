@@ -84,6 +84,19 @@ api/.manifest
 # DocFX local tooling/log artifacts
 docs-site/log.txt
 docfx-*.zip
+# Staged copy of schema/ that the docs workflow serves at the JSON Schema's declared $id.
+# schema/ at the repository root is the single source of truth.
+docs-site/schema/
+
+# Release evidence bundle and the package contract audit report: build outputs of
+# tools/build_evidence_bundle.ps1 and tools/verify_package_contract.ps1.
+evidence/
+package-contract-report.json
+nuget-index-report.json
+aot-package-smoke.json
+comparison-reproduction-report.json
+# Baseline copy the reproduce-from-scratch job sets aside to diff a fresh run against.
+committed/
 
 
 # Python bytecode cache (comparison adapters)

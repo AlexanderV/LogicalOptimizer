@@ -1,0 +1,63 @@
+name: Feature request
+description: Propose a capability, or an API that would make an existing one usable
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The toolkit deliberately stays a **propositional Boolean reasoning library** — it is not
+        heading toward a general business-rules engine, a workflow DSL, or a full SMT stack.
+        Requests that fit the existing scope, or that make current capabilities easier to use,
+        move fastest. Concrete use cases carry real weight: some roadmap items are intentionally
+        gated on evidence of demand.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to accomplish? Describe the task, not a proposed API.
+      placeholder: "I validate feature-flag combinations at build time and need to …"
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What you do today
+      description: Which current APIs did you try, and where did they fall short? If you use another tool for this, say which.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed shape (optional)
+      description: A sketch of the API or CLI you would want to call.
+      render: csharp
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Optimization / minimization
+        - SAT / MaxSAT / encodings
+        - BDD
+        - d-DNNF / model counting
+        - Parsing / formula construction
+        - Formats (DIMACS / WCNF / OPB / CSV)
+        - CLI
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I checked the [documentation](https://AlexanderV.github.io/LogicalOptimizer/) and this is not already possible
+          required: true
+        - label: I searched existing issues and discussions
+          required: true

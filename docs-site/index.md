@@ -5,12 +5,12 @@ title: LogicalOptimizer
 
 # LogicalOptimizer
 
-**A dependency-free .NET toolkit and CLI for parsing, optimizing, and transforming Boolean expressions** — with *provable* minimization and mandatory equivalence verification of every result.
+**A .NET toolkit and CLI for parsing, optimizing, and transforming Boolean expressions, with no third-party runtime dependency** — with *provable* minimization and mandatory equivalence verification of every result.
 
-LogicalOptimizer is the most complete managed .NET Boolean-optimization toolkit: exact Quine–McCluskey minimization with an explicit proof status, a built-in CDCL SAT solver, an ROBDD engine, Tseitin/Plaisted–Greenbaum CNF, cardinality/pseudo-Boolean/MaxSAT encodings, and DIMACS/BLIF/Verilog/LaTeX exporters — with **zero production dependencies**.
+LogicalOptimizer covers exact Quine–McCluskey minimization with an explicit proof status, a built-in CDCL SAT solver, an ROBDD engine, d-DNNF knowledge compilation, Tseitin/Plaisted–Greenbaum CNF, cardinality/pseudo-Boolean/MaxSAT encodings, and DIMACS/BLIF/Verilog/LaTeX exporters — in one managed package set with **no third-party runtime dependency**. How that scope compares against Z3, LogicNG, SymPy and PyEDA, measured on a pinned corpus with pinned competitor versions: [comparison results](https://github.com/AlexanderV/LogicalOptimizer/blob/main/doc/comparison/merged.md).
 
 > [!NOTE]
-> Two guarantees the library never trades away: **zero production dependencies**, and **explainability plus mandatory verification** — every returned result is checked equivalent to the input (by truth table up to 12 variables, by SAT miter beyond).
+> Two guarantees the library never trades away: **no third-party runtime dependency** in any shipped package, and **explainability plus mandatory verification** — every returned result is checked equivalent to the input (by truth table up to 12 variables, by SAT miter beyond). Both terms are defined, and linked to the test or CI check that backs them, in [CLAIMS.md](https://github.com/AlexanderV/LogicalOptimizer/blob/main/doc/CLAIMS.md).
 
 ## Get started
 
@@ -54,4 +54,4 @@ Every code example across these articles is mirrored by an executed, asserted te
 
 ## Where it fits
 
-LogicalOptimizer is the *most complete managed .NET Boolean-optimization toolkit* — it is **not** a replacement for Z3 (full SMT), ABC (logic synthesis), CUDD (industrial BDD), or a complete Espresso. It is the best-in-niche managed option: everything in-house, everything verified.
+LogicalOptimizer is a *propositional* Boolean reasoning toolkit for .NET. It is **not** a replacement for Z3 (full SMT), ABC (logic synthesis), CUDD (industrial BDD), or a complete Espresso. What it offers instead is a specific combination: everything in-house and pure managed, and every optimization result verified equivalent to the input with an explicit minimality status. Whether that combination fits your case — and where the alternatives are the better choice — is worked through in [Choosing a tool](articles/choosing-a-tool.md).

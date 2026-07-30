@@ -345,6 +345,40 @@ public class TruthTableMinimizerTests
     }
 
     [Fact]
+    [Trait("Category", "Exhaustive")]
+    public void OptimizeExpression_AllFourVariableFunctions_MinimalProven()
+    {
+        // The published claim is that MinimalProven holds for every 3- AND 4-variable function
+        // (README "Overview", doc/CLAIMS.md). The 3-variable sweep above is cheap enough to run on
+        // every CI build; this one covers all 65534 non-constant 4-variable functions and is
+        // Exhaustive-category, so it runs locally and in the release-evidence sweep rather than on
+        // every push. Same two assertions: the status is proven, AND the returned form is still the
+        // input function - a proven status on a wrong result would be the worse bug.
+        var optimizer = new BooleanExpressionOptimizer();
+        var options = new OptimizationOptions
+        { ComputeCnf = false, ComputeDnf = false, ComputeAdvancedForms = false };
+        var variables = new[] { "a", "b", "c", "d" };
+
+        for (var truthBits = 1; truthBits < 65535; truthBits++)
+        {
+            var terms = new List<string>();
+            for (var minterm = 0; minterm < 16; minterm++)
+            {
+                if ((truthBits & (1 << minterm)) == 0) continue;
+                terms.Add(string.Join(" & ", variables.Select((v, j) =>
+                    (minterm & (1 << j)) != 0 ? v : "!" + v)));
+            }
+
+            var input = string.Join(" | ", terms);
+            var result = optimizer.OptimizeExpression(input, options);
+            Assert.True(MinimizationStatus.MinimalProven == result.MinimizationStatus,
+                $"Function {truthBits}: status {result.MinimizationStatus}");
+            Assert.True(TruthTable.AreEquivalent(Parse(input), Parse(result.Optimized)),
+                $"Function {truthBits}: optimized form is not equivalent to the input");
+        }
+    }
+
+    [Fact]
     public void OptimizeExpression_GuaranteeZone_ReportsMinimalProven()
     {
         var result = new BooleanExpressionOptimizer().OptimizeExpression("a & b | a & c | b & c");

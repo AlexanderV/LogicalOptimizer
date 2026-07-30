@@ -46,12 +46,13 @@ public class BooleanExpressionOptimizer
             var lexer = new Lexer(expression);
             var tokens = lexer.Tokenize();
 
-            var parser = new Parser(tokens, factory);
+            var parser = new Parser(tokens, factory, expression);
             var ast = parser.Parse();
 
             var metrics = options.IncludeMetrics ? new OptimizationMetrics() : null;
+            var trace = options.IncludeTrace ? new OptimizationTraceRecorder() : null;
             var optimizer = new RewriteEngine(factory);
-            var optimized = optimizer.Optimize(ast, metrics, token, options.Budget);
+            var optimized = optimizer.Optimize(ast, metrics, token, options.Budget, trace);
 
             var variables = ast.GetVariables().OrderBy(v => v).ToList();
 
@@ -66,7 +67,31 @@ public class BooleanExpressionOptimizer
             // POS (equivalent CNF) minimality is tracked separately: its cover search can hit
             // the budget independently of the SOP one, so a shared status would be dishonest.
             var cnfMinimizationStatus = MinimizationStatus.Heuristic;
-            if (variables.Count <= PerformanceValidator.MAX_EXACT_MINIMIZATION_VARIABLES)
+            var inExactZone = variables.Count <= PerformanceValidator.MAX_EXACT_MINIMIZATION_VARIABLES;
+            trace?.Add(OptimizationTraceCategory.EngineSelection, "ZoneSelection",
+                inExactZone
+                    ? $"{variables.Count} variable(s): exact Quine-McCluskey backend " +
+                      (variables.Count <= PerformanceValidator.EXACT_GUARANTEE_VARIABLES
+                          ? "in the unbounded guarantee zone (minimality provable)"
+                          : "under a work budget (minimality may end BudgetExceeded)")
+                    : $"{variables.Count} variable(s): beyond the exact gate — no 2^n table; " +
+                      (variables.Count <= PerformanceValidator.MAX_SAT_MINIMIZATION_VARIABLES
+                          ? "SAT prime-cover path, adopted only after a SAT-miter proof"
+                          : "Espresso-style cube-list heuristics"),
+                new Dictionary<string, string>
+                {
+                    ["variables"] = variables.Count.ToString(),
+                    ["exactGate"] = PerformanceValidator.MAX_EXACT_MINIMIZATION_VARIABLES.ToString(),
+                    ["guaranteeZone"] = PerformanceValidator.EXACT_GUARANTEE_VARIABLES.ToString(),
+                    ["satZone"] = PerformanceValidator.MAX_SAT_MINIMIZATION_VARIABLES.ToString(),
+                    ["engine"] = inExactZone
+                        ? "exact-qm"
+                        : variables.Count <= PerformanceValidator.MAX_SAT_MINIMIZATION_VARIABLES
+                            ? "sat-prime-cover"
+                            : "espresso-lite"
+                });
+
+            if (inExactZone)
                 try
                 {
                     // Exact backend: compute the guaranteed-minimal two-level forms from the
@@ -87,6 +112,16 @@ public class BooleanExpressionOptimizer
                         ? PerformanceValidator.GUARANTEE_COVER_STEP_LIMIT
                         : options.Budget.CoverStepLimit;
 
+                    trace?.Add(OptimizationTraceCategory.Budget, "ExactMinimization",
+                        qmBudget == null
+                            ? "QM pair comparisons unbounded (guarantee zone); cover search bounded"
+                            : "QM pair comparisons and cover search bounded by the caller's budget",
+                        new Dictionary<string, string>
+                        {
+                            ["qmPairComparisonLimit"] = qmBudget?.ToString() ?? "unbounded",
+                            ["coverStepLimit"] = coverStepLimit.ToString()
+                        });
+
                     var onSet = ComputeOnSet(ast, variables, token);
                     var (rawMinSop, provenMinimal) = TruthTableMinimizer.MinimalSopWithStatus(variables, onSet,
                         pairComparisonLimit: qmBudget, cancellationToken: token,
@@ -94,6 +129,17 @@ public class BooleanExpressionOptimizer
                     minimizationStatus = provenMinimal
                         ? MinimizationStatus.MinimalProven
                         : MinimizationStatus.BudgetExceeded;
+
+                    trace?.Add(provenMinimal ? OptimizationTraceCategory.Proof : OptimizationTraceCategory.Status,
+                        "ExactMinimization",
+                        provenMinimal
+                            ? "minimum-cover search completed: the two-level cover is provably minimal"
+                            : "cover search hit its step/comparison budget: sound but minimality NOT proven",
+                        new Dictionary<string, string>
+                        {
+                            ["minimizationStatus"] = minimizationStatus.ToString(),
+                            ["onSetSize"] = onSet.Count.ToString()
+                        });
                     // Import canonicalizes the raw minimizer output (flatten/sort/intern)
                     var minSop = factory.Import(rawMinSop);
                     var factoredMinSop =
@@ -101,7 +147,8 @@ public class BooleanExpressionOptimizer
                             ? optimizer.Optimize(minSop, null, token, options.Budget)
                             : minSop;
 
-                    var selected = SelectCheapest(optimized, factoredMinSop, minSop);
+                    var selected = SelectCheapestTraced(trace, "ExactMinimization",
+                        ("rewritten", optimized), ("factored-min-sop", factoredMinSop), ("min-sop", minSop));
                     if (!ReferenceEquals(selected, optimized) && metrics != null)
                     {
                         metrics.RuleApplicationCount.TryAdd("ExactMinimization", 0);
@@ -121,12 +168,26 @@ public class BooleanExpressionOptimizer
                         cnfMinimizationStatus = posProven
                             ? MinimizationStatus.MinimalProven
                             : MinimizationStatus.BudgetExceeded;
+
+                        trace?.Add(posProven ? OptimizationTraceCategory.Proof : OptimizationTraceCategory.Status,
+                            "EquivalentCnf",
+                            posProven
+                                ? "minimum POS cover search completed: the equivalent CNF is provably minimal"
+                                : "POS cover search hit its budget: the CNF is sound but not proven minimal",
+                            new Dictionary<string, string>
+                            {
+                                ["cnfMinimizationStatus"] = cnfMinimizationStatus.ToString()
+                            });
                     }
 
                     exactCompleted = true;
                 }
                 catch (ComputationBudgetExceededException)
                 {
+                    trace?.Add(OptimizationTraceCategory.Fallback, "ExactMinimization",
+                        "exact backend exceeded its work budget — falling back to the heuristic path; " +
+                        "the result stays sound, only the minimality proof is waived",
+                        new Dictionary<string, string> { ["minimizationStatus"] = "BudgetExceeded" });
                     // Dense function beyond the QM work budget: report the exhaustion honestly
                     // (never disguised as an ordinary heuristic pass) and fall back to the
                     // heuristic normal forms below. The result stays sound; only the minimality
@@ -141,7 +202,20 @@ public class BooleanExpressionOptimizer
                 // variables drops to its provably minimal library form (sound by
                 // construction — each entry is an exact-minimizer result)
                 var locallyRewritten = factory.Import(SubcircuitLibrary.RewriteSubcircuits(optimized));
-                if (AstMetrics.CountLiterals(locallyRewritten) < AstMetrics.CountLiterals(optimized))
+                var subcircuitImproved =
+                    AstMetrics.CountLiterals(locallyRewritten) < AstMetrics.CountLiterals(optimized);
+                trace?.Add(subcircuitImproved ? OptimizationTraceCategory.Adopted : OptimizationTraceCategory.Rejected,
+                    "SubcircuitRewrite",
+                    subcircuitImproved
+                        ? "every ≤3-variable subtree replaced by its provably minimal library form"
+                        : "library forms were not cheaper than the current expression",
+                    new Dictionary<string, string>
+                    {
+                        ["literalsBefore"] = AstMetrics.CountLiterals(optimized).ToString(),
+                        ["literalsAfter"] = AstMetrics.CountLiterals(locallyRewritten).ToString()
+                    });
+
+                if (subcircuitImproved)
                 {
                     if (metrics != null)
                     {
@@ -163,17 +237,36 @@ public class BooleanExpressionOptimizer
                         PerformanceValidator.SAT_MINIMIZATION_QUERY_CONFLICTS,
                         token);
 
-                    if (satSop != null &&
-                        EquivalenceChecker.CheckWithSat(optimized, satSop,
-                            options.Budget.SatConflictLimit, token).AreEquivalent == true)
+                    var satProven = satSop != null &&
+                                    EquivalenceChecker.CheckWithSat(optimized, satSop,
+                                        options.Budget.SatConflictLimit, token).AreEquivalent == true;
+
+                    trace?.Add(satProven ? OptimizationTraceCategory.Proof : OptimizationTraceCategory.Rejected,
+                        "SatPrimeCover",
+                        satSop == null
+                            ? "SAT prime-cover search produced no cover within its cube/conflict limits"
+                            : satProven
+                                ? "prime cover proven equivalent by SAT miter — eligible as a candidate"
+                                : "prime cover NOT proven equivalent within the SAT budget — discarded",
+                        new Dictionary<string, string>
+                        {
+                            ["coverFound"] = satSop != null ? "true" : "false",
+                            ["proven"] = satProven ? "true" : "false",
+                            ["cubeLimit"] = PerformanceValidator.SAT_MINIMIZATION_CUBE_LIMIT.ToString(),
+                            ["satConflictLimit"] = options.Budget.SatConflictLimit.ToString()
+                        });
+
+                    if (satProven)
                     {
-                        satSop = factory.Import(satSop);
+                        // satProven implies satSop != null (checked above).
+                        satSop = factory.Import(satSop!);
                         var factoredSatSop =
                             AstMetrics.CountNodes(satSop) <= PerformanceValidator.MAX_FACTORED_MIN_SOP_NODES
                                 ? optimizer.Optimize(satSop, null, token, options.Budget)
                                 : satSop;
 
-                        var selected = SelectCheapest(optimized, factoredSatSop, satSop);
+                        var selected = SelectCheapestTraced(trace, "SatPrimeCover",
+                            ("rewritten", optimized), ("factored-sat-sop", factoredSatSop), ("sat-sop", satSop));
                         if (!ReferenceEquals(selected, optimized) && metrics != null)
                         {
                             metrics.RuleApplicationCount.TryAdd("SatCoverMinimization", 0);
@@ -205,6 +298,10 @@ public class BooleanExpressionOptimizer
                     catch (NormalFormTooLargeException)
                     {
                         (cnfText, cnfStatus) = ("-", ComputationStatus.TooLarge);
+                        trace?.Add(OptimizationTraceCategory.Fallback, "EquivalentCnf",
+                            "distributive CNF conversion exceeded its size cap — reported as TooLarge " +
+                            "instead of an unbounded blow-up (use --cnf-mode=tseitin for a linear CNF)",
+                            new Dictionary<string, string> { ["cnfStatus"] = "TooLarge" });
                     }
 
                 if (options.ComputeDnf && dnfText.Length == 0)
@@ -221,6 +318,9 @@ public class BooleanExpressionOptimizer
                     catch (NormalFormTooLargeException)
                     {
                         (dnfText, dnfStatus) = ("-", ComputationStatus.TooLarge);
+                        trace?.Add(OptimizationTraceCategory.Fallback, "Dnf",
+                            "distributive DNF conversion exceeded its size cap — reported as TooLarge",
+                            new Dictionary<string, string> { ["dnfStatus"] = "TooLarge" });
                     }
             }
 
@@ -234,10 +334,15 @@ public class BooleanExpressionOptimizer
             // ever improve the result and never regress it. Off by default -> no effect at all.
             if (options.EnableAigRewriting)
             {
-                var aigCandidate = TryAigRewrite(optimized, factory, options, token);
+                var aigCandidate = TryAigRewrite(optimized, factory, options, token, out var aigReason);
+                if (aigCandidate == null)
+                    trace?.Add(OptimizationTraceCategory.Rejected, "AigRewrite", aigReason);
+
                 if (aigCandidate != null)
                 {
-                    var selected = SelectCheapest(optimized, aigCandidate);
+                    trace?.Add(OptimizationTraceCategory.Proof, "AigRewrite", aigReason);
+                    var selected = SelectCheapestTraced(trace, "AigRewrite",
+                        ("current", optimized), ("aig-rewritten", aigCandidate));
                     if (!ReferenceEquals(selected, optimized))
                     {
                         if (metrics != null)
@@ -261,6 +366,18 @@ public class BooleanExpressionOptimizer
             var includeTruthTables =
                 options.IncludeTruthTables && variables.Count <= PerformanceValidator.MAX_TRUTH_TABLE_VARIABLES;
 
+            trace?.Add(OptimizationTraceCategory.Status, "Result",
+                $"final minimality provenance: {minimizationStatus}",
+                new Dictionary<string, string>
+                {
+                    ["minimizationStatus"] = minimizationStatus.ToString(),
+                    ["cnfMinimizationStatus"] = cnfMinimizationStatus.ToString(),
+                    ["cnfStatus"] = cnfStatus.ToString(),
+                    ["dnfStatus"] = dnfStatus.ToString(),
+                    ["literalsIn"] = AstMetrics.CountLiterals(ast).ToString(),
+                    ["literalsOut"] = AstMetrics.CountLiterals(optimized).ToString()
+                });
+
             token.ThrowIfCancellationRequested();
             var result = new OptimizationResult
             {
@@ -275,6 +392,7 @@ public class BooleanExpressionOptimizer
                 CnfMinimizationStatus = cnfMinimizationStatus,
                 Variables = variables,
                 Metrics = metrics,
+                Trace = trace?.Build(),
                 OriginalTruthTable = includeTruthTables ? TruthTable.Generate(ast) : null,
                 OptimizedTruthTable = includeTruthTables ? TruthTable.Generate(optimized) : null
             };
@@ -340,13 +458,21 @@ public class BooleanExpressionOptimizer
     ///     path failing — a null just means "no extra candidate".
     /// </summary>
     private static AstNode? TryAigRewrite(AstNode expression, FormulaFactory factory, OptimizationOptions options,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, out string reason)
     {
         var aig = AndInverterGraph.FromAst(expression);
-        if (aig.AndNodeCount > AigRewriteMaxAndNodes) return null;
+        if (aig.AndNodeCount > AigRewriteMaxAndNodes)
+        {
+            reason = $"AIG too large ({aig.AndNodeCount} AND nodes > {AigRewriteMaxAndNodes} limit)";
+            return null;
+        }
 
         var rewritten = aig.RewriteToFixpoint(AigRewriteMaxRounds, cancellationToken);
-        if (rewritten.AndNodeCount >= aig.AndNodeCount) return null; // no structural gain
+        if (rewritten.AndNodeCount >= aig.AndNodeCount)
+        {
+            reason = $"no structural gain ({aig.AndNodeCount} -> {rewritten.AndNodeCount} AND nodes)";
+            return null; // no structural gain
+        }
 
         var candidate = factory.Import(rewritten.ToAst(rewritten.Root));
 
@@ -356,7 +482,17 @@ public class BooleanExpressionOptimizer
             .Check(expression, candidate, options.Budget.SatConflictLimit, cancellationToken)
             .AreEquivalent;
 
-        return equivalent == true ? candidate : null;
+        if (equivalent == true)
+        {
+            reason = $"AIG rewriting shrank the graph ({aig.AndNodeCount} -> {rewritten.AndNodeCount} " +
+                     "AND nodes) and the candidate was proven equivalent";
+            return candidate;
+        }
+
+        reason = equivalent == false
+            ? "candidate refuted by the equivalence checker (rewrite bug) — discarded"
+            : "equivalence unproven within the SAT budget — discarded rather than shipped unverified";
+        return null;
     }
 
     /// <summary>Minterm indices where the expression is true; bit j = value of variables[j].</summary>
@@ -381,6 +517,47 @@ public class BooleanExpressionOptimizer
         }
 
         return onSet;
+    }
+
+    /// <summary>
+    ///     <see cref="SelectCheapest" /> with diagnostics: records every candidate's cost and
+    ///     whether it displaced the incumbent (the first entry) or lost to it, so a trace explains
+    ///     not just which form won but what it was compared against. Selection semantics are
+    ///     identical — the first candidate still wins ties.
+    /// </summary>
+    private static AstNode SelectCheapestTraced(OptimizationTraceRecorder? trace, string step,
+        params (string Name, AstNode Node)[] candidates)
+    {
+        var selected = SelectCheapest(candidates.Select(c => c.Node).ToArray());
+        if (trace == null) return selected;
+
+        foreach (var (name, node) in candidates)
+            trace.Add(OptimizationTraceCategory.Candidate, step, $"candidate '{name}' costed",
+                new Dictionary<string, string>
+                {
+                    ["candidate"] = name,
+                    ["literals"] = AstMetrics.CountLiterals(node).ToString(),
+                    ["nodes"] = AstMetrics.CountNodes(node).ToString()
+                });
+
+        var incumbent = candidates[0];
+        var winner = candidates.First(c => ReferenceEquals(c.Node, selected));
+        if (ReferenceEquals(selected, incumbent.Node))
+            trace.Add(OptimizationTraceCategory.Rejected, step,
+                $"no candidate beat '{incumbent.Name}' on literals, then nodes — keeping it",
+                new Dictionary<string, string> { ["kept"] = incumbent.Name });
+        else
+            trace.Add(OptimizationTraceCategory.Adopted, step,
+                $"adopted '{winner.Name}': cheaper than '{incumbent.Name}' on literals, then nodes",
+                new Dictionary<string, string>
+                {
+                    ["adopted"] = winner.Name,
+                    ["replaced"] = incumbent.Name,
+                    ["literalsBefore"] = AstMetrics.CountLiterals(incumbent.Node).ToString(),
+                    ["literalsAfter"] = AstMetrics.CountLiterals(selected).ToString()
+                });
+
+        return selected;
     }
 
     /// <summary>Cheapest candidate by literal count, then node count; earlier wins ties.</summary>

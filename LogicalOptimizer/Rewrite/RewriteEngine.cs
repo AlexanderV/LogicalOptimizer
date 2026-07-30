@@ -55,7 +55,8 @@ internal sealed class RewriteEngine
     public FormulaFactory Factory => _factory;
 
     public AstNode Optimize(AstNode node, OptimizationMetrics? metrics = null,
-        CancellationToken cancellationToken = default, ResourceBudget? budget = null)
+        CancellationToken cancellationToken = default, ResourceBudget? budget = null,
+        OptimizationTraceRecorder? trace = null)
     {
         if (node == null) throw new ArgumentNullException(nameof(node));
         budget ??= ResourceBudget.Default;
@@ -101,17 +102,62 @@ internal sealed class RewriteEngine
         // greedy loop cannot cross (e.g. (a|b)&c | a&!c → a | b&c)
         if (variableCount > PerformanceValidator.MAX_EXACT_MINIMIZATION_VARIABLES &&
             AstMetrics.CountNodes(node) <= MaxExpandReduceInputNodes)
+        {
+            var beforeExpandReduce = node;
             node = TryExpandReduce(node);
+            trace?.Add(
+                ReferenceEquals(node, beforeExpandReduce)
+                    ? OptimizationTraceCategory.Rejected
+                    : OptimizationTraceCategory.Adopted,
+                "ExpandReduce",
+                ReferenceEquals(node, beforeExpandReduce)
+                    ? "bounded distribute-then-simplify found nothing strictly cheaper"
+                    : "bounded distribute-then-simplify produced a cheaper form",
+                new Dictionary<string, string>
+                {
+                    ["literalsBefore"] = AstMetrics.CountLiterals(beforeExpandReduce).ToString(),
+                    ["literalsAfter"] = AstMetrics.CountLiterals(node).ToString()
+                });
+        }
+
+        trace?.Add(OptimizationTraceCategory.EngineSelection, "RewritePipeline",
+            $"fixpoint loop ran {iterations} iteration(s)",
+            new Dictionary<string, string>
+            {
+                ["iterations"] = iterations.ToString(),
+                ["maxIterations"] = _maxIterations.ToString(),
+                ["nodesBefore"] = originalNodeCount.ToString(),
+                ["nodesAfter"] = AstMetrics.CountNodes(node).ToString()
+            });
 
         // Soundness guard: a rewrite must never change the function, and it is accepted only
         // when equivalence is positively PROVEN. A refutation means a rule bug; an Unknown
         // (SAT budget exhausted before proving equivalence) is treated the same as a failure —
         // we fall back to the untouched input rather than ship an unverified result. Small
         // expressions are verified by truth table, larger ones by the SAT-based miter.
-        var guardVerdict = variableCount <= PerformanceValidator.MAX_EQUIVALENCE_CHECK_VARIABLES
+        var byTruthTable = variableCount <= PerformanceValidator.MAX_EQUIVALENCE_CHECK_VARIABLES;
+        var guardVerdict = byTruthTable
             ? TruthTable.AreEquivalent(input, node)
             : EquivalenceChecker.CheckWithSat(input, node,
                 budget.SoundnessGuardConflictLimit, cancellationToken).AreEquivalent == true;
+
+        trace?.Add(guardVerdict ? OptimizationTraceCategory.Proof : OptimizationTraceCategory.Fallback,
+            "SoundnessGuard",
+            guardVerdict
+                ? $"rewrite proven equivalent to the input by {(byTruthTable ? "truth table" : "SAT miter")}"
+                : $"equivalence NOT proven by {(byTruthTable ? "truth table" : "SAT miter")} " +
+                  "(refuted, or SAT budget exhausted) — rolling back to the input",
+            new Dictionary<string, string>
+            {
+                ["method"] = byTruthTable ? "truth-table" : "sat-miter",
+                ["variables"] = variableCount.ToString(),
+                ["truthTableThreshold"] = PerformanceValidator.MAX_EQUIVALENCE_CHECK_VARIABLES.ToString(),
+                ["satConflictLimit"] = byTruthTable
+                    ? "n/a"
+                    : budget.SoundnessGuardConflictLimit.ToString(),
+                ["proven"] = guardVerdict ? "true" : "false"
+            });
+
         if (!guardVerdict)
         {
             RecordRuleApplication(metrics, "SoundnessRollback", countAsApplied: false);

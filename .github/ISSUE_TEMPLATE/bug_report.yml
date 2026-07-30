@@ -1,0 +1,84 @@
+name: Bug report
+description: A wrong result, a crash, or behaviour that contradicts the documentation
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. The most valuable thing you can give us is the **exact input**
+        that reproduces it — with that, this becomes a regression test.
+
+        For a security issue, please do **not** file an issue: see
+        [SECURITY.md](https://github.com/AlexanderV/LogicalOptimizer/blob/main/SECURITY.md).
+
+  - type: input
+    id: input-expression
+    attributes:
+      label: Input
+      description: The exact expression, CSV table, or problem file (attach the file if it is large).
+      placeholder: "a & b | a & c"
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: The API call or CLI command you ran.
+      placeholder: |
+        // API
+        var result = new BooleanExpressionOptimizer().OptimizeExpression("a & b | a & c");
+
+        # or CLI
+        logical-optimizer --format=json "a & b | a & c"
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: The actual output, or the full exception with its stack trace.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: For a wrong-result report, say why the expected output is correct (a truth table, a counterexample, another tool's result).
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Package or tool version, and which package(s) you reference.
+      placeholder: "LogicalOptimizer 3.1.0 (facade) + LogicalOptimizer.Dnnf"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: framework
+    attributes:
+      label: Target framework
+      options:
+        - net10.0
+        - net8.0
+        - other (say which)
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS / runtime
+      placeholder: "Windows 11 x64 / Ubuntu 24.04 / macOS 15 arm64; Native AOT?"
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: Options used (`OptimizationOptions`, budgets, `--cnf-mode`, …), or how often it reproduces.

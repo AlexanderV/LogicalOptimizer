@@ -27,6 +27,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogicalOptimizer.AotSmoke",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogicalOptimizer.Formats", "LogicalOptimizer.Formats\LogicalOptimizer.Formats.csproj", "{405AF89E-26BD-4F7B-AEE3-3DA3D6CEAC8A}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{5D20AA90-6969-D8BD-9DCD-8634F4692FDA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogicalOptimizer.Samples", "samples\LogicalOptimizer.Samples\LogicalOptimizer.Samples.csproj", "{BBD314AA-B469-4920-8FF8-7375E393F951}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -181,9 +185,24 @@ Global
 		{405AF89E-26BD-4F7B-AEE3-3DA3D6CEAC8A}.Release|x64.Build.0 = Release|Any CPU
 		{405AF89E-26BD-4F7B-AEE3-3DA3D6CEAC8A}.Release|x86.ActiveCfg = Release|Any CPU
 		{405AF89E-26BD-4F7B-AEE3-3DA3D6CEAC8A}.Release|x86.Build.0 = Release|Any CPU
+		{BBD314AA-B469-4920-8FF8-7375E393F951}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BBD314AA-B469-4920-8FF8-7375E393F951}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BBD314AA-B469-4920-8FF8-7375E393F951}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BBD314AA-B469-4920-8FF8-7375E393F951}.Debug|x64.Build.0 = Debug|Any CPU
+		{BBD314AA-B469-4920-8FF8-7375E393F951}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BBD314AA-B469-4920-8FF8-7375E393F951}.Debug|x86.Build.0 = Debug|Any CPU
+		{BBD314AA-B469-4920-8FF8-7375E393F951}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BBD314AA-B469-4920-8FF8-7375E393F951}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BBD314AA-B469-4920-8FF8-7375E393F951}.Release|x64.ActiveCfg = Release|Any CPU
+		{BBD314AA-B469-4920-8FF8-7375E393F951}.Release|x64.Build.0 = Release|Any CPU
+		{BBD314AA-B469-4920-8FF8-7375E393F951}.Release|x86.ActiveCfg = Release|Any CPU
+		{BBD314AA-B469-4920-8FF8-7375E393F951}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{BBD314AA-B469-4920-8FF8-7375E393F951} = {5D20AA90-6969-D8BD-9DCD-8634F4692FDA}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {8A08A6A2-6739-49D3-A55E-55DB8B991817}

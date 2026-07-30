@@ -16,26 +16,21 @@
     <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
 
+    <!-- Shared package metadata is centralized in ..\Directory.Build.props. -->
     <PackageId>LogicalOptimizer</PackageId>
-    <Version>3.1.0</Version>
-    <Authors>Oleksandr Panasenko</Authors>
     <Description>Dependency-free boolean expression optimizer: provably minimal results with explicit proof status (exact Quine-McCluskey backend), built-in CDCL SAT solver with equivalence checking and counterexamples, Tseitin CNF, ROBDD with model counting, truth tables with don't-cares, multi-output CSV minimization, and DIMACS/BLIF/Verilog exporters.</Description>
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>boolean;logic;minimization;quine-mccluskey;sat-solver;bdd;cnf;dnf;tseitin;equivalence</PackageTags>
-    <PackageProjectUrl>https://AlexanderV.github.io/LogicalOptimizer/</PackageProjectUrl>
+    <PackageTags>boolean;logic;minimization;quine-mccluskey;sat-solver;bdd;cnf;dnf;tseitin;equivalence;boolean-expression;expression-simplification;equivalence-checking;native-aot;pure-managed</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- CS1591: missing XML comments on some public members; CS1570: unescaped '&' in
          boolean-formula examples inside comments. Docs are being expanded incrementally. -->
     <NoWarn>$(NoWarn);CS1591;CS1570</NoWarn>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="LogicalOptimizer.Tests" />
     <InternalsVisibleTo Include="LogicalOptimizer.Cli" />
-    <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>

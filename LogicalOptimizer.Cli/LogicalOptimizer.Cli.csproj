@@ -8,16 +8,13 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <RootNamespace>LogicalOptimizer</RootNamespace>
 
+    <!-- Shared package metadata is centralized in ..\Directory.Build.props. -->
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>logical-optimizer</ToolCommandName>
     <PackageId>LogicalOptimizer.Cli</PackageId>
-    <Version>3.1.0</Version>
-    <Authors>Oleksandr Panasenko</Authors>
     <Description>Command-line interface for LogicalOptimizer: boolean expression optimization with provable minimality, truth tables, CSV input, multi-output minimization, and export formats.</Description>
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>boolean;logic;minimization;cli;quine-mccluskey;sat</PackageTags>
-    <PackageProjectUrl>https://AlexanderV.github.io/LogicalOptimizer/</PackageProjectUrl>
+    <PackageTags>boolean;logic;minimization;cli;quine-mccluskey;sat;boolean-expression;expression-simplification;equivalence-checking</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,7 +24,7 @@
     <ProjectReference Include="..\LogicalOptimizer.Formats\LogicalOptimizer.Formats.csproj" />
     <ProjectReference Include="..\LogicalOptimizer.Dnnf\LogicalOptimizer.Dnnf.csproj" />
     <InternalsVisibleTo Include="LogicalOptimizer.Tests" />
-    <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

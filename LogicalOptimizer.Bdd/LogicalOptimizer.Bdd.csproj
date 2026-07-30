@@ -16,25 +16,20 @@
     <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
 
+    <!-- Shared package metadata is centralized in ..\Directory.Build.props. -->
     <PackageId>LogicalOptimizer.Bdd</PackageId>
-    <Version>3.1.0</Version>
-    <Authors>Oleksandr Panasenko</Authors>
     <Description>BDD layer of the LogicalOptimizer toolkit: ROBDD with hash-consing, model counting, quantification, restriction, composition and variable-order optimization (static heuristics + sifting).</Description>
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>bdd;robdd;decision-diagram;model-counting;quantification</PackageTags>
-    <PackageProjectUrl>https://AlexanderV.github.io/LogicalOptimizer/</PackageProjectUrl>
+    <PackageTags>bdd;robdd;decision-diagram;model-counting;quantification;feature-model;configuration;native-aot;pure-managed</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591;CS1570</NoWarn>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="LogicalOptimizer" />
     <InternalsVisibleTo Include="LogicalOptimizer.Tests" />
     <InternalsVisibleTo Include="LogicalOptimizer.Cli" />
-    <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>

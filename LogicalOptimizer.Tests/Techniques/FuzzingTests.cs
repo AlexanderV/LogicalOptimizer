@@ -110,10 +110,10 @@ public class FuzzingTests
         Assert.Equal("a", RandomExpressions.Parse(shallow).ToString());
 
         var tooDeep = new string('(', 100_000) + "a" + new string(')', 100_000);
-        Assert.Throws<ArgumentException>(() => RandomExpressions.Parse(tooDeep));
+        Assert.ThrowsAny<ArgumentException>(() => RandomExpressions.Parse(tooDeep));
 
         var negations = new string('!', 100_000) + "a";
-        Assert.Throws<ArgumentException>(() => RandomExpressions.Parse(negations));
+        Assert.ThrowsAny<ArgumentException>(() => RandomExpressions.Parse(negations));
     }
 
     [Fact]

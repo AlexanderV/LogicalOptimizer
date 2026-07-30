@@ -10,6 +10,8 @@ on:
     branches: [main]
     paths:
       - 'docs-site/**'
+      # The CLI report JSON Schema is served from the site at the $id it declares.
+      - 'schema/**'
       - 'LogicalOptimizer.Core/**'
       - 'LogicalOptimizer.Sat/**'
       - 'LogicalOptimizer.Bdd/**'
@@ -47,6 +49,15 @@ jobs:
 
       - name: Install DocFX
         run: dotnet tool install -g docfx
+
+      # The CLI report JSON Schema declares $id https://<site>/schema/cli-report-v1.schema.json,
+      # so it has to be served from exactly that path. Staged into the site's resource tree here
+      # rather than committed twice; schema/ is the single source of truth.
+      - name: Stage the CLI report JSON Schema
+        run: |
+          mkdir -p docs-site/schema/examples
+          cp schema/*.json docs-site/schema/
+          cp schema/examples/*.json docs-site/schema/examples/
 
       - name: Build documentation site
         run: docfx docs-site/docfx.json

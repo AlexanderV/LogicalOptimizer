@@ -7,6 +7,104 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Turning shipped capabilities into a versioned, independently verifiable product contract. No
+public API change; no runtime behaviour change.
+
+### Added
+
+- **Published JSON Schema for the CLI report.** The `--format=json` document is now a contract
+  rather than a convention: [`schema/cli-report-v1.schema.json`](schema/cli-report-v1.schema.json)
+  (Draft 2020-12, served from the docs site at the `$id` it declares), seven golden example
+  reports in [`schema/examples/`](schema/examples) covering success, `BudgetExceeded` minimality, a
+  `TooLarge` normal form, the optional `advanced` field, `--trace`, a structured parse error and a
+  bare processing error, and [`schema/README.md`](schema/README.md) spelling out what may change
+  within a version and what requires a new one. `CliReportSchemaTests` validates the committed
+  examples *and* freshly generated output against the schema, checks the schema's enums are exactly
+  the CLR enums (`MinimizationStatus`, `ComputationStatus`, `OptimizationTraceCategory`,
+  `ParseErrorCode`), and proves the schema is closed — so a field cannot be added, renamed, retyped
+  or dropped without a reviewed schema diff.
+- **Package contract audit.** [`tools/verify_package_contract.ps1`](tools/verify_package_contract.ps1)
+  opens every `.nupkg` as a zip and asserts 161 checks across the nine packages: a
+  package-specific README that is actually present in the package, a substantial and **distinct**
+  description, tags, project/repository URLs, an Apache-2.0 SPDX expression, a `.snupkg` carrying a
+  `.pdb` per framework, the contracted target frameworks in `lib/` (`tools/` +
+  `DotnetToolSettings.xml` + `packageType=DotnetTool` for the CLI), no third-party runtime
+  dependency anywhere, and that the meta-package transitively reaches every library package. It
+  writes a machine-readable report — including what it does *not* prove — runs on every pull
+  request, and **gates the release before `nuget push`**, since a published package cannot be
+  withdrawn.
+- **Native AOT and modular-install smoke tests from the published packages.**
+  `tools/smoke_install.ps1` now installs **every** modular package into its own project and asserts
+  the assemblies it should bring load with public types (for `LogicalOptimizer.Full`, all seven
+  library assemblies through one reference), and with `-IncludeAot` compiles the consumer program
+  with `PublishAot=true` and runs the native binary. `aot.yml` only proves AOT compatibility through
+  an in-repo project reference, which cannot catch a packaging-level break.
+- **Release evidence bundle.** [`tools/build_evidence_bundle.ps1`](tools/build_evidence_bundle.ps1)
+  collects the package contract audit, the nuget.org index check, the AOT smoke result, test counts
+  parsed from the release `.trx`, `SHA256SUMS.txt`, this version's changelog section as
+  `claim-changes.md`, and `verifying-provenance.md` (how to re-verify the attestation, checksums,
+  package contract, install/AOT smoke and CLI schema yourself) into one directory with an `INDEX.md`
+  and a `manifest.json` carrying each file's SHA-256. Missing inputs are recorded as `absent` and
+  `-RequireAll` fails the release, so a bundle cannot look complete when it is not. Attached to the
+  tag's GitHub release when one exists, and always uploaded as a run artifact.
+- **Claims glossary with mechanical enforcement.** [`doc/CLAIMS.md`](doc/CLAIMS.md) defines every
+  public claim — `verified`, `minimal`, `dependency-free`, `Native AOT support`, `benchmark result`,
+  `no silent fallbacks` — with the approved wording, the executable test / CI check / versioned
+  artifact that backs it, and the limits it deliberately does not assert.
+  [`ClaimsConsistencyTests`](LogicalOptimizer.Tests/Techniques/ClaimsConsistencyTests.cs) fails the
+  build when a public-facing document uses a banned phrasing, and when a cited piece of evidence
+  stops resolving — the file *and* the named test method are both checked, so a claim cannot outlive
+  its backing. A `<!-- claim-ok: reason -->` escape covers legitimate uses such as stating a
+  limitation.
+- **Exhaustive 4-variable minimality proof.**
+  `TruthTableMinimizerTests.OptimizeExpression_AllFourVariableFunctions_MinimalProven` (`Exhaustive`
+  category) checks that all 65534 non-constant 4-variable functions report `MinimalProven` **and**
+  stay equivalent to the input. The README already claimed this for 3- and 4-variable functions
+  while only the 3-variable sweep existed, so the claim is now backed rather than reworded.
+- **Adoption feedback channel.** A dedicated
+  [use-case report](.github/ISSUE_TEMPLATE/use_case_report.yml) issue form asks for formula kind and
+  size, operation frequency, which guarantees the caller actually depends on, deployment
+  constraints, why LogicalOptimizer was chosen *or rejected*, capability gaps separately from
+  documentation gaps, and citation permission. [`doc/ADOPTION.md`](doc/ADOPTION.md) records how each
+  field maps to a specific decision, and that aggregation is manual and public — the library still
+  collects **no telemetry**, so this is the only roadmap input.
+- **Compatibility and lifecycle policy** in [SUPPORT.md](SUPPORT.md): CLI exit-code stability, the
+  JSON schema contract, a 12-month support window for the previous major with its fix scope, and a
+  four-step deprecation process (announce → `[Obsolete]` warning → unchanged behaviour for the rest
+  of the major → removal only in the next major).
+
+- **Comparison reproduction is now checked, not trusted.**
+  [`tools/verify_comparison_reproduction.ps1`](tools/verify_comparison_reproduction.ps1) asserts that
+  a comparison run used the committed corpus (by SHA-256, not by filename), recorded its
+  environment, produced an `equivalent` verdict on every optimization/minimization row, an `unsat`
+  verdict on every equivalence miter, agreeing model counts from the two independent counting
+  engines, and **enough populated competitor columns** — every adapter self-skips by design, so the
+  container previously exited 0 even when every competitor cell stayed `pending`, making "it
+  reproduced" unfalsifiable. With `-CompareWith` it also enforces the determinism claim the
+  methodology states: every non-timing field must match the committed run. Timing is never asserted.
+  A new `reproduce-from-scratch` job in [`comparison.yml`](.github/workflows/comparison.yml) runs the
+  documented sequence verbatim from a clean checkout, so an outside reproducer meets working scripts
+  rather than being the one who discovers they rotted.
+
+### Fixed
+
+- **The release evidence bundle silently omitted benchmark provenance.**
+  `build_evidence_bundle.ps1` only recorded a `benchmarks` item when `-BenchmarkManifest` was
+  passed, and `release.yml` never passed it — so every bundle would have shipped without the
+  benchmark manifest and raw results that the bundle's own contract lists, and without so much as an
+  `absent` marker. The item is now always recorded, and the release passes `doc/comparison`.
+
+### Changed
+
+- **Removed absolute competitive claims** from the documentation site: "the most complete managed
+  .NET Boolean-optimization toolkit" and "best-in-niche" are gone, replaced by a concrete capability
+  list plus a link to the pinned comparison and to *Choosing a tool*. No external comparative
+  evidence exists for a superlative, and the test above now prevents one from reappearing.
+- **Qualified the dependency claim everywhere.** "zero production dependencies" / "zero runtime
+  dependencies" become "no third-party runtime dependency" in README, `SECURITY.md`, the facade
+  package README and three documentation pages — a shipped LogicalOptimizer package does reference
+  other LogicalOptimizer packages, so the unqualified form was not true.
+
 ## [3.1.0] - 2026-07-29
 
 Deployment, credibility and interoperability. All changes are additive; the public API
