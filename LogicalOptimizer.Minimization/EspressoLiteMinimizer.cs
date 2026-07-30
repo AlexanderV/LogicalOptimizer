@@ -36,6 +36,19 @@ internal static class EspressoLiteMinimizer
             return copy;
         }
 
+        /// <summary>
+        ///     Overwrite this cube with <paramref name="source" />. EXPAND and REDUCE need a
+        ///     snapshot of a cube per trial literal, which <see cref="Clone" /> used to supply at
+        ///     three allocations a time (the object plus both word arrays) - thousands of them per
+        ///     pass. Refreshing one reusable scratch cube instead keeps the trials allocation-free
+        ///     and produces the same bits.
+        /// </summary>
+        public void CopyFrom(Cube source)
+        {
+            source.Pos.CopyTo(Pos, 0);
+            source.Neg.CopyTo(Neg, 0);
+        }
+
         public int LiteralCount()
         {
             var count = 0;
@@ -90,12 +103,16 @@ internal static class EspressoLiteMinimizer
         var budget = tautologyStepLimit;
         var current = cover.Select(c => c.Clone()).ToList();
 
+        // One scratch for the whole run: the coverage tests below are issued in the thousands and
+        // each used to allocate its own working memory.
+        var scratch = new Scratch();
+
         var bestCost = Cost(current);
         for (var pass = 0; pass < 6; pass++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Expand(current, variableCount, ref budget, cancellationToken);
-            Irredundant(current, variableCount, ref budget, cancellationToken);
+            Expand(current, variableCount, ref budget, scratch, cancellationToken);
+            Irredundant(current, variableCount, ref budget, scratch, cancellationToken);
             if (pass > 0)
             {
                 var cost = Cost(current);
@@ -107,13 +124,13 @@ internal static class EspressoLiteMinimizer
                 bestCost = Cost(current);
             }
 
-            Reduce(current, variableCount, ref budget, cancellationToken);
+            Reduce(current, variableCount, ref budget, scratch, cancellationToken);
             if (budget <= 0) break;
         }
 
         // REDUCE may have left shrunk cubes behind; one final grow-and-prune
-        Expand(current, variableCount, ref budget, cancellationToken);
-        Irredundant(current, variableCount, ref budget, cancellationToken);
+        Expand(current, variableCount, ref budget, scratch, cancellationToken);
+        Irredundant(current, variableCount, ref budget, scratch, cancellationToken);
         return current;
     }
 
@@ -129,19 +146,41 @@ internal static class EspressoLiteMinimizer
     ///     trivially true and erase every literal.
     /// </summary>
     private static void Expand(List<Cube> cover, int variableCount, ref int budget,
-        CancellationToken cancellationToken)
+        Scratch scratch, CancellationToken cancellationToken)
     {
-        foreach (var cube in cover.OrderByDescending(c => c.LiteralCount()).ToList())
+        if (cover.Count == 0) return;
+
+        // The reference cover and the "before" snapshot used to be rebuilt for EVERY trial
+        // literal: a fresh List<Cube> over the whole cover plus a three-allocation Clone, tens of
+        // thousands of times per pass. Neither actually varies per literal - the other cubes are
+        // fixed while this cube is being expanded, and the snapshot only needs its bits refreshed.
+        // Both are hoisted to reusable buffers here; the values handed to Covers are identical.
+        // OrderByDescending is a STABLE sort and EXPAND is order-dependent, so cubes with equal
+        // literal counts must keep their relative order - List.Sort (introsort) would not. This
+        // runs once per pass, not per trial, so it is not where the allocations were.
+        var order = cover.OrderByDescending(c => c.LiteralCount()).ToList();
+
+        var reference = new List<Cube>(cover.Count);
+        var before = new Cube(cover[0].Pos.Length);
+
+        foreach (var cube in order)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            // Every other cube, plus one trailing slot holding the snapshot.
+            reference.Clear();
+            foreach (var other in cover)
+                if (!ReferenceEquals(other, cube))
+                    reference.Add(other);
+            reference.Add(before);
+
             for (var v = 0; v < variableCount && budget > 0; v++)
             {
                 if (!cube.HasPos(v) && !cube.HasNeg(v)) continue;
                 var wasPos = cube.HasPos(v);
-                var before = cube.Clone();
-                var reference = cover.Where(c => !ReferenceEquals(c, cube)).Append(before).ToList();
+                before.CopyFrom(cube);
                 cube.Clear(v);
-                if (Covers(reference, cube, variableCount, ref budget) != true)
+                if (Covers(reference, cube, variableCount, scratch, ref budget) != true)
                 {
                     if (wasPos) cube.SetPos(v);
                     else cube.SetNeg(v);
@@ -161,14 +200,14 @@ internal static class EspressoLiteMinimizer
 
     /// <summary>IRREDUNDANT: drop any cube the rest of the cover already covers.</summary>
     private static void Irredundant(List<Cube> cover, int variableCount, ref int budget,
-        CancellationToken cancellationToken)
+        Scratch scratch, CancellationToken cancellationToken)
     {
         for (var i = cover.Count - 1; i >= 0 && budget > 0; i--)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var candidate = cover[i];
             cover.RemoveAt(i);
-            if (Covers(cover, candidate, variableCount, ref budget) != true)
+            if (Covers(cover, candidate, variableCount, scratch, ref budget) != true)
                 cover.Insert(i, candidate);
         }
     }
@@ -178,29 +217,42 @@ internal static class EspressoLiteMinimizer
     ///     covered elsewhere — freeing the next EXPAND to grow in a different direction.
     /// </summary>
     private static void Reduce(List<Cube> cover, int variableCount, ref int budget,
-        CancellationToken cancellationToken)
+        Scratch scratch, CancellationToken cancellationToken)
     {
+        if (cover.Count == 0) return;
+
+        // `rest` and the trial cube are reusable: the former only changes with i, the latter is
+        // overwritten on every attempt anyway. Cloning it twice per variable per cube was the bulk
+        // of REDUCE's allocation.
+        var rest = new List<Cube>(cover.Count);
+        var lost = new Cube(cover[0].Pos.Length);
+
         for (var i = 0; i < cover.Count && budget > 0; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var cube = cover[i];
-            var rest = cover.Where((_, k) => k != i).ToList();
+
+            rest.Clear();
+            for (var k = 0; k < cover.Count; k++)
+                if (k != i)
+                    rest.Add(cover[k]);
+
             for (var v = 0; v < variableCount && budget > 0; v++)
             {
                 if (cube.HasPos(v) || cube.HasNeg(v)) continue;
 
                 // Adding literal v keeps the cover iff rest covers (cube & !v)
-                var lost = cube.Clone();
+                lost.CopyFrom(cube);
                 lost.SetNeg(v);
-                if (Covers(rest, lost, variableCount, ref budget) == true)
+                if (Covers(rest, lost, variableCount, scratch, ref budget) == true)
                 {
                     cube.SetPos(v);
                     continue;
                 }
 
-                lost = cube.Clone();
+                lost.CopyFrom(cube);
                 lost.SetPos(v);
-                if (Covers(rest, lost, variableCount, ref budget) == true)
+                if (Covers(rest, lost, variableCount, scratch, ref budget) == true)
                     cube.SetNeg(v);
             }
         }
@@ -209,15 +261,22 @@ internal static class EspressoLiteMinimizer
     /// <summary>F ⊇ c ⟺ the cofactor of F by c is a tautology. Null = budget ran out.</summary>
     internal static bool? Covers(IReadOnlyList<Cube> cover, Cube cube, int variableCount, ref int budget)
     {
+        return Covers(cover, cube, variableCount, new Scratch(), ref budget);
+    }
+
+    private static bool? Covers(IReadOnlyList<Cube> cover, Cube cube, int variableCount,
+        Scratch scratch, ref int budget)
+    {
         // Cofactoring F by `cube` fixes exactly cube's variables. Rather than allocate a
         // reduced Cube per element, seed those variables into an "eliminated" bitmask and
         // keep the original cubes by reference — EffectiveLiteralCount masks the fixed
         // positions out, giving the same result as building cofactor cubes.
         var words = variableCount == 0 ? 1 : (variableCount + 63) / 64;
-        var eliminated = new ulong[words];
+        var eliminated = scratch.EliminatedFor(words);
         for (var w = 0; w < words; w++) eliminated[w] = cube.Pos[w] | cube.Neg[w];
 
-        var filtered = new List<Cube>(cover.Count);
+        var filtered = scratch.Filtered;
+        filtered.Clear();
         foreach (var f in cover)
         {
             var conflict = false;
@@ -231,7 +290,7 @@ internal static class EspressoLiteMinimizer
             if (!conflict) filtered.Add(f);
         }
 
-        return IsTautology(filtered, variableCount, eliminated, ref budget);
+        return IsTautology(filtered, variableCount, eliminated, scratch.Pool, 0, ref budget);
     }
 
     /// <summary>
@@ -245,11 +304,60 @@ internal static class EspressoLiteMinimizer
     }
 
     /// <summary>
+    ///     Per-depth scratch lists for the tautology recursion. The recursion is strictly
+    ///     depth-first and a level's two cofactor branches are used one after the other - the
+    ///     first branch's subtree is fully explored before the second list is built - so ONE
+    ///     reusable list per depth is enough. Previously each node allocated two fresh
+    ///     <see cref="List{Cube}" />, which across thousands of Covers calls was the single
+    ///     largest allocation source in the minimizer.
+    /// </summary>
+    private sealed class BranchPool
+    {
+        private readonly List<List<Cube>> _byDepth = new();
+
+        public List<Cube> RentCleared(int depth)
+        {
+            while (_byDepth.Count <= depth) _byDepth.Add(new List<Cube>());
+            var list = _byDepth[depth];
+            list.Clear();
+            return list;
+        }
+    }
+
+    /// <summary>
+    ///     Reusable working memory for one <see cref="Minimize" /> run. The point is that it
+    ///     outlives the individual <c>Covers</c> calls: a single pass issues thousands of
+    ///     them, and each used to allocate its own cofactor mask, filter list and per-node branch
+    ///     lists. Holding them here makes the whole EXPAND/IRREDUNDANT/REDUCE loop allocate a
+    ///     bounded amount instead of an amount proportional to the number of coverage tests.
+    /// </summary>
+    private sealed class Scratch
+    {
+        public readonly List<Cube> Filtered = new();
+        public readonly BranchPool Pool = new();
+        private ulong[] _eliminated = Array.Empty<ulong>();
+
+        /// <summary>A zeroed mask of at least <paramref name="words" /> words.</summary>
+        public ulong[] EliminatedFor(int words)
+        {
+            if (_eliminated.Length < words) _eliminated = new ulong[words];
+            else Array.Clear(_eliminated, 0, words);
+            return _eliminated;
+        }
+    }
+
+    /// <summary>
     ///     Tautology recursion over an "eliminated" variable mask: instead of cloning cubes
     ///     to strip the branch variable, both cofactor branches share one mask (they always
     ///     eliminate the same variable) — set the bit, recurse, clear it. Zero cube cloning.
     /// </summary>
     private static bool? IsTautology(List<Cube> cover, int variableCount, ulong[] eliminated, ref int budget)
+    {
+        return IsTautology(cover, variableCount, eliminated, new BranchPool(), 0, ref budget);
+    }
+
+    private static bool? IsTautology(List<Cube> cover, int variableCount, ulong[] eliminated,
+        BranchPool pool, int depth, ref int budget)
     {
         if (--budget <= 0) return null;
         // Universal cube: no literals remain once eliminated variables are masked out
@@ -285,19 +393,22 @@ internal static class EspressoLiteMinimizer
         // Both branches eliminate bestVariable, so set the bit once around both recursions
         eliminated[bestVariable >> 6] |= 1UL << (bestVariable & 63);
 
-        // value = true: keep cubes without a negative literal on bestVariable
-        var branch = new List<Cube>(cover.Count);
+        // value = true: keep cubes without a negative literal on bestVariable.
+        // The branch list is rented for THIS depth; the recursion below rents depth + 1, so the
+        // child never writes to the list it is reading.
+        var branch = pool.RentCleared(depth);
         foreach (var c in cover)
             if (!c.HasNeg(bestVariable)) branch.Add(c);
-        var verdict = IsTautology(branch, variableCount, eliminated, ref budget);
+        var verdict = IsTautology(branch, variableCount, eliminated, pool, depth + 1, ref budget);
 
         if (verdict == true)
         {
-            // value = false: keep cubes without a positive literal on bestVariable
-            branch = new List<Cube>(cover.Count);
+            // value = false: keep cubes without a positive literal on bestVariable. Safe to reuse
+            // the same list - the first branch's subtree is finished and nothing retained it.
+            branch = pool.RentCleared(depth);
             foreach (var c in cover)
                 if (!c.HasPos(bestVariable)) branch.Add(c);
-            verdict = IsTautology(branch, variableCount, eliminated, ref budget);
+            verdict = IsTautology(branch, variableCount, eliminated, pool, depth + 1, ref budget);
         }
 
         eliminated[bestVariable >> 6] &= ~(1UL << (bestVariable & 63));
