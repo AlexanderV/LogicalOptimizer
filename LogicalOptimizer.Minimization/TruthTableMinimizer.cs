@@ -312,6 +312,7 @@ public static class TruthTableMinimizer
         var rowPop = Array.Empty<int>();
         var colBits = Array.Empty<ulong>();
         var colPop = Array.Empty<int>();
+        var dominated = Array.Empty<bool>();
 
         bool progress;
         do
@@ -431,12 +432,32 @@ public static class TruthTableMinimizer
                 colPop[i] = PopCount(colBits, at, uncoveredWords);
             }
 
-            for (var i = 0; i < candidates.Count && !progress; i++)
+            // Collect every dominated column in ONE pass, then drop them together.
+            //
+            // This used to remove a single candidate and `break` all the way out, which restarted
+            // the whole fixpoint: essentials rescanned, both bitmask tables rebuilt from scratch
+            // (each is rows x candidates coverage tests), row dominance redone - to delete one
+            // more column. With a few hundred candidates that is a few hundred full rounds, and it
+            // was 83% of exact minimization's total runtime. The essentials pass above was already
+            // batched for exactly this reason; this is the same fix applied to columns.
+            //
+            // Batching is sound because dominance is transitive here: if k dominates i and i
+            // dominates j, then k covers a superset of j's rows at no higher literal cost, so it
+            // dominates j too. Removing i in the same pass therefore cannot rescue j. The `i > j`
+            // tie-break is kept so that among columns with identical coverage and cost exactly one
+            // - the lowest index - survives, and indices stay stable because nothing is removed
+            // until the pass is over.
+            if (dominated.Length < candidates.Count) dominated = new bool[candidates.Count];
+            else Array.Clear(dominated, 0, candidates.Count);
+            var anyDominated = false;
+
+            for (var i = 0; i < candidates.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                if (dominated[i]) continue;
                 for (var j = 0; j < candidates.Count; j++)
                 {
-                    if (i == j) continue;
+                    if (i == j || dominated[j]) continue;
                     var c1 = candidates[i];
                     var c2 = candidates[j];
                     if (c1.LiteralCount > c2.LiteralCount) continue;
@@ -446,11 +467,20 @@ public static class TruthTableMinimizer
                         continue;
                     if (IsSubset(colBits, j * uncoveredWords, colBits, i * uncoveredWords, uncoveredWords))
                     {
-                        candidates.RemoveAt(j);
-                        progress = true;
-                        break;
+                        dominated[j] = true;
+                        anyDominated = true;
                     }
                 }
+            }
+
+            if (anyDominated)
+            {
+                var write = 0;
+                for (var read = 0; read < candidates.Count; read++)
+                    if (!dominated[read])
+                        candidates[write++] = candidates[read];
+                candidates.RemoveRange(write, candidates.Count - write);
+                progress = true;
             }
         } while (progress && uncovered.Count > 0);
     }
