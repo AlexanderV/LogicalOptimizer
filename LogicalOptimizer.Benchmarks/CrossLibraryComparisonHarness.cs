@@ -35,9 +35,17 @@ namespace LogicalOptimizer.Benchmarks;
 ///     </list>
 ///
 ///     Determinism: every non-timing field (sizes, counts, statuses, verdicts, model
-///     counts) is deterministic given the corpus. Timing / allocation fields
-///     (<c>…Ms…</c>, <c>allocatedBytes</c>) are machine-dependent and indicative; they are
-///     the only fields that change run-to-run.
+///     counts) is deterministic given the corpus. Timing / resource fields
+///     (<c>…Ms…</c>, <c>allocatedBytes</c>, <c>peakWorkingSetBytes</c>, the run-level
+///     <c>resources</c> block) are machine-dependent and indicative; they are the only
+///     fields that change run-to-run.
+///
+///     Peak-working-set attribution caveat (honest-metrics): <c>PeakWorkingSet64</c> is a
+///     PROCESS-level high-water mark and only ever grows, so the per-row value is "the
+///     process peak observed after measuring this function", NOT memory attributable to
+///     that function alone. Per-function attribution would require an isolated process per
+///     row; here the per-row samples plus the run-level start/end summary make the
+///     resource bound observable without pretending to a precision that does not exist.
 ///
 ///     Run: <c>dotnet run -c Release --project LogicalOptimizer.Benchmarks -- comparison-suite</c>
 ///     Options: <c>--out &lt;dir&gt;</c> (default <c>doc/comparison</c>),
@@ -100,6 +108,7 @@ internal static class CrossLibraryComparisonHarness
         var sat = new List<SatRow>();
         var bddDnnf = new List<BddDnnfRow>();
 
+        var peakWorkingSetAtStart = SamplePeakWorkingSetBytes();
         foreach (var (zone, name, expression) in functions)
         {
             symbolic.Add(MeasureSymbolic(zone, name, expression));
@@ -113,7 +122,13 @@ internal static class CrossLibraryComparisonHarness
 
         Console.Error.WriteLine();
 
-        var results = new Results(SchemaVersion, corpus, symbolic, twoLevel, sat, bddDnnf);
+        var resources = new RunResources(
+            peakWorkingSetAtStart,
+            SamplePeakWorkingSetBytes(),
+            "peakWorkingSetBytes is the PROCESS-level high-water mark (monotone per process): " +
+            "per-row values are the peak observed after measuring that function, not memory " +
+            "attributable to that function alone.");
+        var results = new Results(SchemaVersion, corpus, resources, symbolic, twoLevel, sat, bddDnnf);
         var manifest = BuildManifest(corpus);
 
         var jsonPath = Path.Combine(outDir, "our-results.json");
@@ -179,7 +194,7 @@ internal static class CrossLibraryComparisonHarness
             inputLiterals, AstMetrics.CountLiterals(optimized),
             inputNodes, AstMetrics.CountNodes(optimized),
             StatusLabel(result.MinimizationStatus), equivalence,
-            Median(samples), allocated);
+            Median(samples), allocated, SamplePeakWorkingSetBytes());
     }
 
     // --- Result set 2: two-level (SOP) minimization --------------------------------
@@ -225,7 +240,7 @@ internal static class CrossLibraryComparisonHarness
         return new TwoLevelRow(
             zone, name, vars, terms, literals,
             StatusLabel(result.MinimizationStatus), equivalence, abandoned,
-            Median(samples));
+            Median(samples), SamplePeakWorkingSetBytes());
     }
 
     // --- Result set 3: SAT (equivalence miter: Original XOR Optimized) --------------
@@ -278,7 +293,8 @@ internal static class CrossLibraryComparisonHarness
 
         return new SatRow(
             zone, name, inputVars, cnf.TotalVariableCount, cnf.Clauses.Count,
-            VerdictLabel(verdict), conflicts, proofAvailable, proofLines, Median(samples));
+            VerdictLabel(verdict), conflicts, proofAvailable, proofLines, Median(samples),
+            SamplePeakWorkingSetBytes());
     }
 
     // --- Result set 4: BDD / d-DNNF ------------------------------------------------
@@ -297,7 +313,8 @@ internal static class CrossLibraryComparisonHarness
             zone, name, vars,
             bddStatus, bddNodes, dnnfStatus, dnnfNodes,
             modelCount, agree,
-            bddCompile, dnnfCompile, bddQuery, dnnfQuery);
+            bddCompile, dnnfCompile, bddQuery, dnnfQuery,
+            SamplePeakWorkingSetBytes());
     }
 
     private static (string status, int? nodes, BigInteger? count, double compileMs, double queryMs) MeasureBdd(AstNode ast)
@@ -383,7 +400,16 @@ internal static class CrossLibraryComparisonHarness
         sb.AppendLine();
         sb.AppendLine("**Deterministic** (identical on any machine, safe to rely on): sizes, node/term counts,");
         sb.AppendLine("statuses, verdicts, model counts. **Indicative** (machine-dependent, never asserted):");
-        sb.AppendLine("every `… (ms)` and the `Alloc` column — median of 7 runs after 1 warm-up.");
+        sb.AppendLine("every `… (ms)`, the `Alloc` column and the `Peak WS` column — timings are the median of");
+        sb.AppendLine("7 runs after 1 warm-up.");
+        sb.AppendLine();
+        sb.AppendLine("**Peak WS attribution caveat:** `Peak WS (B)` is the **process-level** peak working set");
+        sb.AppendLine("(`PeakWorkingSet64`) sampled after measuring that row's function. The value is monotone");
+        sb.AppendLine("per process, so it is a running high-water mark of the whole run up to that row — NOT");
+        sb.AppendLine("memory attributable to that function alone. Per-row samples for all four result sets and");
+        sb.AppendLine("the run-level summary live in `our-results.json`; this run:");
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+            $"{r.resources.peakWorkingSetBytesAtStart:N0} B at start → {r.resources.peakWorkingSetBytesAtEnd:N0} B at end of run."));
         sb.AppendLine();
         sb.AppendLine("Reproduce: `dotnet run -c Release --project LogicalOptimizer.Benchmarks -- comparison-suite`.");
         sb.AppendLine();
@@ -396,11 +422,11 @@ internal static class CrossLibraryComparisonHarness
         sb.AppendLine("guarantee; **Equivalence** is proven independently of timing by `EquivalenceChecker`");
         sb.AppendLine("(truth-table ≤ 12 vars, SAT-miter beyond) and must read `equivalent` on every row.");
         sb.AppendLine();
-        sb.AppendLine("| Zone | Function | Vars | In lits | Out lits | In nodes | Out nodes | Status | Equivalence | Time (ms) | Alloc (B) |");
-        sb.AppendLine("|------|----------|-----:|--------:|---------:|---------:|----------:|--------|-------------|----------:|----------:|");
+        sb.AppendLine("| Zone | Function | Vars | In lits | Out lits | In nodes | Out nodes | Status | Equivalence | Time (ms) | Alloc (B) | Peak WS (B) |");
+        sb.AppendLine("|------|----------|-----:|--------:|---------:|---------:|----------:|--------|-------------|----------:|----------:|------------:|");
         foreach (var x in r.symbolicOptimization)
             sb.AppendLine(
-                $"| {x.zone} | {x.name} | {x.vars} | {x.inputLiterals} | {x.outputLiterals} | {x.inputNodes} | {x.outputNodes} | {x.minimizationStatus} | {x.equivalence} | {F(x.timeMsMedian)} | {x.allocatedBytes} |");
+                $"| {x.zone} | {x.name} | {x.vars} | {x.inputLiterals} | {x.outputLiterals} | {x.inputNodes} | {x.outputNodes} | {x.minimizationStatus} | {x.equivalence} | {F(x.timeMsMedian)} | {x.allocatedBytes} | {x.peakWorkingSetBytes} |");
         sb.AppendLine();
 
         // Table 2: two-level minimization
@@ -515,6 +541,17 @@ internal static class CrossLibraryComparisonHarness
         }
 
         return null;
+    }
+
+    /// <summary>
+    ///     Process-level peak working set so far. Monotone per process, so a per-row sample
+    ///     means "the peak observed after measuring this function" — never a per-function
+    ///     footprint (see the class doc's attribution caveat).
+    /// </summary>
+    private static long SamplePeakWorkingSetBytes()
+    {
+        using var process = Process.GetCurrentProcess();
+        return process.PeakWorkingSet64;
     }
 
     private static double Median(double[] samples)
@@ -638,31 +675,39 @@ internal static class CrossLibraryComparisonHarness
     // --- serializable model (property order == JSON order; camelCase names as written) ---
     private sealed record Corpus(string path, string sha256, int functionCount);
 
+    /// <summary>
+    ///     Run-level resource summary. peakWorkingSetBytes fields are machine-dependent and
+    ///     monotone per process (see the class doc's attribution caveat), so — like the
+    ///     timing fields — they are indicative and excluded from the determinism contract.
+    /// </summary>
+    private sealed record RunResources(
+        long peakWorkingSetBytesAtStart, long peakWorkingSetBytesAtEnd, string attribution);
+
     private sealed record SymbolicRow(
         string zone, string name, int vars,
         int inputLiterals, int outputLiterals, int inputNodes, int outputNodes,
         string minimizationStatus, string equivalence,
-        double timeMsMedian, long allocatedBytes);
+        double timeMsMedian, long allocatedBytes, long peakWorkingSetBytes);
 
     private sealed record TwoLevelRow(
         string zone, string name, int vars,
         int terms, int literals, string minimizationStatus, string equivalence, bool abandoned,
-        double timeMsMedian);
+        double timeMsMedian, long peakWorkingSetBytes);
 
     private sealed record SatRow(
         string zone, string name, int inputVars, int miterVars, int miterClauses,
         string verdict, int conflicts, bool proofAvailable, int proofLines,
-        double satSolveMsMedian);
+        double satSolveMsMedian, long peakWorkingSetBytes);
 
     private sealed record BddDnnfRow(
         string zone, string name, int vars,
         string bddStatus, int? bddNodes, string dnnfStatus, int? dnnfNodes,
         string? modelCount, bool modelCountsAgree,
         double bddCompileMsMedian, double dnnfCompileMsMedian,
-        double bddQueryMsMedian, double dnnfQueryMsMedian);
+        double bddQueryMsMedian, double dnnfQueryMsMedian, long peakWorkingSetBytes);
 
     private sealed record Results(
-        int schemaVersion, Corpus corpus,
+        int schemaVersion, Corpus corpus, RunResources resources,
         IReadOnlyList<SymbolicRow> symbolicOptimization,
         IReadOnlyList<TwoLevelRow> twoLevelMinimization,
         IReadOnlyList<SatRow> sat,

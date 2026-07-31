@@ -44,6 +44,9 @@
     <ProjectReference Include="..\LogicalOptimizer.Formats\LogicalOptimizer.Formats.csproj" />
     <ProjectReference Include="..\LogicalOptimizer.Minimization\LogicalOptimizer.Minimization.csproj" />
     <ProjectReference Include="..\LogicalOptimizer.Cli\LogicalOptimizer.Cli.csproj" />
+    <!-- Benchmarks harnesses under test (CancellationOvershootHarnessTests). NOT part of the
+         pinned public API surface — the Benchmarks project is a dev tool, never packaged. -->
+    <ProjectReference Include="..\LogicalOptimizer.Benchmarks\LogicalOptimizer.Benchmarks.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -56,6 +59,12 @@
          output so the corpus regression suite can load it independently of the working dir. -->
     <None Include="..\LogicalOptimizer.Benchmarks\SatCorpus\*.cnf"
           Link="SatCorpus\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Vendored multi-output PLA corpus and adversarial BDD variable-order corpus
+         (PlaCorpusRegressionTests / BddOrderCorpusRegressionTests); same copy pattern. -->
+    <None Include="..\LogicalOptimizer.Benchmarks\PlaCorpus\*.pla"
+          Link="PlaCorpus\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\LogicalOptimizer.Benchmarks\BddOrderCorpus\*.expr"
+          Link="BddOrderCorpus\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

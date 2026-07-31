@@ -234,6 +234,10 @@ if ($CompareWith) {
     }
     else {
         # Strip everything the methodology declares machine-dependent, then require an exact match.
+        # peakWorkingSet* fields and the run-level 'resources' block are the harness's process-level
+        # peak-working-set observability (monotone, machine-dependent) — indicative like the timings,
+        # so they are excluded from the determinism contract. Stripping the whole 'resources' block
+        # also keeps a new run comparable with a baseline committed before the block existed.
         function Remove-TimingFields {
             param($Node)
             if ($null -eq $Node) { return $null }
@@ -242,7 +246,8 @@ if ($CompareWith) {
                 $clean = [ordered]@{}
                 foreach ($property in $Node.PSObject.Properties) {
                     if ($property.Name -match 'Ms(Median)?$' -or
-                        $property.Name -in @('allocatedBytes', 'generatedAtUtc', 'conflicts')) { continue }
+                        $property.Name -match '^peakWorkingSet' -or
+                        $property.Name -in @('allocatedBytes', 'generatedAtUtc', 'conflicts', 'resources')) { continue }
                     $clean[$property.Name] = Remove-TimingFields $property.Value
                 }
                 return [pscustomobject]$clean

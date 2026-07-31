@@ -8,7 +8,11 @@ below was produced by the commands shown — nothing is estimated.
 > Measured on Windows 11 x64, .NET SDK 10.0.301, Release build, single-threaded, after a
 > warm-up call. Literal counts are machine-independent; **time and memory are not** — treat
 > them as an order of magnitude, not a specification. Memory is bytes allocated on the calling
-> thread for the call (`OptimizationMetrics.AllocatedBytes`), not peak working set.
+> thread for the call (`OptimizationMetrics.AllocatedBytes`). Peak working set is recorded by
+> the comparison harness (`peakWorkingSetBytes` in `doc/comparison/our-results.json`) at
+> **process** level: it is a monotone per-process high-water mark, so it cannot be attributed
+> to a single call and deliberately stays out of the per-call `OptimizationMetrics` — see
+> `doc/COMPARISON_METHODOLOGY.md` for the attribution caveat.
 
 ## 1. A generated entitlement condition
 
@@ -107,7 +111,9 @@ var check = EquivalenceChecker.Check("admin | (owner & businessHours)", "admin |
 | Time | 0.3 ms · 11 KiB |
 
 The counterexample is the whole value: it names the exact input where the refactor grants
-access it should not, and drops straight into a unit test.
+access it should not, and drops straight into a unit test. The same check runs without writing
+code via the CLI's [`check` verb](cli-usage.md#equivalence-check-check) — the verdict lands in
+the exit code (`0` equivalent, `3` not equivalent), so it slots directly into a CI step.
 
 ## 5. Bulk run over the committed corpus
 
