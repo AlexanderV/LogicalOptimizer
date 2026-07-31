@@ -1,0 +1,5 @@
+# Code owners are automatically requested for review on pull requests.
+# Maintainer roster and maintenance model: ../MAINTAINERS.md
+
+# Default: the current maintainer owns everything in the repository.
+* @AlexanderV

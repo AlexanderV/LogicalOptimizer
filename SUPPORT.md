@@ -110,7 +110,8 @@ supported.
 ## Response expectations
 
 This is an open-source project maintained on a best-effort basis; there is no commercial SLA.
-Security reports are prioritized (see [SECURITY.md](SECURITY.md)). Bug reports with a clear
+Who maintains the project, and what the maintenance model realistically promises, is documented
+in [MAINTAINERS.md](MAINTAINERS.md). Security reports are prioritized (see [SECURITY.md](SECURITY.md)). Bug reports with a clear
 reproduction are handled next, then feature requests weighed against the
 [scope](README.md#choosing-a-tool) — the toolkit deliberately stays a propositional Boolean
 reasoning library and does not grow into a general rules engine or a full SMT stack.
