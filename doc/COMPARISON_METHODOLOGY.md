@@ -34,8 +34,8 @@ in the container, so its #SAT column self-skips (only `d4` runs).
 | Task | OUR engine | Competitors (pending) |
 |------|------------|-----------------------|
 | Symbolic optimization | `BooleanExpressionOptimizer.OptimizeExpression` (multi-level / factored) | SymPy, PyEDA |
-| Two-level minimization | `result.DNF` (exact QM / SAT-cover / espresso-lite SOP) | SymPy `simplify_logic(form="dnf")`, PyEDA `espresso_tts` |
-| SAT | built-in CDCL `SatSolver` on the equivalence miter | CaDiCaL, Kissat, Z3 |
+| Two-level minimization | `result.DNF` (exact QM / SAT-cover / espresso-lite SOP) | SymPy `simplify_logic(form="dnf")`, PyEDA `espresso_tts`, LogicNG (minimum prime-implicant-cover DNF) |
+| SAT | built-in CDCL `SatSolver` on the equivalence miter | CaDiCaL, Kissat, Z3, LogicNG (MiniSat) |
 | BDD / d-DNNF | `BinaryDecisionDiagram`, `KnowledgeCompilation.CompileToDnnf` | LogicNG (BDD), c2d / d4 / Z3 (#SAT) |
 
 ## Single-runner, one-CPU policy
@@ -100,6 +100,91 @@ inside one comparison:
    time, for both engines. `modelCountsAgree` is the exact cross-check: the two
    independent engines must return the identical #SAT count.
 
+Every row in all four sets additionally records `peakWorkingSetBytes`, and the run
+records a `resources` summary — see the next section for what that number does and
+does not mean.
+
+## LogicNG's three roles — columns and honest interpretation
+
+LogicNG is the closest product analogue (see `doc/COMPETITIVE_ASSESSMENT.md`), so its
+adapter (`tools/comparison/logicng/`, pinned 2.4.1) covers three tables, not just model
+counting. Per function it emits:
+
+- **`LogicNG nodes` / `LogicNG #SAT` / `LogicNG ms`** (Table 4, unchanged): BDD node
+  count and exact model count — an independent cross-check of the OUR count.
+- **`LogicNG SAT verdict` / `LogicNG SAT ms`** (Table 3): LogicNG's MiniSat solving the
+  **same** `<name>.miter.cnf` DIMACS files CaDiCaL / Kissat / Z3 solve (emitted by
+  `comparison-suite --emit-sat-dimacs`), under the same shared timeout. Every miter is
+  expected `unsat`; when no miter directory is passed the cells self-skip to `pending`.
+- **`LogicNG min lits` / `LogicNG min ms`** (Table 2): the literal-occurrence count of
+  LogicNG's **minimum prime-implicant-cover DNF** — prime implicants plus smallest-MUS
+  minimal coverage, the documented DNF-building core of LogicNG's `AdvancedSimplifier`.
+
+**Honest interpretation of `LogicNG min lits`.** LogicNG's flagship simplifier goal
+differs from OUR two-level minimizer: the full `AdvancedSimplifier` minimizes a rating
+(default: formula length) and may factor the result or return the *input form* when that
+rates smaller — a multi-level/POS result whose literal count would NOT be comparable to a
+two-level SOP. The adapter therefore deliberately runs only the simplifier's two-level
+core, where the comparison is like-for-like: all four Table 2 columns (`OUR DNF lits`,
+SymPy, PyEDA, `LogicNG min lits`) are literal-occurrence counts of a two-level DNF of the
+same function. One asymmetry remains and is stated rather than hidden: LogicNG's minimal
+coverage minimizes the *number of prime implicants*, not literals, so on a function with
+several minimum covers of different literal totals its count may legitimately differ from
+a literal-minimal SOP — a `⚠️` in the match column there would signal a different
+minimization outcome, not an error. This column measures **result size only**; it says
+nothing about LogicNG's default (multi-level) simplification quality, which is a
+different task (Table 1 has no LogicNG column for exactly that reason).
+
+The committed `doc/comparison/merged.md` predates these SAT / min-DNF columns: old
+`logicng_out.md` captures carry only the BDD columns and merge as `pending` (the merge
+script tolerates both formats). The new columns appear filled on the next intentional
+pinned regeneration of the comparison artifacts.
+
+## Resource observability: peak working set and cancellation overshoot
+
+The 30-day roadmap of the competitive assessment requires resource bounds and
+cancellation to be *observable*, not just enforced. Two mechanisms cover it; both
+report machine-dependent numbers that are **never asserted**, like every timing here.
+
+### Peak working set (`peakWorkingSetBytes`)
+
+Every row of `our-results.json` carries `peakWorkingSetBytes` — the **process-level**
+peak working set (`Process.PeakWorkingSet64`) sampled right after that function was
+measured — and the run-level `resources` block records the peak at start and at end
+of the whole run. `summary.md` shows the column in Table 1 plus the run-level line.
+
+**Attribution caveat (read before quoting a per-row number):** the peak working set
+is a *monotone, process-wide* high-water mark. A per-row value therefore means "the
+process peak observed after measuring this function", i.e. a running maximum over
+everything the run had done up to that row — **not** the memory footprint of that
+function. Per-function attribution would need one isolated process per row; the
+harness deliberately reports the honest process-level curve instead of fabricating
+per-function precision. Per-call **allocation** (`allocatedBytes`,
+`OptimizationMetrics.AllocatedBytes`) remains the only per-call memory metric, which
+is also why peak working set is not part of the library's `OptimizationMetrics`.
+
+### Cancellation overshoot (`-- cancellation-overshoot`)
+
+Overshoot is the latency between the moment a `CancellationTokenSource` actually
+fires mid-flight and the moment the engine returns control (throws
+`OperationCanceledException`). For each budgeted long-running engine — the full
+optimizer pipeline, exact minimization (Quine–McCluskey), SAT solve, BDD build and
+d-DNNF compile — the harness starts a workload sized to run for many seconds
+uncancelled (the same shapes `MidFlightCancellationTests` uses), cancels after a
+fixed delay, and reports median/max overshoot over N repetitions:
+
+```powershell
+dotnet run -c Release --project LogicalOptimizer.Benchmarks -- cancellation-overshoot
+# options: --engine <name> (repeatable), --repetitions N (default 5),
+#          --cancel-after-ms M (default 250), --out overshoot.json
+```
+
+Honesty rules: the cancel moment is captured by a callback registered on the token
+(the true transition instant), not the requested timer delay, so timer slack never
+inflates the numbers; a repetition that completes before the token fires is reported
+as `completedBeforeCancel` and excluded from the statistics, never folded in; and
+overshoot is wall-clock — reported for observability, never asserted as a bound.
+
 ## Correctness is verified independently of performance
 
 Every OUR optimization/minimization row carries an `equivalence` verdict computed by
@@ -123,7 +208,8 @@ engines must agree on the model count.
   ```powershell
   dotnet run -c Release --project LogicalOptimizer.Benchmarks -- comparison-suite --out a
   dotnet run -c Release --project LogicalOptimizer.Benchmarks -- comparison-suite --out b
-  # compare a/our-results.json and b/our-results.json ignoring *Ms* / allocatedBytes lines
+  # compare a/our-results.json and b/our-results.json ignoring *Ms* / allocatedBytes /
+  # peakWorkingSet* / resources lines (the machine-dependent fields)
   ```
 
 ## Reproduce
@@ -153,7 +239,7 @@ Or run one adapter standalone where its tool is installed:
 | 3 (CaDiCaL / Kissat) | `tools/comparison/run_sat_competitors.sh <dimacs-dir>` | `cadical` / `kissat` on `PATH` |
 | 3 (Z3) | `python tools/comparison/run_z3_competitor.py <dimacs-dir>` | `pip install z3-solver` |
 | 4 (d4 #SAT) | `tools/comparison/run_modelcount_competitors.sh <func-dimacs-dir>` | `d4` on `PATH` |
-| 4 (LogicNG BDD) | `java -jar logicng-adapter.jar tools/comparison_corpus.txt` | JVM + `tools/comparison/logicng` |
+| 2, 3 & 4 (LogicNG) | `java -jar logicng-adapter.jar tools/comparison_corpus.txt 20 <miter-dimacs-dir>` | JVM + `tools/comparison/logicng` |
 
 Each competitor adapter reads the **same** `tools/comparison_corpus.txt` (or the
 DIMACS the OUR harness emits from it), applies the identical per-function timeout,

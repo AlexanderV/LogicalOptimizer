@@ -224,9 +224,9 @@ HTML_TEMPLATE = r"""<title>LogicalOptimizer vs. other libraries</title>
     <h2>Where each competitor appears</h2>
     <p>The tools do different jobs, so each is compared only where it applies — no single table lists all of them.</p>
     <div class="maprow">
-      <div class="lane"><div class="k">Tables 1–2 · size</div><div class="who">SymPy · PyEDA</div>
-        <div class="what">two-level / multi-level minimizers — literal count</div></div>
-      <div class="lane"><div class="k">Table 3 · SAT</div><div class="who">CaDiCaL · Kissat · Z3</div>
+      <div class="lane"><div class="k">Tables 1–2 · size</div><div class="who">SymPy · PyEDA · LogicNG</div>
+        <div class="what">minimizers — literal count (LogicNG's two-level min-DNF in Table 2 only)</div></div>
+      <div class="lane"><div class="k">Table 3 · SAT</div><div class="who">CaDiCaL · Kissat · Z3 · LogicNG</div>
         <div class="what">SAT solvers on the equivalence miter</div></div>
       <div class="lane"><div class="k">Table 4 · #SAT</div><div class="who">d4 · LogicNG</div>
         <div class="what">exact model counter · BDD library</div></div>
@@ -248,8 +248,10 @@ HTML_TEMPLATE = r"""<title>LogicalOptimizer vs. other libraries</title>
   <section>
     <div class="shead"><span class="no">02</span><h3>Result size — two-level SOP</h3></div>
     <p class="sdesc">Apples-to-apples: ours <code>result.DNF</code> is the same kind of two-level form SymPy
-      <code>simplify_logic</code> and PyEDA <code>espresso</code> produce, so equal counts are the correct
-      outcome — ours reaches the same optimum wherever all three finish.</p>
+      <code>simplify_logic</code>, PyEDA <code>espresso</code> and LogicNG's minimum prime-implicant-cover
+      DNF produce, so equal counts are the correct outcome — ours reaches the same optimum wherever the
+      tools finish. (LogicNG's cover minimizes the <em>number of implicants</em>; its literal count is
+      still like-for-like because the result is two-level DNF.)</p>
     <div class="tablecard"><div class="scroll"><table id="t2"></table></div></div>
   </section>
   <section>
@@ -285,24 +287,26 @@ function comp(v){
   if(v==="pending")return `<td class="skip">pending</td>`;
   return `<td class="n">${g(v)}</td>`;
 }
-function sizeMark(o,a,b){
-  const nums=[a,b].filter(x=>typeof x==="number");
+function sizeMark(o,...cs){
+  const nums=cs.filter(x=>typeof x==="number");
   if(!nums.length)return `<td></td>`;
   const best=Math.min(...nums);
   if(o<best)return `<td><span class="chip c-good">✓ fewer</span></td>`;
   if(o===best)return `<td><span class="chip c-eq">= equal</span></td>`;
   return `<td><span class="chip c-warn">— more</span></td>`;
 }
-function matchMark(o,a,b){
-  const nums=[a,b].filter(x=>typeof x==="number");
+function matchMark(o,...cs){
+  const nums=cs.filter(x=>typeof x==="number");
   if(!nums.length)return `<td></td>`;
   return nums.every(x=>x===o)?`<td class="match">✅ match</td>`:`<td class="warn">⚠︎ differ</td>`;
 }
-function buildSize(id,rows,label,isMatch){
+function buildSize(id,rows,label,isMatch,compHeaders){
   document.getElementById(id).innerHTML=
-    `<thead><tr><th class="fn">Function</th><th>Ours (${label})</th><th>SymPy</th><th>PyEDA</th><th>vs best</th></tr></thead>`+
-    `<tbody>`+rows.map(([n,o,a,b])=>`<tr>${fnCell(n)}<td class="our">${g(o)}</td>${comp(a)}${comp(b)}`+
-      (isMatch?matchMark(o,a,b):sizeMark(o,a,b))+`</tr>`).join("")+`</tbody>`;
+    `<thead><tr><th class="fn">Function</th><th>Ours (${label})</th>`+
+    compHeaders.map(h=>`<th>${h}</th>`).join("")+
+    `<th>${isMatch?"match":"vs best"}</th></tr></thead>`+
+    `<tbody>`+rows.map(([n,o,...cs])=>`<tr>${fnCell(n)}<td class="our">${g(o)}</td>`+cs.map(comp).join("")+
+      (isMatch?matchMark(o,...cs):sizeMark(o,...cs))+`</tr>`).join("")+`</tbody>`;
 }
 function verdict(v){
   if(v==="unsat")return `<td class="match">unsat</td>`;
@@ -314,12 +318,12 @@ function countCell(v,o){
   if(typeof v==="number")return v===o?`<td class="match">${g(v)}</td>`:`<td class="warn">${g(v)}</td>`;
   return comp(v);
 }
-buildSize("t1",D.size1,"out lits",false);
-buildSize("t2",D.size2,"DNF lits",true);
+buildSize("t1",D.size1,"out lits",false,["SymPy","PyEDA"]);
+buildSize("t2",D.size2,"DNF lits",true,["SymPy","PyEDA","LogicNG min"]);
 document.getElementById("t3").innerHTML=
-  `<thead><tr><th class="fn">Function</th><th>Ours</th><th>Conflicts</th><th>CaDiCaL</th><th>Kissat</th><th>Z3</th></tr></thead><tbody>`+
-  D.sat.map(([n,ov,c,cad,kis,z3])=>`<tr>${fnCell(n)}<td class="our">${ov}</td><td class="n">${c}</td>`+
-    verdict(cad)+verdict(kis)+verdict(z3)+`</tr>`).join("")+`</tbody>`;
+  `<thead><tr><th class="fn">Function</th><th>Ours</th><th>Conflicts</th><th>CaDiCaL</th><th>Kissat</th><th>Z3</th><th>LogicNG</th></tr></thead><tbody>`+
+  D.sat.map(([n,ov,c,cad,kis,z3,lng])=>`<tr>${fnCell(n)}<td class="our">${ov}</td><td class="n">${c}</td>`+
+    verdict(cad)+verdict(kis)+verdict(z3)+verdict(lng)+`</tr>`).join("")+`</tbody>`;
 document.getElementById("t4").innerHTML=
   `<thead><tr><th class="fn">Function</th><th>Ours #SAT</th><th>d4</th><th>LogicNG</th><th>match</th><th>LogicNG nodes</th></tr></thead><tbody>`+
   D.count.map(([n,o,d4,lng,nodes])=>`<tr>${fnCell(n)}<td class="our">${g(o)}</td>`+
@@ -343,12 +347,14 @@ def build_html(data, sympy, sat, z3, mc, logicng, cards, env):
              for r in data["symbolicOptimization"]]
     size2 = [[r["name"], "-" if r["abandoned"] else r["literals"],
               hval(cell(sympy, r["name"], "SymPy literals")),
-              hval(cell(sympy, r["name"], "PyEDA literals"))]
+              hval(cell(sympy, r["name"], "PyEDA literals")),
+              hval(cell(logicng, r["name"], "LogicNG min lits"))]
              for r in data["twoLevelMinimization"]]
     sat_rows = [[r["name"], r["verdict"], r["conflicts"],
                  hval(cell(sat, r["name"], "cadical verdict", "cadical")),
                  hval(cell(sat, r["name"], "kissat verdict", "kissat")),
-                 hval(cell(z3, r["name"], "Z3 verdict", "Z3"))]
+                 hval(cell(z3, r["name"], "Z3 verdict", "Z3")),
+                 hval(cell(logicng, r["name"], "LogicNG SAT verdict"))]
                 for r in data["sat"]]
     count = [[r["name"], as_int(r["modelCount"]),
               hval(cell(mc, r["name"], "d4 #SAT", "d4")),
@@ -389,7 +395,12 @@ def main(argv=None):
     sat = parse_table(args.sat)[0] if args.sat else {}
     z3 = parse_table(args.z3)[0] if args.z3 else {}
     mc = parse_table(args.modelcount)[0] if args.modelcount else {}
-    logicng = parse_table(args.logicng)[0] if args.logicng else {}
+    logicng, logicng_headers = parse_table(args.logicng) if args.logicng else ({}, [])
+    # The LogicNG adapter grew `LogicNG SAT verdict`/`LogicNG SAT ms` (MiniSat on the same
+    # miter DIMACS the other SAT competitors solve) and `LogicNG min lits`/`LogicNG min ms`
+    # (its minimum prime-implicant-cover DNF) columns. Older captured outputs carry only
+    # nodes/#SAT/ms and are still accepted — the new cells simply stay `pending`.
+    logicng_has_sat = any("logicng sat verdict" in h.lower() for h in logicng_headers)
 
     n_funcs = data["corpus"]["functionCount"]
 
@@ -411,12 +422,15 @@ def main(argv=None):
         ("CaDiCaL", sat, ("cadical verdict", "cadical")),
         ("Kissat", sat, ("kissat verdict", "kissat")),
         ("Z3", z3, ("Z3 verdict", "Z3"))) if table]
+    if logicng_has_sat:
+        sat_solvers.append("LogicNG")
     all_unsat = all(
         r["verdict"] == "unsat"
         and all(cell(t, r["name"], *k).lower() in ("unsat", "`pending`")
                 for t, k in ((sat, ("cadical verdict", "cadical")),
                              (sat, ("kissat verdict", "kissat")),
-                             (z3, ("Z3 verdict", "Z3"))))
+                             (z3, ("Z3 verdict", "Z3")),
+                             (logicng, ("LogicNG SAT verdict",))))
         for r in data["sat"])
 
     # Multi-level size: OUR vs the best competitor per function.
@@ -433,13 +447,14 @@ def main(argv=None):
             if r["outputLiterals"] < best:
                 ml_lt += 1
 
-    # Two-level parity: OUR DNF literal count equals SymPy/PyEDA where all finish.
+    # Two-level parity: OUR DNF literal count equals SymPy/PyEDA/LogicNG where they finish.
     tl_match = tl_cmp = 0
     for r in data["twoLevelMinimization"]:
         if r["abandoned"]:
             continue
         comp = [c for c in (as_int(cell(sympy, r["name"], "SymPy literals", default="")),
-                            as_int(cell(sympy, r["name"], "PyEDA literals", default="")))
+                            as_int(cell(sympy, r["name"], "PyEDA literals", default="")),
+                            as_int(cell(logicng, r["name"], "LogicNG min lits", default="")))
                 if c is not None]
         if comp:
             tl_cmp += 1
@@ -466,13 +481,14 @@ def main(argv=None):
                    "formula is logically identical to the original.")
     out.append(f"- **Compact output.** OUR multi-level result has **no more literals** than the best of "
                f"SymPy/PyEDA on **{ml_le}/{ml_cmp}** comparable functions (strictly fewer on **{ml_lt}**).")
-    out.append("- **Two-level parity.** Where SymPy/PyEDA finish, OUR two-level SOP matches their "
-               "literal count (Table 2).\n")
+    out.append("- **Two-level parity.** Where SymPy/PyEDA/LogicNG's min-DNF finish, OUR two-level "
+               "SOP matches their literal count (Table 2).\n")
 
     out.append("## How to read the tables\n")
     out.append("- **Different competitors appear in different tables** — each external tool is compared "
-               "only where it applies (they are different kinds of tools): **SymPy / PyEDA** on result "
-               "size (Tables 1–2), **CaDiCaL / Kissat / Z3** on SAT (Table 3), **d4 / LogicNG** on model "
+               "only where it applies (they are different kinds of tools): **SymPy / PyEDA / LogicNG** "
+               "on result size (Tables 1–2; LogicNG's minimum-cover DNF appears in Table 2 only), "
+               "**CaDiCaL / Kissat / Z3 / LogicNG** on SAT (Table 3), **d4 / LogicNG** on model "
                "counting (Table 4). No single table lists all seven.")
     out.append("- Each **row is a corpus function**. The families: `maj*` = majority, `xor*` = parity, "
                "`mux*` = multiplexer, `eq*`/`consensus*` = equality/consensus, "
@@ -502,29 +518,40 @@ def main(argv=None):
 
     out.append("## 2. Result size — two-level SOP (apples-to-apples)\n")
     out.append("Here OUR `result.DNF` is the **same kind** of two-level form SymPy `simplify_logic` and "
-               "PyEDA `espresso` produce, so equal literal counts are the expected, correct outcome.\n")
-    out.append("| Function | OUR DNF lits | SymPy | PyEDA | match |")
-    out.append("|----------|-------------:|:-----:|:-----:|:-----:|")
+               "PyEDA `espresso` produce, so equal literal counts are the expected, correct outcome. "
+               "**LogicNG min** is LogicNG's minimum prime-implicant-cover DNF (the DNF-building core "
+               "of its `AdvancedSimplifier`) — also two-level, so its literal count is like-for-like "
+               "here; note LogicNG minimizes the *number of implicants* in the cover, so a literal-count "
+               "tie is the expected outcome on these functions but is not guaranteed by construction. "
+               "LogicNG's *default* simplifier goal differs from ours (it may factor or keep the input "
+               "form); this column deliberately pins its two-level result — see "
+               "[`doc/COMPARISON_METHODOLOGY.md`](../COMPARISON_METHODOLOGY.md).\n")
+    out.append("| Function | OUR DNF lits | SymPy | PyEDA | LogicNG min | match |")
+    out.append("|----------|-------------:|:-----:|:-----:|:-----------:|:-----:|")
     for r in data["twoLevelMinimization"]:
         n = r["name"]
         lits = "-" if r["abandoned"] else r["literals"]
         sy = cell(sympy, n, "SymPy literals")
         pe = cell(sympy, n, "PyEDA literals")
-        out.append(f"| {n} | {lits} | {sy} | {pe} | {match_marker(lits, sy, pe)} |")
-    out.append("\n**What it means:** where all three finish, the literal counts match — OUR two-level "
-               "minimizer reaches the same optimum as SymPy's Quine–McCluskey and PyEDA's Espresso.\n")
+        lng = cell(logicng, n, "LogicNG min lits")
+        out.append(f"| {n} | {lits} | {sy} | {pe} | {lng} | {match_marker(lits, sy, pe, lng)} |")
+    out.append("\n**What it means:** where the tools finish, the literal counts match — OUR two-level "
+               "minimizer reaches the same optimum as SymPy's Quine–McCluskey, PyEDA's Espresso and "
+               "LogicNG's minimum prime-implicant cover.\n")
 
     out.append("## 3. Equivalence check via SAT (every miter should be UNSAT)\n")
     out.append("Each optimization is checked by solving the miter `original XOR optimized`: **UNSAT ⇒ the "
                "two formulas are logically identical**, i.e. the optimization changed nothing about the "
-               "function. OUR solver and the external ones should all agree on `unsat`.\n")
-    out.append("| Function | OUR | conflicts | CaDiCaL | Kissat | Z3 |")
-    out.append("|----------|:---:|----------:|:-------:|:------:|:--:|")
+               "function. OUR solver and the external ones should all agree on `unsat`. The LogicNG "
+               "column is its MiniSat solver on the **same** `*.miter.cnf` DIMACS files the other three "
+               "solve.\n")
+    out.append("| Function | OUR | conflicts | CaDiCaL | Kissat | Z3 | LogicNG |")
+    out.append("|----------|:---:|----------:|:-------:|:------:|:--:|:-------:|")
     for r in data["sat"]:
         n = r["name"]
         out.append(f"| {n} | {r['verdict']} | {r['conflicts']} | "
                    f"{cell(sat, n, 'cadical verdict', 'cadical')} | {cell(sat, n, 'kissat verdict', 'kissat')} | "
-                   f"{cell(z3, n, 'Z3 verdict', 'Z3')} |")
+                   f"{cell(z3, n, 'Z3 verdict', 'Z3')} | {cell(logicng, n, 'LogicNG SAT verdict')} |")
     out.append("\n**What it means:** `unsat` across every column is the goal — multiple independent "
                "solvers confirm each optimization preserves the function exactly.\n")
 

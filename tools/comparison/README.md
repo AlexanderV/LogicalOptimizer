@@ -61,7 +61,7 @@ given tool is already installed.
 | 3 | [`run_sat_competitors.sh`](run_sat_competitors.sh) | CaDiCaL / Kissat (`PATH`) | `CaDiCaL`, `Kissat` |
 | 3 | [`run_z3_competitor.py`](run_z3_competitor.py) | Z3 (`pip z3-solver`) | `Z3` |
 | 4 (#SAT) | [`run_modelcount_competitors.sh`](run_modelcount_competitors.sh) | d4 / c2d (`PATH`) | `d4 #SAT` |
-| 4 (BDD) | [`logicng/`](logicng/) (Maven/Java, LogicNG 2.4.1) | JDK + Maven | `LogicNG #SAT`, `LogicNG nodes` |
+| 2, 3 & 4 | [`logicng/`](logicng/) (Maven/Java, LogicNG 2.4.1) | JDK + Maven | `LogicNG #SAT`, `LogicNG nodes`, `LogicNG SAT verdict`, `LogicNG min lits` |
 
 ### 1 & 2 — SymPy / PyEDA (already present)
 
@@ -110,21 +110,34 @@ full-Tseitin encoding, so d4 / c2d's count is directly comparable to `our-result
 (brute-force `#SAT` of the emitted CNF equals the OUR `modelCount`). It self-skips when
 the counter is absent and records `timeout` when the budget is exceeded.
 
-### 4 — LogicNG BDD (JVM)
+### 2, 3 & 4 — LogicNG (JVM): BDD #SAT, miter SAT, min-DNF size
 
 LogicNG is a JVM library, so its adapter is a small self-contained Maven/Java project in
 [`logicng/`](logicng/) (pinned to LogicNG 2.4.1). `mvn package` shades it and its
 dependencies into one executable jar; the container bakes that jar in and runs:
 
 ```bash
-java -jar logicng-adapter.jar tools/comparison_corpus.txt 20   # <corpus> [timeout-seconds]
+java -jar logicng-adapter.jar tools/comparison_corpus.txt 20 doc/comparison/sat-cnf
+# <corpus> [timeout-seconds] [miter-dimacs-dir]
 ```
 
-It reads the shared corpus, compiles each function to a BDD, and prints
-`| Function | LogicNG nodes | LogicNG #SAT | LogicNG ms |` per line, applying the shared
-per-function timeout (a build that exceeds it is `timeout`, a parse/build error is
-`error` — never a fabricated number). Its `#SAT` is an independent cross-check of the OUR
-exact model count.
+It reads the shared corpus and prints one row per function with three independent
+LogicNG measurements, each under the shared per-function timeout (over budget is
+`timeout`, a parse/build error is `error` — never a fabricated number):
+
+- `LogicNG nodes` / `LogicNG #SAT` / `LogicNG ms` — the function compiled to a BDD;
+  its exact model count is an independent cross-check of the OUR count (Table 4).
+- `LogicNG SAT verdict` / `LogicNG SAT ms` — LogicNG's MiniSat on the **same**
+  `<name>.miter.cnf` DIMACS CaDiCaL / Kissat / Z3 solve (Table 3; every miter is
+  expected `unsat`). When the miter directory is omitted or a file is missing, the
+  cells self-skip to `pending`.
+- `LogicNG min lits` / `LogicNG min ms` — the literal count of LogicNG's **minimum
+  prime-implicant-cover DNF** of the function (the documented DNF-building core of its
+  `AdvancedSimplifier`: prime implicants + smallest-MUS coverage). This is a two-level
+  DNF, so the literal count is like-for-like with Table 2's `OUR DNF lits` / SymPy /
+  PyEDA columns. The full `AdvancedSimplifier` is deliberately not used for this
+  column: its goal differs (it may factor the result or keep the input form when that
+  rates smaller), which would not be a two-level size.
 
 ## Merging
 

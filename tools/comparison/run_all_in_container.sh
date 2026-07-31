@@ -55,9 +55,12 @@ echo "== 5/7 d4 / c2d (#SAT on count-preserving function CNF) =="
 bash tools/comparison/run_modelcount_competitors.sh "$FUNCDIR" "$TIMEOUT_MC" \
     > "$OUT/mc_out.md" 2> "$OUT/mc_out.log" || true
 
-echo "== 6/7 LogicNG BDD =="
+echo "== 6/7 LogicNG (BDD #SAT + miter SAT + min-DNF size) =="
+# The third argument points the adapter at the SAME miter DIMACS CaDiCaL/Kissat/Z3
+# solve, so its SAT verdicts are on byte-identical inputs; without it those columns
+# would self-skip to `pending`.
 if [[ -f /opt/logicng-adapter.jar ]]; then
-    java -jar /opt/logicng-adapter.jar tools/comparison_corpus.txt "$TIMEOUT_LOGICNG" \
+    java -jar /opt/logicng-adapter.jar tools/comparison_corpus.txt "$TIMEOUT_LOGICNG" "$SATDIR" \
         > "$OUT/logicng_out.md" 2> "$OUT/logicng_out.log" || true
 else
     echo "# LogicNG jar not built in this image; column stays pending." > "$OUT/logicng_out.md"
