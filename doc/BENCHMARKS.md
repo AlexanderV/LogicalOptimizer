@@ -340,6 +340,44 @@ pigeonhole PHP(8→7), needs ≈ 3.3k conflicts). The budget carries wide headro
 a future change that makes the solver need materially more search to decide any of these is
 precisely the regression this corpus is meant to surface.
 
+### Multi-output PLA corpus and adversarial BDD variable-order corpus
+
+Two further corpus families (competitive-assessment gap #3 — "corpus too small and
+synthetic" — 30-day roadmap item 1). Like the SAT corpus these are **generated,
+structured, synthetic** families — classic textbook blocks and seeded pseudo-random cube
+lists, deliberately reproducible in-repo — **not** industrial workloads; they widen the
+corpus's *shape* coverage (multi-output two-level functions; order-sensitive BDD
+structures), and support no industrial-scale conclusions. Both are regenerated
+byte-identically by one command, and a gate test asserts the committed files equal the
+generator output:
+
+```powershell
+dotnet run -c Release --project LogicalOptimizer.Benchmarks -- generate-corpora
+```
+
+- **[`LogicalOptimizer.Benchmarks/PlaCorpus/`](../LogicalOptimizer.Benchmarks/PlaCorpus/README.md)** —
+  8 multi-output functions in the classic Espresso `.pla` cube format (fd subset): a
+  BCD-to-7-segment decoder, a 2-bit adder, a 3-to-8 decoder, an 8-line priority encoder,
+  a 3-bit comparator, and three seeded pseudo-random PLAs (35 output functions in all,
+  3–8 inputs each). The dev-only reader lives in the unpackaged Benchmarks project — the
+  shipped packages still have no public PLA import and the pinned public API is
+  unchanged. `PlaCorpusRegressionTests` (deterministic, **gate-visible**) optimizes every
+  output through the facade and asserts: the equivalence self-check passes,
+  `MinimizationStatus == MinimalProven`, the optimized literal count never exceeds the
+  cube-expansion literal count, and it equals a **pinned golden value** per output plus a
+  pinned per-file total (e.g. `bcd7seg` 196 → 56 literals, `cmp3` 384 → 34, `dec3to8`
+  24 → 24 — already minimal).
+- **[`LogicalOptimizer.Benchmarks/BddOrderCorpus/`](../LogicalOptimizer.Benchmarks/BddOrderCorpus/README.md)** —
+  8 order-sensitive formulas (n-bit equality comparators and Bryant's disjoint-pairs
+  DNF, 10–14 bit pairs), each committed twice: named so the engine's alphabetical
+  default order is the good interleaved order, and named so it is the adversarial
+  separated (exponential) order. `BddOrderCorpusRegressionTests` (deterministic,
+  **gate-visible**) pins the documented budget envelope under a deliberately small
+  1,500-node budget: good order builds at a pinned node count (e.g. `eq12` 259 allocated
+  nodes, 4,096 models), the adversarial order fails fast with the documented typed
+  `NodeBudgetExceededException` (never a hang or memory blowup), and reordering recovers
+  (`BuildWithBestOrder` 94 nodes; Rudell sifting 36 reachable nodes).
+
 ### ExactMinimizationBenchmarks
 
 | Method                     | Mean     | Error     | StdDev    | Gen0    | Gen1   | Allocated |

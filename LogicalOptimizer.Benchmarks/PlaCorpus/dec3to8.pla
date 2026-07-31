@@ -1,0 +1,18 @@
+# kind: 3-to-8-decoder
+# generator: LogicalOptimizer.Benchmarks PlaCorpusGenerator (deterministic)
+# regenerate: dotnet run -c Release --project LogicalOptimizer.Benchmarks -- generate-corpora
+# note: one-hot line decoder: y_i = minterm i of (s2 s1 s0)
+.i 3
+.o 8
+.ilb s2 s1 s0
+.ob y0 y1 y2 y3 y4 y5 y6 y7
+.p 8
+000 10000000
+001 01000000
+010 00100000
+011 00010000
+100 00001000
+101 00000100
+110 00000010
+111 00000001
+.e

@@ -1,0 +1,7 @@
+# kind: disjoint-pairs
+# bits: 12
+# alphabetical-order: interleaved (good: a_i and b_i adjacent)
+# note: OR_i (a_i & b_i), Bryant's example: linear ROBDD interleaved, ~2^n separated
+# generator: LogicalOptimizer.Benchmarks BddOrderCorpusGenerator (deterministic, no randomness)
+# regenerate: dotnet run -c Release --project LogicalOptimizer.Benchmarks -- generate-corpora
+x01a & x01b | x02a & x02b | x03a & x03b | x04a & x04b | x05a & x05b | x06a & x06b | x07a & x07b | x08a & x08b | x09a & x09b | x10a & x10b | x11a & x11b | x12a & x12b

@@ -98,3 +98,42 @@ python tools/compare_sympy_pyeda.py --max-vars 14 --timeout 10
 The CI **Comparison table** step runs both on the Linux runner and prints them to
 the workflow log. The Python script self-skips any tool that is not importable and
 never fabricates numbers.
+
+## Regression corpora (generated, structured)
+
+Beyond the 17-function comparison corpus, three **generated, deterministic** corpus
+families back the regression suites — synthetic structured families, not industrial
+workloads (the corpus-realism gap in `doc/COMPETITIVE_ASSESSMENT.md` is closed only in
+part by them):
+
+- **SAT corpus** (`LogicalOptimizer.Benchmarks/SatCorpus/`) — 20 SATLIB-style DIMACS
+  instances (planted 3-SAT, forced-UNSAT 3-SAT, pigeonhole); nightly
+  correctness-under-budget regression.
+- **Multi-output PLA corpus** (`LogicalOptimizer.Benchmarks/PlaCorpus/`) — 8 classic
+  multi-output blocks (BCD-to-7-segment, adder, decoders, priority encoder, comparator,
+  seeded random PLAs) in Espresso `.pla` format; a gate-visible test optimizes all 35
+  outputs and pins per-output and per-file literal counts plus equivalence-guard and
+  `MinimalProven` statuses.
+- **Adversarial BDD order corpus** (`LogicalOptimizer.Benchmarks/BddOrderCorpus/`) — 8
+  order-sensitive formulas (bit comparators, disjoint-pairs DNF) whose ROBDD is linear
+  in a good variable order and exponential in the adversarial one; a gate-visible test
+  pins node counts under a small explicit budget, the documented typed
+  `NodeBudgetExceededException` on the adversarial order, and recovery via order
+  heuristics / sifting.
+
+All three regenerate byte-identically
+(`dotnet run -c Release --project LogicalOptimizer.Benchmarks -- generate-corpora` for
+the PLA/BDD families) and the committed files are verified against the generators in the
+test gate. See `doc/BENCHMARKS.md` and each corpus README for the pinned tables.
+
+## Resource observability
+
+Beyond elapsed time and allocated bytes, the full comparison suite
+(`-- comparison-suite`) records the **process-level peak working set** per row and
+per run (`peakWorkingSetBytes` — a monotone process high-water mark, so it is not
+attributable to a single function; see the attribution caveat in
+[`doc/COMPARISON_METHODOLOGY.md`](https://github.com/AlexanderV/LogicalOptimizer/blob/main/doc/COMPARISON_METHODOLOGY.md)),
+and a dedicated harness (`-- cancellation-overshoot`) measures **cancellation
+overshoot** — the latency between a mid-flight cancel and each budgeted engine
+actually returning control — as median/max over repeated runs. Both are
+machine-dependent observability metrics: reported, never asserted.

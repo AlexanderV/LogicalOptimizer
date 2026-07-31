@@ -1,0 +1,20 @@
+# kind: bcd-to-7-segment
+# generator: LogicalOptimizer.Benchmarks PlaCorpusGenerator (deterministic)
+# regenerate: dotnet run -c Release --project LogicalOptimizer.Benchmarks -- generate-corpora
+# note: digits 0..9 from the well-known common-cathode segment table; inputs 10..15 unspecified (fd: off)
+.i 4
+.o 7
+.ilb d3 d2 d1 d0
+.ob sa sb sc sd se sf sg
+.p 10
+0000 1111110
+0001 0110000
+0010 1101101
+0011 1111001
+0100 0110011
+0101 1011011
+0110 1011111
+0111 1110000
+1000 1111111
+1001 1111011
+.e

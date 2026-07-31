@@ -1,0 +1,7 @@
+# kind: eq-comparator
+# bits: 10
+# alphabetical-order: separated (adversarial: all a's before all b's)
+# note: EQ(a,b) = AND_i (a_i <-> b_i): linear ROBDD interleaved, ~2^n separated
+# generator: LogicalOptimizer.Benchmarks BddOrderCorpusGenerator (deterministic, no randomness)
+# regenerate: dotnet run -c Release --project LogicalOptimizer.Benchmarks -- generate-corpora
+(a01 & b01 | !a01 & !b01) & (a02 & b02 | !a02 & !b02) & (a03 & b03 | !a03 & !b03) & (a04 & b04 | !a04 & !b04) & (a05 & b05 | !a05 & !b05) & (a06 & b06 | !a06 & !b06) & (a07 & b07 | !a07 & !b07) & (a08 & b08 | !a08 & !b08) & (a09 & b09 | !a09 & !b09) & (a10 & b10 | !a10 & !b10)

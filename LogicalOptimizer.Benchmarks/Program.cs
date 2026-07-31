@@ -17,6 +17,18 @@ if (args.Length > 0 && string.Equals(args[0], "compare", StringComparison.Ordina
 if (args.Length > 0 && string.Equals(args[0], "comparison-suite", StringComparison.OrdinalIgnoreCase))
     return CrossLibraryComparisonHarness.Run(args);
 
+// Competitive-assessment observability: `-- cancellation-overshoot` measures, per
+// budgeted engine, the latency between a mid-flight cancel and the engine actually
+// returning control. See CancellationOvershootHarness.
+if (args.Length > 0 && string.Equals(args[0], "cancellation-overshoot", StringComparison.OrdinalIgnoreCase))
+    return CancellationOvershootHarness.Run(args);
+
+// Competitive-assessment corpus gap #3 (30-day roadmap item 1): `-- generate-corpora`
+// (re)generates the vendored PlaCorpus/ and BddOrderCorpus/ regression families into the
+// source tree and prints the reference tables the corpus regression tests pin.
+if (args.Length > 0 && string.Equals(args[0], "generate-corpora", StringComparison.OrdinalIgnoreCase))
+    return CorpusGenerationMode.Run(args);
+
 BenchmarkSwitcher.FromAssembly(typeof(OptimizationBenchmarks).Assembly).Run(args);
 return 0;
 

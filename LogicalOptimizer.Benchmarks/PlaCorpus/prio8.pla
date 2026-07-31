@@ -1,0 +1,18 @@
+# kind: 8-line-priority-encoder
+# generator: LogicalOptimizer.Benchmarks PlaCorpusGenerator (deterministic)
+# regenerate: dotnet run -c Release --project LogicalOptimizer.Benchmarks -- generate-corpora
+# note: v=1 and (y2 y1 y0)=index of highest asserted request line, r7 highest; no request => all outputs 0 (fd)
+.i 8
+.o 4
+.ilb r7 r6 r5 r4 r3 r2 r1 r0
+.ob v y2 y1 y0
+.p 8
+1------- 1111
+01------ 1110
+001----- 1101
+0001---- 1100
+00001--- 1011
+000001-- 1010
+0000001- 1001
+00000001 1000
+.e
