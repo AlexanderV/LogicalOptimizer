@@ -28,6 +28,20 @@ jobs:
       - name: Version from tag
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
 
+      # The release notes are this version's CHANGELOG section (via the evidence bundle's
+      # claim-changes.md), so a missing section means a release with no notes. Checked HERE, at the
+      # top, and not where the notes are used: that step runs after `dotnet nuget push`, and a
+      # failure there would leave the packages permanently published with the release unmade.
+      # Everything that can refuse a release has to refuse it before anything irreversible happens.
+      - name: Verify the CHANGELOG documents this version
+        run: |
+          if ! grep -q "^## \[${VERSION}\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [${VERSION}]' section - the release would" \
+                 "have no notes. Add the section, retag, and push."
+            exit 1
+          fi
+          echo "CHANGELOG.md documents ${VERSION}."
+
       - name: Build
         run: dotnet build LogicalOptimizer.sln --configuration Release -warnaserror /p:Version=${{ env.VERSION }}
 
@@ -166,19 +180,41 @@ jobs:
       # Attaching the pushed bytes here is what makes "verify it yourself" actually executable;
       # the nuget.org copy is verified instead with `dotnet nuget verify`, which checks that
       # repository signature.
-      - name: Attach evidence bundle and packages to the GitHub release
+      # This step used to attach only when a release already existed and otherwise print a note and
+      # succeed. That made the failure mode silent and the exact opposite of the intent above: v3.2.2
+      # published nine packages, went green, and had no release at all - so the "verify it yourself"
+      # instructions in the bundle pointed at assets that were never uploaded anywhere. The release
+      # is now created when it is missing, and the upload is verified rather than assumed.
+      - name: Publish the GitHub release with the evidence bundle and packages
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
+          set -euo pipefail
+
           if gh release view "$TAG" >/dev/null 2>&1; then
-            zip -r "release-evidence-${VERSION}.zip" evidence
-            gh release upload "$TAG" "release-evidence-${VERSION}.zip" --clobber
-            # The attested bytes, plus the checksum file that describes them.
-            gh release upload "$TAG" artifacts/*.nupkg artifacts/*.snupkg \
-              artifacts/SHA256SUMS.txt --clobber
-            echo "Evidence bundle and packages attached to release $TAG."
+            echo "Release $TAG already exists; attaching to it."
           else
-            echo "No GitHub release exists for $TAG yet; the bundle is available as the"
-            echo "release-evidence-${VERSION} run artifact and can be attached when the release is published."
+            # Notes are the bundle's claim-changes.md - this version's CHANGELOG section, verbatim,
+            # with a link back to it. The early CHANGELOG gate is what guarantees it is non-empty.
+            gh release create "$TAG" --title "$TAG" --verify-tag \
+              --notes-file evidence/claim-changes.md
+            echo "Created release $TAG."
           fi
+
+          zip -r "release-evidence-${VERSION}.zip" evidence
+          gh release upload "$TAG" "release-evidence-${VERSION}.zip" --clobber
+          # The attested bytes, plus the checksum file that describes them.
+          gh release upload "$TAG" artifacts/*.nupkg artifacts/*.snupkg \
+            artifacts/SHA256SUMS.txt --clobber
+
+          # Assert what actually landed. `gh release upload` can partially succeed, and an
+          # incomplete asset set is precisely what breaks the verification instructions.
+          expected=$(( $(ls artifacts/*.nupkg artifacts/*.snupkg artifacts/SHA256SUMS.txt | wc -l) + 1 ))
+          actual=$(gh release view "$TAG" --json assets --jq '.assets | length')
+          if [ "$actual" -lt "$expected" ]; then
+            echo "::error::Release $TAG carries $actual assets, expected at least $expected."
+            gh release view "$TAG" --json assets --jq '.assets[].name'
+            exit 1
+          fi
+          echo "Release $TAG published with $actual assets."

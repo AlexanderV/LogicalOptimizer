@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The release workflow no longer finishes green without a GitHub release.** Its last step
+  attached the evidence bundle and the attested `.nupkg`/`.snupkg`/`SHA256SUMS.txt` only when a
+  release for the tag already existed, and otherwise printed a note and succeeded. So v3.2.2
+  published nine packages, went green, and had no release at all — leaving the bundle's
+  `verifying-provenance.md` pointing at assets that were never uploaded anywhere, which is the very
+  thing [3.2.2] set out to fix. The workflow now creates the release when it is missing (notes from
+  `claim-changes.md`, this version's CHANGELOG section) and then asserts the attached asset count
+  instead of assuming the uploads landed. A separate check at the **top** of the job fails the
+  release when `CHANGELOG.md` has no section for the version: the notes are only needed at the last
+  step, which runs after `dotnet nuget push`, and failing there would leave the packages
+  permanently published with the release unmade.
+
 ## [3.2.2] - 2026-07-31
 
 ### Performance
