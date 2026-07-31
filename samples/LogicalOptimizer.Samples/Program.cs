@@ -10,7 +10,8 @@ var recipes = new (string Name, Action Run)[]
     ("2. Business-rule regression check", BusinessRuleRegressionCheck.Run),
     ("3. Count valid configurations", CountValidConfigurations.Run),
     ("4. Optimize generated conditions", OptimizeGeneratedConditions.Run),
-    ("5. CI verification", CiVerification.Run)
+    ("5. CI verification", CiVerification.Run),
+    ("6. External solver hand-off", ExternalSolverHandOff.Run)
 };
 
 var failures = 0;

@@ -510,6 +510,45 @@ public class DocExamplesTests
         Assert.True(new HybridEquivalenceChecker().Check(Parse("a | b"), Parse("b | a")).AreEquivalent);
     }
 
+    [Fact]
+    public void ExternalSatEquivalenceChecker_RoutesTheMiterThroughTheSuppliedAdapter()
+    {
+        // Twin of the external-solvers.md seam example, with an in-process adapter standing
+        // in for a solver executable (the article's process adapter lives in the samples).
+        IExternalSatSolver solver = new DocExampleExternalSolver();
+        var checker = new ExternalSatEquivalenceChecker(solver);
+
+        var verdict = checker.Check(Parse("a & b | a & c"), Parse("a & (b | c)"));
+        Assert.True(verdict.AreEquivalent); // UNSAT miter verdict from the external solver
+
+        var differ = checker.Check(Parse("a & b"), Parse("a | b"));
+        Assert.False(differ.AreEquivalent);
+        Assert.NotNull(differ.Counterexample); // decoded from the verified model
+    }
+
+    /// <summary>The embedded solver acting as the "external" backend for the doc example.</summary>
+    private sealed class DocExampleExternalSolver : IExternalSatSolver
+    {
+        public ExternalSatResult Solve(ExternalSatProblem problem, CancellationToken cancellationToken = default)
+        {
+            var solver = new SatSolver(problem.VariableCount);
+            foreach (var clause in problem.Clauses) solver.AddClause(clause);
+
+            switch (solver.Solve(problem.Assumptions, cancellationToken: cancellationToken))
+            {
+                case SatResult.Satisfiable:
+                    var model = new List<int>(problem.VariableCount);
+                    for (var v = 1; v <= problem.VariableCount; v++)
+                        model.Add(solver.GetValue(v) ? v : -v);
+                    return ExternalSatResult.Satisfiable(model);
+                case SatResult.Unsatisfiable:
+                    return ExternalSatResult.Unsatisfiable();
+                default:
+                    return ExternalSatResult.Unknown();
+            }
+        }
+    }
+
     // ----- Exporters -----
 
     [Fact]
@@ -594,6 +633,28 @@ public class DocExamplesTests
                 Assert.True(text.Contains($"logical-optimizer {verb} ", StringComparison.Ordinal),
                     $"{relative} does not document the '{verb}' verb. Every standard-format verb " +
                     "must be documented where the others are, or it is reachable only via --help.");
+        }
+    }
+
+    /// <summary>
+    ///     The <c>check</c> verb is not a standard-format verb (it takes two expressions, not a
+    ///     problem file), so <see cref="FormatCommands.Verbs" /> does not cover it — but the same
+    ///     documentation rule applies: it must be named as a command in every document that lists
+    ///     the other verbs, or it is reachable only via <c>--help</c>.
+    /// </summary>
+    [Fact]
+    public void Cli_DocumentsTheCheckVerbWhereTheOtherVerbsAre()
+    {
+        foreach (var relative in new[]
+                 {
+                     "README.md",
+                     Path.Combine("LogicalOptimizer.Cli", "README.md"),
+                     Path.Combine("docs-site", "articles", "cli-usage.md")
+                 })
+        {
+            var text = File.ReadAllText(Path.Combine(RepositoryRoot(), relative));
+            Assert.True(text.Contains($"logical-optimizer {CheckCommand.Verb} ", StringComparison.Ordinal),
+                $"{relative} does not document the '{CheckCommand.Verb}' verb.");
         }
     }
 

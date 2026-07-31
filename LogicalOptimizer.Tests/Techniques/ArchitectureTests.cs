@@ -133,10 +133,11 @@ public class ArchitectureTests
             "OptimizationMetrics", "AstMetrics", "ResourceBudget", "ComputationBudgetExceededException",
             "NodeBudgetExceededException", "NormalFormTooLargeException", "CircuitSerializationException",
             "FormulaParseException", "ParseDiagnostic", "ParseErrorCode",
-            // Sat (14)
+            // Sat (17)
             "SatSolver", "SatResult", "MaxSatSolver", "MaxSatResult", "MaxSatStatus", "MaxSatAlgorithm",
             "CnfBuilder", "CardinalityEncoder", "PseudoBooleanEncoder", "CnfEncodingStyle", "TseitinCnf",
             "CardinalityEncoding", "PseudoBooleanEncoding", "EncodingStats",
+            "IExternalSatSolver", "ExternalSatProblem", "ExternalSatResult",
             // Bdd (1)
             "BinaryDecisionDiagram",
             // Dnnf (2)
@@ -148,12 +149,12 @@ public class ArchitectureTests
             // Minimization (5)
             "TruthTableMinimizer", "CsvTruthTableParser", "PartialTruthTable",
             "MultiOutputTable", "MultiOutputFunction",
-            // Facade (22)
+            // Facade (23)
             "BooleanExpressionOptimizer", "OptimizationResult", "OptimizationOptions",
             "CnfMode", "MinimizationStatus", "ComputationStatus",
             "OptimizationTrace", "OptimizationTraceEntry", "OptimizationTraceCategory",
             "EquivalenceChecker", "EquivalenceCheckResult", "IEquivalenceChecker",
-            "HybridEquivalenceChecker", "BddEquivalenceChecker",
+            "HybridEquivalenceChecker", "BddEquivalenceChecker", "ExternalSatEquivalenceChecker",
             "FormulaAnalysis", "BackboneResult", "Transformations",
             "BooleanExpressionExporter", "CSharpExpressionExporter", "OptimizationQualityAnalyzer",
             "ProjectedModelCountResult", "ProjectedCountStatus"

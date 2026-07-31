@@ -24,6 +24,8 @@
   href: equivalence-and-backbones.md
 - name: Export Formats
   href: exporters.md
+- name: External SAT Solvers & DIMACS Hand-off
+  href: external-solvers.md
 - name: Packages & Architecture
   href: packages-and-architecture.md
 - name: CLI Usage

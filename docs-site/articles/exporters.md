@@ -44,4 +44,5 @@ alphabetical order.
 ## Next steps
 
 - [Normal forms & transformations](normal-forms.md) — the CNF/DNF/ANF the DIMACS/BLIF exports build on.
+- [External SAT solvers & DIMACS hand-off](external-solvers.md) — running CaDiCaL/Kissat/d4 on the exported file, and the adapter seam.
 - [CLI usage](cli-usage.md) — the same formats from the command line.

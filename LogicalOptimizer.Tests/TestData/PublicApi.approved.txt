@@ -62,6 +62,11 @@ namespace LogicalOptimizer
                 "DratProof"})]
         public static System.ValueTuple<LogicalOptimizer.EquivalenceCheckResult, LogicalOptimizer.TseitinCnf, string?> CheckWithProof(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, int maxConflicts = 200000, System.Threading.CancellationToken cancellationToken = default) { }
     }
+    public sealed class ExternalSatEquivalenceChecker : LogicalOptimizer.IEquivalenceChecker
+    {
+        public ExternalSatEquivalenceChecker(LogicalOptimizer.IExternalSatSolver solver) { }
+        public LogicalOptimizer.EquivalenceCheckResult Check(LogicalOptimizer.AstNode left, LogicalOptimizer.AstNode right, System.Threading.CancellationToken cancellationToken = default) { }
+    }
     public static class FormulaAnalysis
     {
         public static LogicalOptimizer.BackboneResult ComputeBackbone(LogicalOptimizer.AstNode formula, int maxConflicts = 200000, System.Threading.CancellationToken cancellationToken = default) { }
@@ -639,6 +644,28 @@ namespace LogicalOptimizer
         public int Clauses { get; }
         public int Cost { get; }
         public override string ToString() { }
+    }
+    public sealed class ExternalSatProblem
+    {
+        public ExternalSatProblem(int variableCount, System.Collections.Generic.IReadOnlyList<int[]> clauses, System.Collections.Generic.IReadOnlyList<int>? assumptions = null) { }
+        public System.Collections.Generic.IReadOnlyList<int> Assumptions { get; }
+        public System.Collections.Generic.IReadOnlyList<int[]> Clauses { get; }
+        public int VariableCount { get; }
+        public bool IsSatisfiedBy(System.Collections.Generic.IReadOnlyList<int> model) { }
+        public string ToDimacs() { }
+        public static LogicalOptimizer.ExternalSatProblem FromCnf(LogicalOptimizer.TseitinCnf cnf, System.Collections.Generic.IReadOnlyList<int>? assumptions = null) { }
+    }
+    public sealed class ExternalSatResult
+    {
+        public System.Collections.Generic.IReadOnlyList<int>? Model { get; }
+        public LogicalOptimizer.SatResult Verdict { get; }
+        public static LogicalOptimizer.ExternalSatResult Satisfiable(System.Collections.Generic.IReadOnlyList<int> model) { }
+        public static LogicalOptimizer.ExternalSatResult Unknown() { }
+        public static LogicalOptimizer.ExternalSatResult Unsatisfiable() { }
+    }
+    public interface IExternalSatSolver
+    {
+        LogicalOptimizer.ExternalSatResult Solve(LogicalOptimizer.ExternalSatProblem problem, System.Threading.CancellationToken cancellationToken = default);
     }
     public enum MaxSatAlgorithm
     {
