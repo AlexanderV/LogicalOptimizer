@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "left": "admin | (owner & businessHours)",
+  "right": "admin | owner",
+  "verdict": "not_equivalent",
+  "equivalent": false,
+  "counterexample": {
+    "admin": false,
+    "businessHours": false,
+    "owner": true
+  }
+}

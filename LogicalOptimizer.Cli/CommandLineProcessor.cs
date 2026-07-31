@@ -254,6 +254,10 @@ internal class CommandLineProcessor
         Console.WriteLine("  LogicalOptimizer.exe \"<csv_file.csv>\"      # Parse CSV file (auto-detected)");
         Console.WriteLine("  LogicalOptimizer.exe --help              # This help");
         Console.WriteLine();
+        Console.WriteLine("Equivalence check (two expressions):");
+        Console.WriteLine("  logical-optimizer check \"<expr1>\" \"<expr2>\"      # equivalent, or a counterexample");
+        Console.WriteLine("  logical-optimizer check --format=json \"<expr1>\" \"<expr2>\"  # machine-readable report");
+        Console.WriteLine();
         Console.WriteLine("Standard-format problem files (DIMACS/WCNF/OPB):");
         Console.WriteLine("  logical-optimizer solve input.cnf        # DIMACS CNF satisfiability");
         Console.WriteLine("  logical-optimizer maxsat input.wcnf      # WCNF weighted partial MaxSAT");
@@ -291,9 +295,11 @@ internal class CommandLineProcessor
         Console.WriteLine("  - Maximum nesting depth: 50 levels");
         Console.WriteLine();
         Console.WriteLine("Exit codes:");
-        Console.WriteLine("  0  success");
+        Console.WriteLine("  0  success (for 'check': the expressions are equivalent)");
         Console.WriteLine("  1  usage error (invalid arguments)");
         Console.WriteLine("  2  processing error (e.g. an invalid expression)");
+        Console.WriteLine("  3  'check' only: not equivalent (a counterexample was found)");
+        Console.WriteLine("  4  'check' only: unknown (budget exhausted before a proof)");
     }
 
     public static void ShowCsvExample()

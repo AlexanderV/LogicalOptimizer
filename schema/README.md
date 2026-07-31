@@ -6,6 +6,7 @@ This directory is the contract for that document:
 | File | What it is |
 |---|---|
 | [`cli-report-v1.schema.json`](cli-report-v1.schema.json) | JSON Schema (Draft 2020-12) for `schemaVersion: 1` |
+| [`cli-check-report-v1.schema.json`](cli-check-report-v1.schema.json) | Schema for the separate document the `check` verb writes (see [below](#the-check-verbs-report)) |
 | [`examples/`](examples/) | One golden report per outcome a consumer must handle |
 
 Both are enforced by
@@ -120,8 +121,33 @@ There is deliberately **no example of `equivalent: false`.** The schema declares
 boolean and a consumer should branch on it, but the optimize path is not expected to emit `false`:
 the internal equivalence guard runs before the result is returned, so `false` would indicate a bug
 in the library and is worth [reporting](../SUPPORT.md). Equivalence *checking* of two independent
-expressions — including the counterexample for a non-equivalent pair — is a library API
-(`EquivalenceChecker`), not part of this CLI report.
+expressions — including the counterexample for a non-equivalent pair — is the `check` verb, which
+writes its own document type (see [below](#the-check-verbs-report)), not part of this report.
+
+## The `check` verb's report
+
+`logical-optimizer check --format=json "<expr1>" "<expr2>"` writes a **different document** —
+comparing two expressions answers a different question than optimizing one — governed by
+[`cli-check-report-v1.schema.json`](cli-check-report-v1.schema.json) under the same rules as
+above: closed schema, versioned by its own `schemaVersion`, additive-only within a version,
+exactly one document on stdout. Enforced by
+[`CliCheckReportSchemaTests`](../LogicalOptimizer.Tests/Cli/CliCheckReportSchemaTests.cs)
+(golden examples + fresh output) and
+[`CliCheckCommandTests`](../LogicalOptimizer.Tests/Cli/CliCheckCommandTests.cs) (end-to-end
+through `Program.Main`, including that the counterexample really distinguishes the two
+expressions).
+
+| Example | Shows | Exit code |
+|---|---|---:|
+| [`check-equivalent.json`](examples/check-equivalent.json) | `verdict: "equivalent"` — proven (exhaustive table or UNSAT miter) | 0 |
+| [`check-not-equivalent.json`](examples/check-not-equivalent.json) | `verdict: "not_equivalent"` with the `counterexample` witness | 3 |
+| [`check-parse-error.json`](examples/check-parse-error.json) | An `error` object whose `side` names the malformed expression | 2 |
+
+A fourth outcome, `verdict: "unknown"` (conflict budget exhausted, exit code `4`), has no golden
+example because producing one would require a deliberately enormous instance; its shape is pinned
+by the schema and by `CliCheckReportSchemaTests`. The exit codes `3` and `4` are additive,
+`check`-specific codes under the [SUPPORT.md](../SUPPORT.md#cli-contract) policy — the meaning of
+`0`/`1`/`2` is unchanged.
 
 ## What is stable within a version
 

@@ -206,6 +206,70 @@ logical-optimizer --format=json --trace "a & b | a & c" # as a "trace" array
 The trace is diagnostic: unlike the JSON report's fields, its wording and ordering are not a
 stability contract. See [Diagnostic Trace](diagnostic-trace.md).
 
+## Equivalence check (`check`)
+
+`check` takes two expressions and proves them equivalent or returns a concrete
+counterexample — the same `EquivalenceChecker` engine the library exposes (truth table in the
+exhaustive range, SAT miter beyond it), so a determined verdict is always proven:
+
+```bash
+logical-optimizer check "a & b | a & c" "a & (b | c)"
+```
+
+```text
+Left: a & b | a & c
+Right: a & (b | c)
+Equivalent: proven
+```
+
+When the two differ, the counterexample names an exact input where they disagree — here a
+refactor that dropped the business-hours guard for owners:
+
+```bash
+logical-optimizer check "admin | (owner & businessHours)" "admin | owner"
+```
+
+```text
+Left: admin | (owner & businessHours)
+Right: admin | owner
+Equivalent: no
+Counterexample: admin=0, businessHours=0, owner=1
+```
+
+The exit code carries the verdict, so a CI step needs no output parsing: `0` equivalent,
+`3` not equivalent, `4` unknown (conflict budget exhausted on a very large instance), with the
+usual `1` for a usage error and `2` for an invalid expression.
+
+`--format=json` emits a versioned report — its own document type with its own schema,
+[`cli-check-report-v1.schema.json`](https://AlexanderV.github.io/LogicalOptimizer/schema/cli-check-report-v1.schema.json),
+alongside golden examples under
+[`schema/examples/`](https://github.com/AlexanderV/LogicalOptimizer/tree/main/schema/examples)
+(`check-*.json`):
+
+```bash
+logical-optimizer check --format=json "admin | (owner & businessHours)" "admin | owner"
+```
+
+```json
+{
+  "schemaVersion": 1,
+  "left": "admin | (owner & businessHours)",
+  "right": "admin | owner",
+  "verdict": "not_equivalent",
+  "equivalent": false,
+  "counterexample": {
+    "admin": false,
+    "businessHours": false,
+    "owner": true
+  }
+}
+```
+
+`verdict` is `equivalent`, `not_equivalent`, or `unknown`; the boolean `equivalent` field is
+present only for a determined verdict, and `counterexample` exactly when the verdict is
+`not_equivalent`. On a malformed expression the document carries an `error` object whose `side`
+says which of the two expressions failed to parse (exit code `2`).
+
 ## Standard-format problem files
 
 Everything above operates on a Boolean *expression*. The CLI also takes four **verbs** that read a
@@ -312,11 +376,15 @@ including `s UNSATISFIABLE`, which is an answer, not a failure.
 
 | Code | Meaning |
 |---|---|
-| `0` | Success |
+| `0` | Success (for `check`: proven equivalent) |
 | `1` | Usage error (invalid arguments) |
 | `2` | Processing error (e.g. an invalid expression) |
+| `3` | `check` only: proven not equivalent (a counterexample was found) |
+| `4` | `check` only: unknown — the conflict budget ran out before a proof |
 
 The standard-format verbs use `0` and `1` only: every parse, file and budget failure is a `1`.
+`3` and `4` are additive codes specific to the `check` verb; the meaning of `0`/`1`/`2` is
+unchanged.
 
 ## Operators
 

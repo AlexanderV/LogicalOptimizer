@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://AlexanderV.github.io/LogicalOptimizer/schema/cli-check-report-v1.schema.json",
+  "title": "LogicalOptimizer CLI equivalence-check report (schemaVersion 1)",
+  "description": "The document written by `logical-optimizer check --format=json \"<expr1>\" \"<expr2>\"` on stdout. Exactly one document per invocation. A completed check carries `verdict`; a failed one carries `error`. `left` and `right` are always the two expressions exactly as the CLI received them. A determined verdict is PROVEN: equivalence by exhaustive truth table or an UNSAT miter, inequivalence by the concrete `counterexample` witness; `unknown` means the conflict budget ran out before a proof either way. The process exit code is 0 for `equivalent`, 3 for `not_equivalent`, 4 for `unknown`, and 2 for an error report. Fields absent from this schema are not part of the contract and must not be relied on; the compatibility rules of schema/README.md apply to this document too.",
+  "type": "object",
+  "unevaluatedProperties": false,
+  "required": ["schemaVersion", "left", "right"],
+  "oneOf": [
+    {
+      "title": "verdict report",
+      "description": "The check ran to completion. `verdict` is present and `error` is absent.",
+      "required": ["verdict"],
+      "not": { "required": ["error"] }
+    },
+    {
+      "title": "error report",
+      "description": "An expression could not be parsed or the check failed. `error` is present and every verdict field is absent; the process exit code was 2.",
+      "required": ["error"],
+      "not": {
+        "anyOf": [
+          { "required": ["verdict"] },
+          { "required": ["equivalent"] },
+          { "required": ["counterexample"] }
+        ]
+      }
+    }
+  ],
+  "allOf": [
+    {
+      "if": { "required": ["verdict"], "properties": { "verdict": { "const": "equivalent" } } },
+      "then": {
+        "required": ["equivalent"],
+        "properties": { "equivalent": { "const": true } },
+        "not": { "required": ["counterexample"] }
+      }
+    },
+    {
+      "if": { "required": ["verdict"], "properties": { "verdict": { "const": "not_equivalent" } } },
+      "then": {
+        "required": ["equivalent", "counterexample"],
+        "properties": { "equivalent": { "const": false } }
+      }
+    },
+    {
+      "if": { "required": ["verdict"], "properties": { "verdict": { "const": "unknown" } } },
+      "then": {
+        "not": {
+          "anyOf": [
+            { "required": ["equivalent"] },
+            { "required": ["counterexample"] }
+          ]
+        }
+      }
+    }
+  ],
+  "properties": {
+    "schemaVersion": {
+      "description": "Contract version of this document. A consumer must reject a version it does not know.",
+      "const": 1
+    },
+    "left": {
+      "description": "The first expression exactly as the CLI received it. Present in every report, including error reports.",
+      "type": "string"
+    },
+    "right": {
+      "description": "The second expression exactly as the CLI received it. Present in every report, including error reports.",
+      "type": "string"
+    },
+    "verdict": {
+      "description": "Outcome of the check. `equivalent` and `not_equivalent` are PROVEN verdicts (see the document description); `unknown` means the conflict budget was exhausted before a proof either way — it is a non-answer, not a disproof. Absent on an error report.",
+      "type": "string",
+      "enum": ["equivalent", "not_equivalent", "unknown"]
+    },
+    "equivalent": {
+      "description": "Boolean form of a DETERMINED verdict, for consumers that branch on a flag: `true` exactly when `verdict` is `equivalent`, `false` exactly when it is `not_equivalent`. Deliberately ABSENT when `verdict` is `unknown`, so a timeout cannot be mistaken for a disproof.",
+      "type": "boolean"
+    },
+    "counterexample": {
+      "description": "A concrete assignment on which the two expressions evaluate differently — the witness that proves `not_equivalent`. Keys are variable names (sorted), values the assigned truth values. Present exactly when `verdict` is `not_equivalent`; may be empty when both sides are constants. WHICH differing assignment is reported is not part of the contract, only that it distinguishes the two expressions.",
+      "type": "object",
+      "additionalProperties": { "type": "boolean" }
+    },
+    "error": {
+      "description": "Present instead of the verdict fields when the check could not run. The process exit code is 2 in this case.",
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": {
+          "description": "Stable machine-readable cause. The named values are parse diagnostics; `processing_error` is the catch-all for a failure that carried no structured diagnostic.",
+          "type": "string",
+          "enum": [
+            "EmptyExpression",
+            "UnexpectedCharacter",
+            "InvalidConstant",
+            "VariableStartsWithDigit",
+            "UnexpectedToken",
+            "ExpectedToken",
+            "UnexpectedEndOfInput",
+            "NestingTooDeep",
+            "processing_error"
+          ]
+        },
+        "message": {
+          "description": "Human-readable explanation. Wording is NOT part of the contract — branch on `code`.",
+          "type": "string"
+        },
+        "side": {
+          "description": "Which of the two expressions the error is about. Absent when the failure is not attributable to one side.",
+          "type": "string",
+          "enum": ["left", "right"]
+        },
+        "position": {
+          "description": "0-based character offset of the error in the expression named by `side`. Absent for `processing_error`.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "length": {
+          "description": "Length in characters of the offending span at `position`.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected": {
+          "description": "Token descriptions that would have been valid at `position`. Absent when the parser had no specific expectation.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "snippet": {
+          "description": "The offending expression with a caret under `position`. Formatting is NOT part of the contract.",
+          "type": "string"
+        }
+      }
+    }
+  }
+}

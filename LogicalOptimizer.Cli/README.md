@@ -27,6 +27,23 @@ XOR/IMP/EQV patterns, `--truth-table`, `--trace` to explain how the result was r
 `--verbose` for metrics, and `--outputs=A,B` for multi-output CSV minimization. Run
 `logical-optimizer --help` for the full list.
 
+## Equivalence check
+
+The `check` verb proves two expressions equivalent or returns a concrete counterexample —
+an assignment on which they differ:
+
+```bash
+logical-optimizer check "admin | (owner & businessHours)" "admin | owner"
+# Left: admin | (owner & businessHours)
+# Right: admin | owner
+# Equivalent: no
+# Counterexample: admin=0, businessHours=0, owner=1
+```
+
+Exit codes: `0` equivalent, `3` not equivalent, `4` unknown (budget exhausted).
+`--format=json` emits a versioned machine-readable report (`cli-check-report-v1.schema.json`
+in [`schema/`](https://github.com/AlexanderV/LogicalOptimizer/tree/main/schema)).
+
 ## Standard-format problem files
 
 Four verbs read a DIMACS / WCNF / OPB file and dispatch it to the in-house SAT, MaxSAT,

@@ -16,6 +16,11 @@ internal class Program
             if (args.Length > 0 && FormatCommands.IsFormatVerb(args[0]))
                 return FormatCommands.Run(args);
 
+            // The `check` verb compares TWO expressions, which the single-expression
+            // optimize flow cannot express — it has its own parsing and exit codes.
+            if (args.Length > 0 && args[0] == CheckCommand.Verb)
+                return CheckCommand.Run(args);
+
             // Parse command line arguments
             var options = CommandLineProcessor.ParseArguments(args);
 

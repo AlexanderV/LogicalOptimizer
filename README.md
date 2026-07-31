@@ -259,6 +259,19 @@ dotnet run --project LogicalOptimizer.Cli -- --benchmark
 dotnet run --project LogicalOptimizer.Cli -- --help
 ```
 
+### Equivalence check (`check`)
+
+The `check` verb proves two expressions equivalent or returns a concrete counterexample; the
+exit code carries the verdict (`0` equivalent, `3` not equivalent, `4` unknown):
+
+```bash
+logical-optimizer check "admin | (owner & businessHours)" "admin | owner"
+# Left: admin | (owner & businessHours)
+# Right: admin | owner
+# Equivalent: no
+# Counterexample: admin=0, businessHours=0, owner=1
+```
+
 ### Standard-format problem files (DIMACS / WCNF / OPB)
 
 Besides the expression flags above, the CLI takes four verbs that read a problem **file** in a
@@ -760,6 +773,8 @@ deliberately. The details, including the snapshot-approval and API-baseline work
   stability, the 12-month support window for the previous major, and the deprecation process
 - **Security vulnerabilities** → [SECURITY.md](SECURITY.md) — report privately, never as a
   public issue
+- **Who maintains this, and what to expect** → [MAINTAINERS.md](MAINTAINERS.md) — maintainer
+  roster, best-effort maintenance model, and realistic response expectations (no SLA)
 - **What you use it for, or why you chose something else** →
   [use-case report](https://github.com/AlexanderV/LogicalOptimizer/issues/new?template=use_case_report.yml).
   There is no telemetry, so this is the only roadmap input; a compiled evaluator, batch APIs and

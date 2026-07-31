@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "left": "a & b | a & c",
+  "right": "a & (b | c)",
+  "verdict": "equivalent",
+  "equivalent": true
+}
