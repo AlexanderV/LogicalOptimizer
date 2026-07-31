@@ -12,7 +12,7 @@ because they are separate claims: **features**, **output quality**, **performanc
 | A **managed .NET** application that must reason about Boolean logic | No third-party runtime dependency, `net8.0`/`net10.0`, Native-AOT- and trim-verified in CI. No native binary, no JVM, no Python, no P/Invoke. |
 | You must **prove** an optimization did not change behaviour | Every result is equivalence-verified before it is returned (truth table ≤12 variables, SAT miter beyond), and a failed check rolls back to the input instead of shipping an unverified result. |
 | You need to know **whether the result is optimal** | `MinimizationStatus` reports `MinimalProven` / `BudgetExceeded` / `Heuristic`. Most tools return a smaller expression and say nothing about optimality. |
-| **Equivalence checking with a counterexample** between two rule versions | `EquivalenceChecker.Check` returns the concrete assignment where old and new disagree — a ready-made regression test. |
+| **Equivalence checking with a counterexample** between two rule versions | `EquivalenceChecker.Check` returns the concrete assignment where old and new disagree — a ready-made regression test. The CLI [`check` verb](cli-usage.md#equivalence-check-check) does the same from a script, with the verdict in the exit code. |
 | You need to **explain** a result in production | The opt-in [diagnostic trace](diagnostic-trace.md) records the engine chosen, the thresholds, budgets, candidate costs, proof paths and fallbacks. |
 | A **dependency-free CLI** for Boolean work in CI | One `dotnet tool install`, a versioned `--format=json` report and documented exit codes. |
 
@@ -30,7 +30,7 @@ because they are separate claims: **features**, **output quality**, **performanc
 | If you need | Use |
 |---|---|
 | Arithmetic, bit-vectors, arrays, quantifiers — full SMT | **Z3** |
-| Maximum raw SAT throughput on hard industrial instances | **Kissat** or **CaDiCaL** (via PySAT or directly) |
+| Maximum raw SAT throughput on hard industrial instances | **Kissat** or **CaDiCaL** (via PySAT or directly) — and you can keep the toolkit for everything around the solver: the [external-solver seam & DIMACS hand-off](external-solvers.md) routes the CNF query to them while parsing, Tseitin encoding and counterexample decoding stay here |
 | Industrial logic synthesis: technology mapping, retiming, sequential flow | **Berkeley ABC** |
 | Reference-grade large two-level / multi-output PLA minimization | **Espresso** (or PyEDA, which wraps it) |
 | Very large BDDs with deep reordering | **CUDD** (or Python `dd`) |
@@ -38,6 +38,11 @@ because they are separate claims: **features**, **output quality**, **performanc
 
 These are not gaps to be apologetic about: the toolkit deliberately stays a propositional
 Boolean reasoning library for managed .NET rather than chasing an SMT stack or an EDA flow.
+Where a dedicated engine is the right answer, the hand-off is designed in, not bolted on —
+see [External SAT Solvers & the DIMACS Hand-off](external-solvers.md). The
+[engine operating envelope](budgets-and-zones.md#engine-operating-envelope) states, per
+engine, exactly where that point is: intended use, the enforced budget, what happens when
+it is exceeded, and which of the tools above to hand the instance to.
 
 ## The evidence, by dimension
 
@@ -97,3 +102,4 @@ with a decade of field use, LogicNG or Z3 is the safer institutional choice.
 - [Benchmarks & Comparison](benchmarks.md) — the measured numbers and how to reproduce them
 - [Case Studies](case-studies.md) — worked examples with sizes, statuses, time and memory
 - [Operation Contracts & Statuses](contracts-and-statuses.md) — exactly what each claim guarantees
+- [Resource Budgets & the Zone Model](budgets-and-zones.md#engine-operating-envelope) — the per-engine operating envelope: soft thresholds, hard budgets, exceed behavior, hand-off points

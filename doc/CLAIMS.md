@@ -232,6 +232,7 @@ or rejected with the reason.
 | Statuses are surfaced in the machine-readable report and pinned by golden examples, including a `BudgetExceeded` and a `TooLarge` case | [`schema/examples/budget-exceeded.json`](../schema/examples/budget-exceeded.json), [`schema/examples/form-too-large.json`](../schema/examples/form-too-large.json) |
 | The trace records engine selection, budgets, candidates, adoption and fallback | [`OptimizationTraceTests`](../LogicalOptimizer.Tests/Facade/OptimizationTraceTests.cs) |
 | Every documented status combination is exercised across option pairs | [`PairwiseOptionsTests`](../LogicalOptimizer.Tests/Techniques/PairwiseOptionsTests.cs) |
+| The documented per-engine operating envelope (docs-site `budgets-and-zones.md`) cites its hard limits from code: every `constant = value` pair in the table is asserted equal to the enforcing constant, budget default, or default parameter | [`EngineEnvelopeConsistencyTests`](../LogicalOptimizer.Tests/Documentation/EngineEnvelopeConsistencyTests.cs) |
 
 **Limits.**
 
