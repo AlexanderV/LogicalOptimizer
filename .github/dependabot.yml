@@ -1,0 +1,19 @@
+# Automated dependency update PRs. Complements .github/workflows/dependency-audit.yml
+# (the scheduled vulnerability scan): Dependabot proposes upgrades, the audit fails loudly
+# when a currently-referenced package acquires a known advisory.
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    # One PR per dependency; the repo pins exact versions, so every bump is reviewed.
+    open-pull-requests-limit: 10
+
+  # Keeps the SHA-pinned actions current: Dependabot updates the pinned commit and the
+  # human-readable version comment together, which is the only sane way to maintain
+  # SHA pinning by hand-edited workflows.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

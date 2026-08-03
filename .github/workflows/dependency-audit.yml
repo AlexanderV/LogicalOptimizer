@@ -1,0 +1,50 @@
+name: Dependency audit
+
+# Scheduled NuGet vulnerability scan: the set of KNOWN advisories changes without any
+# change in this repository, so a one-off audit only proves the state on the day it ran.
+#
+# Failure policy (explicit, so a broken advisory feed cannot masquerade as a clean
+# result): the job fails BOTH when a vulnerable package is found AND when the scan
+# itself cannot complete (restore failure, advisory source unreachable). A network
+# outage therefore shows up as a red scheduled run to investigate, never as green.
+on:
+  schedule:
+    # 04:10 UTC every Monday — off-peak, and offset from the nightly exhaustive run.
+    - cron: '10 4 * * 1'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore LogicalOptimizer.sln
+
+      # `dotnet list package --vulnerable` exits 0 even when it finds vulnerabilities,
+      # so the verdict is parsed from the output; a non-zero exit from the command
+      # itself (no advisory data, restore drift) fails the step on its own.
+      - name: Scan for known-vulnerable NuGet packages (direct + transitive)
+        run: |
+          set -o pipefail
+          dotnet list LogicalOptimizer.sln package --vulnerable --include-transitive | tee audit.txt
+          if grep -q "has the following vulnerable packages" audit.txt; then
+            echo "::error::Known-vulnerable NuGet package(s) referenced - see the log above."
+            exit 1
+          fi
+          echo "No known-vulnerable NuGet packages (direct or transitive)."
+
+      - name: Upload audit log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dependency-audit
+          path: audit.txt
+          if-no-files-found: ignore
