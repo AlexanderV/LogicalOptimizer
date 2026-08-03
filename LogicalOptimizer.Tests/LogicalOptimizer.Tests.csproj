@@ -14,7 +14,7 @@
     <!-- Draft 2020-12 validator used by CliReportSchemaTests to check the published CLI JSON
          Schema against real reports. TEST-ONLY: the shipped packages stay free of third-party
          runtime dependencies. -->
-    <PackageReference Include="JsonSchema.Net" Version="7.3.4" />
+    <PackageReference Include="JsonSchema.Net" Version="9.4.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageReference Include="Microsoft.Z3" Version="4.12.2" />
     <PackageReference Include="PublicApiGenerator" Version="11.5.4" />
