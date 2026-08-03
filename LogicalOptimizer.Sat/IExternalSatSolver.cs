@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Text;
 
 namespace LogicalOptimizer;
@@ -40,10 +41,17 @@ public interface IExternalSatSolver
 /// </summary>
 public sealed class ExternalSatProblem
 {
+    private readonly int[] _assumptions;
+    private readonly IReadOnlyList<int> _assumptionsView;
+    private readonly int[][] _clauses;
+    private readonly IReadOnlyList<int[]> _clausesView;
+
     /// <summary>
     ///     Create a problem over variables <c>1..variableCount</c>. Every literal in
     ///     <paramref name="clauses" /> and <paramref name="assumptions" /> must be
-    ///     non-zero and within range.
+    ///     non-zero and within range. The constructor snapshots both collections
+    ///     (including every clause array); later mutation of the caller's collections
+    ///     cannot change the validated problem.
     /// </summary>
     public ExternalSatProblem(int variableCount, IReadOnlyList<int[]> clauses,
         IReadOnlyList<int>? assumptions = null)
@@ -52,26 +60,40 @@ public sealed class ExternalSatProblem
         ArgumentNullException.ThrowIfNull(clauses);
 
         VariableCount = variableCount;
-        Clauses = clauses;
-        Assumptions = assumptions ?? Array.Empty<int>();
 
-        foreach (var clause in Clauses)
+        // Copy before validating: validating the caller's arrays and copying afterwards
+        // would reopen the TOCTOU window this snapshot exists to close.
+        _clauses = new int[clauses.Count][];
+        for (var i = 0; i < _clauses.Length; i++)
         {
+            var clause = clauses[i];
             ArgumentNullException.ThrowIfNull(clause, nameof(clauses));
-            foreach (var literal in clause) ValidateLiteral(literal, nameof(clauses));
+            var copy = (int[])clause.Clone();
+            foreach (var literal in copy) ValidateLiteral(literal, nameof(clauses));
+            _clauses[i] = copy;
         }
 
-        foreach (var literal in Assumptions) ValidateLiteral(literal, nameof(assumptions));
+        _assumptions = assumptions is null || assumptions.Count == 0
+            ? Array.Empty<int>()
+            : assumptions.ToArray();
+        foreach (var literal in _assumptions) ValidateLiteral(literal, nameof(assumptions));
+
+        _clausesView = new ClauseSnapshotView(_clauses);
+        _assumptionsView = Array.AsReadOnly(_assumptions);
     }
 
     /// <summary>Number of variables; valid DIMACS indices are 1..VariableCount.</summary>
     public int VariableCount { get; }
 
-    /// <summary>Clauses as arrays of DIMACS literals (no terminating 0).</summary>
-    public IReadOnlyList<int[]> Clauses { get; }
+    /// <summary>
+    ///     Clauses as arrays of DIMACS literals (no terminating 0). Reading a clause
+    ///     returns an independent copy — the validated snapshot cannot be mutated
+    ///     through this property.
+    /// </summary>
+    public IReadOnlyList<int[]> Clauses => _clausesView;
 
     /// <summary>Assumption literals for this query; empty when none.</summary>
-    public IReadOnlyList<int> Assumptions { get; }
+    public IReadOnlyList<int> Assumptions => _assumptionsView;
 
     /// <summary>Build a problem from an equisatisfiable <see cref="TseitinCnf" />.</summary>
     public static ExternalSatProblem FromCnf(TseitinCnf cnf, IReadOnlyList<int>? assumptions = null)
@@ -88,10 +110,10 @@ public sealed class ExternalSatProblem
     public string ToDimacs()
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"p cnf {VariableCount} {Clauses.Count + Assumptions.Count}");
-        foreach (var clause in Clauses)
+        sb.AppendLine($"p cnf {VariableCount} {_clauses.Length + _assumptions.Length}");
+        foreach (var clause in _clauses)
             sb.AppendLine(string.Join(" ", clause) + " 0");
-        foreach (var assumption in Assumptions)
+        foreach (var assumption in _assumptions)
             sb.AppendLine($"{assumption} 0");
         return sb.ToString();
     }
@@ -110,14 +132,17 @@ public sealed class ExternalSatProblem
         var assignment = new sbyte[VariableCount + 1];
         foreach (var literal in model)
         {
+            // int.MinValue has no positive counterpart; Math.Abs would overflow, and an
+            // untrusted model must yield false, never an exception.
+            if (literal == 0 || literal == int.MinValue) return false;
             var variable = Math.Abs(literal);
-            if (literal == 0 || variable > VariableCount) return false;
+            if (variable > VariableCount) return false;
             var sign = literal > 0 ? (sbyte)1 : (sbyte)-1;
             if (assignment[variable] == -sign) return false; // contradictory model
             assignment[variable] = sign;
         }
 
-        foreach (var clause in Clauses)
+        foreach (var clause in _clauses)
         {
             var satisfied = false;
             foreach (var literal in clause)
@@ -130,7 +155,7 @@ public sealed class ExternalSatProblem
             if (!satisfied) return false;
         }
 
-        foreach (var assumption in Assumptions)
+        foreach (var assumption in _assumptions)
             if (assignment[Math.Abs(assumption)] != (assumption > 0 ? 1 : -1))
                 return false;
 
@@ -139,9 +164,39 @@ public sealed class ExternalSatProblem
 
     private void ValidateLiteral(int literal, string parameterName)
     {
-        var variable = Math.Abs(literal);
-        if (literal == 0 || variable > VariableCount)
+        if (literal == 0 || literal == int.MinValue)
             throw new ArgumentOutOfRangeException(parameterName, $"Literal {literal} out of range");
+        if (Math.Abs(literal) > VariableCount)
+            throw new ArgumentOutOfRangeException(parameterName, $"Literal {literal} out of range");
+    }
+
+    /// <summary>
+    ///     Read-only view over the validated clause snapshot that hands out a copy of
+    ///     each clause array, so no caller — including an adversarial solver adapter
+    ///     given this problem — can mutate the validated state.
+    /// </summary>
+    private sealed class ClauseSnapshotView : IReadOnlyList<int[]>
+    {
+        private readonly int[][] _clauses;
+
+        internal ClauseSnapshotView(int[][] clauses)
+        {
+            _clauses = clauses;
+        }
+
+        public int Count => _clauses.Length;
+
+        public int[] this[int index] => (int[])_clauses[index].Clone();
+
+        public IEnumerator<int[]> GetEnumerator()
+        {
+            foreach (var clause in _clauses) yield return (int[])clause.Clone();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
     }
 }
 
@@ -175,11 +230,15 @@ public sealed class ExternalSatResult
     /// </summary>
     public IReadOnlyList<int>? Model { get; }
 
-    /// <summary>A Satisfiable verdict with its model.</summary>
+    /// <summary>
+    ///     A Satisfiable verdict with its model. The model is snapshotted, so a
+    ///     consumer's verify-then-decode sequence always sees the assignment that was
+    ///     verified, even if the adapter keeps mutating its own buffer.
+    /// </summary>
     public static ExternalSatResult Satisfiable(IReadOnlyList<int> model)
     {
         ArgumentNullException.ThrowIfNull(model);
-        return new ExternalSatResult(SatResult.Satisfiable, model);
+        return new ExternalSatResult(SatResult.Satisfiable, Array.AsReadOnly(model.ToArray()));
     }
 
     /// <summary>An Unsatisfiable verdict (trusted by consumers; see the seam's trust model).</summary>

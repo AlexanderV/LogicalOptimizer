@@ -37,6 +37,9 @@ public sealed class ExternalSatEquivalenceChecker : IEquivalenceChecker
     {
         ArgumentNullException.ThrowIfNull(left);
         ArgumentNullException.ThrowIfNull(right);
+        // An already-canceled token must not pay for miter construction and Tseitin
+        // encoding before the adapter gets its first chance to observe the token.
+        cancellationToken.ThrowIfCancellationRequested();
 
         // Same miter as the embedded path: left XOR right is satisfiable exactly when
         // the sides differ somewhere. The full Tseitin style keeps models projectable
@@ -44,6 +47,9 @@ public sealed class ExternalSatEquivalenceChecker : IEquivalenceChecker
         var miter = TseitinConverter.Convert(new XorNode(left, right));
         var problem = ExternalSatProblem.FromCnf(miter);
         var result = _solver.Solve(problem, cancellationToken);
+        // An adapter that ignores the token's contract must not turn a canceled query
+        // into a verdict: cancellation wins over whatever the solver returned.
+        cancellationToken.ThrowIfCancellationRequested();
 
         switch (result.Verdict)
         {

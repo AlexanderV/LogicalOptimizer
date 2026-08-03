@@ -138,6 +138,39 @@ public class ExternalSatEquivalenceCheckerTests
     }
 
     [Fact]
+    public void Check_PreCanceledToken_ThrowsWithoutCallingTheAdapter()
+    {
+        using var source = new CancellationTokenSource();
+        source.Cancel();
+        var adapterCalls = 0;
+        var checker = new ExternalSatEquivalenceChecker(new ScriptedSolver((_, _) =>
+        {
+            adapterCalls++;
+            return ExternalSatResult.Unknown();
+        }));
+
+        Assert.ThrowsAny<OperationCanceledException>(
+            () => checker.Check(Parse("a & b"), Parse("a | b"), source.Token));
+        Assert.Equal(0, adapterCalls);
+    }
+
+    [Fact]
+    public void Check_AdapterIgnoresCancellation_VerdictIsNotReturned()
+    {
+        // The adapter contract says honor the token; an adapter that ignores it and
+        // returns a verdict anyway must not have that verdict reported as a result.
+        using var source = new CancellationTokenSource();
+        var checker = new ExternalSatEquivalenceChecker(new ScriptedSolver((_, _) =>
+        {
+            source.Cancel(); // canceled mid-flight; the adapter presses on regardless
+            return ExternalSatResult.Unsatisfiable();
+        }));
+
+        Assert.ThrowsAny<OperationCanceledException>(
+            () => checker.Check(Parse("a & b"), Parse("b & a"), source.Token));
+    }
+
+    [Fact]
     public void Check_LyingSatClaim_BogusModelIsDetected()
     {
         // Trust model, verified half: a SAT verdict must carry a model that satisfies the
