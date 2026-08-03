@@ -9,6 +9,8 @@
             "LogicalOptimizer.Core/LogicalOptimizer.Core.csproj",
             "LogicalOptimizer.Sat/LogicalOptimizer.Sat.csproj",
             "LogicalOptimizer.Bdd/LogicalOptimizer.Bdd.csproj",
+            "LogicalOptimizer.Dnnf/LogicalOptimizer.Dnnf.csproj",
+            "LogicalOptimizer.Formats/LogicalOptimizer.Formats.csproj",
             "LogicalOptimizer.Minimization/LogicalOptimizer.Minimization.csproj",
             "LogicalOptimizer/LogicalOptimizer.csproj"
           ]
@@ -20,7 +22,7 @@
       "includePrivateMembers": false,
       "disableGitFeatures": false,
       "properties": {
-        "TargetFramework": "net10.0",
+        "TargetFramework": "net8.0",
         "Configuration": "Release"
       }
     }
