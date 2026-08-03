@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   step, which runs after `dotnet nuget push`, and failing there would leave the packages
   permanently published with the release unmade.
 
-## [4.0.0] - Unreleased
+## [4.0.0] - 2026-08-03
 
 ### Changed (breaking distribution; no API change)
 
