@@ -1,26 +1,38 @@
 # Packages & Architecture
 
-## The package split
+## The packages
 
-LogicalOptimizer ships as **nine** NuGet packages: seven independently usable libraries,
-the `logical-optimizer` CLI tool, and the code-less `LogicalOptimizer.Full` bundle. The
-library dependencies are **acyclic and downward-only**, and the layering is enforced by
-an architecture test.
+Since v4.0 LogicalOptimizer ships as **two** NuGet packages
+([decision record](https://github.com/AlexanderV/LogicalOptimizer/blob/main/doc/decisions/package-consolidation-v4.md)):
 
-| Package | Responsibility |
+| Package | Contents |
+|---|---|
+| **LogicalOptimizer** | The whole library: all seven assemblies below in one package. |
+| **LogicalOptimizer.Cli** | The `logical-optimizer` global dotnet tool. |
+
+The pre-4.0 per-layer package IDs (`.Core` / `.Sat` / `.Bdd` / `.Dnnf` / `.Formats` /
+`.Minimization` / `.Full`) remain installable during a transition period as **deprecated
+forwarding shells** — no code, a single dependency on `LogicalOptimizer` — so existing
+references keep compiling unchanged.
+
+## The assembly layering
+
+Inside the single package, the code stays split into seven assemblies whose dependencies
+are **acyclic and downward-only** — an internal architecture contract enforced by an
+architecture test, no longer a package boundary:
+
+| Assembly | Responsibility |
 |---|---|
 | **LogicalOptimizer.Core** | n-ary AST, `FormulaFactory` (parse + canonicalize), `AstFormatter`, `TruthTable`, metrics, `ResourceBudget`, `PerformanceValidator`. Depends on nothing. |
 | **LogicalOptimizer.Sat** | CDCL solver, Tseitin / Plaisted–Greenbaum CNF, cardinality / pseudo-Boolean, MaxSAT. Depends on Core. |
 | **LogicalOptimizer.Bdd** | ROBDD with hash-consing, model counting, quantification, sifting. Depends on Core. |
 | **LogicalOptimizer.Dnnf** | Top-down d-DNNF knowledge compiler: exact `#SAT` model counting, weighted model counting, model enumeration. Depends on Sat + Core. See [Knowledge Compilation & Model Counting](knowledge-compilation.md). |
-| **LogicalOptimizer.Formats** | DIMACS / WCNF / OPB parsers and round-trip writers with engine hand-off. Depends on Sat + Core. See [CLI usage](cli.md). |
+| **LogicalOptimizer.Formats** | DIMACS / WCNF / OPB parsers and round-trip writers with engine hand-off. Depends on Sat + Core. See [CLI usage](cli-usage.md). |
 | **LogicalOptimizer.Minimization** | Quine–McCluskey, SAT prime cover, Espresso-lite, multi-output CSV. Depends on Sat + Core. |
 | **LogicalOptimizer** (facade) | `BooleanExpressionOptimizer`, the rewrite pipeline, `EquivalenceChecker`, `FormulaAnalysis`, exporters. Depends on Core/Sat/Bdd/Minimization. |
-| **LogicalOptimizer.Cli** | The `logical-optimizer` global tool. Depends on the facade + Formats + Dnnf. |
-| **LogicalOptimizer.Full** | Code-less meta-package: bundles the facade + Dnnf + Formats for a one-line install. Ships no assembly. |
 
 `LogicalOptimizer.Dnnf` and `LogicalOptimizer.Formats` are standalone: they are consumed
-directly rather than pulled in by the facade.
+directly rather than referenced by the facade's own code.
 
 ```mermaid
 graph TD
@@ -50,13 +62,8 @@ graph TD
     Formats --> Core
 ```
 
-The code-less `LogicalOptimizer.Full` meta-package sits outside this dependency graph: it
-carries no assembly and simply aggregates the facade, `.Dnnf` and `.Formats` as NuGet
-dependencies.
-
-Take just the layer you need: `LogicalOptimizer.Sat` for a dependency-free CDCL solver,
-`LogicalOptimizer.Bdd` for an ROBDD engine, `LogicalOptimizer.Minimization` for exact
-two-level minimization — or the `LogicalOptimizer` facade for the whole pipeline.
+(The `LogicalOptimizer.Cli` node is the tool package; every other node in the graph is
+an assembly inside the single `LogicalOptimizer` package.)
 
 ## `FormulaFactory` — the construction entry point
 

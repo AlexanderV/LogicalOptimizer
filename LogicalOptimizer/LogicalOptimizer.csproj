@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -18,9 +18,18 @@
 
     <!-- Shared package metadata is centralized in ..\Directory.Build.props. -->
     <PackageId>LogicalOptimizer</PackageId>
-    <Description>Dependency-free boolean expression optimizer: provably minimal results with explicit proof status (exact Quine-McCluskey backend), built-in CDCL SAT solver with equivalence checking and counterexamples, Tseitin CNF, ROBDD with model counting, truth tables with don't-cares, multi-output CSV minimization, and DIMACS/BLIF/Verilog exporters.</Description>
+    <Description>Dependency-free boolean expression toolkit in ONE package (since v4.0): provably minimal results with explicit proof status (exact Quine-McCluskey backend), built-in CDCL SAT solver with equivalence checking and counterexamples, Tseitin CNF, ROBDD and d-DNNF model counting, truth tables with don't-cares, multi-output CSV minimization, and DIMACS/WCNF/OPB/BLIF/Verilog import/export. Ships all seven library assemblies; no third-party dependency.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>boolean;logic;minimization;quine-mccluskey;sat-solver;bdd;cnf;dnf;tseitin;equivalence;boolean-expression;expression-simplification;equivalence-checking;native-aot;pure-managed</PackageTags>
+    <PackageTags>boolean;logic;minimization;quine-mccluskey;sat-solver;bdd;dnnf;cnf;dnf;tseitin;equivalence;dimacs;boolean-expression;expression-simplification;equivalence-checking;native-aot;pure-managed</PackageTags>
+    <!-- v4.0 consolidation (doc/decisions/package-consolidation-v4.md): this is THE library
+         package. All seven assemblies ship inside lib/net8.0 (see the pack target below),
+         so the nuspec must declare no dependencies — the layer packages still exist only as
+         deprecated forwarding shells under forwarding/. -->
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <!-- NU5128 fires because lib/net8.0 exists with no matching dependency group — which
+         is exactly the point: everything is IN the package, there are no dependencies. -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);PackCompanionAssemblies</TargetsForTfmSpecificBuildOutput>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- CS1591: missing XML comments on some public members; CS1570: unescaped '&' in
          boolean-formula examples inside comments. Docs are being expanded incrementally. -->
@@ -39,6 +48,36 @@
     <ProjectReference Include="..\LogicalOptimizer.Sat\LogicalOptimizer.Sat.csproj" />
     <ProjectReference Include="..\LogicalOptimizer.Bdd\LogicalOptimizer.Bdd.csproj" />
     <ProjectReference Include="..\LogicalOptimizer.Minimization\LogicalOptimizer.Minimization.csproj" />
+    <!-- Not used by the facade's own code — referenced so their assemblies ship inside
+         this package (the v4.0 single-package contract covers d-DNNF and the formats). -->
+    <ProjectReference Include="..\LogicalOptimizer.Dnnf\LogicalOptimizer.Dnnf.csproj" />
+    <ProjectReference Include="..\LogicalOptimizer.Formats\LogicalOptimizer.Formats.csproj" />
   </ItemGroup>
+
+  <!-- `dotnet pack` with NoBuild (the CI/release path) still runs ResolveReferences for the
+       pack target below, and by default that BUILDS the referenced projects, which then see
+       NoBuild=true and fail with NETSDK1085. Resolve against the existing outputs instead;
+       NoBuild's contract is that a build already happened. -->
+  <PropertyGroup Condition="'$(NoBuild)' == 'true'">
+    <BuildProjectReferences>false</BuildProjectReferences>
+  </PropertyGroup>
+
+  <!-- Puts every companion assembly (with its XML docs) into lib/net8.0 of THIS package,
+       and their .pdb files into the .snupkg, so the single package is self-contained and
+       debuggable. ReferenceCopyLocalPaths is the set of files the build would copy next
+       to the facade anyway — the package ships exactly what a bin folder would hold. -->
+  <Target Name="PackCompanionAssemblies" DependsOnTargets="BuildOnlySettings;ResolveReferences">
+    <ItemGroup>
+      <_CompanionAssembly
+          Include="@(ReferenceCopyLocalPaths)"
+          Condition="'%(ReferenceCopyLocalPaths.ReferenceSourceTarget)' == 'ProjectReference' And '%(ReferenceCopyLocalPaths.Extension)' == '.dll'" />
+      <BuildOutputInPackage Include="@(_CompanionAssembly)" />
+      <BuildOutputInPackage Include="@(_CompanionAssembly->'%(RootDir)%(Directory)%(Filename).xml')" />
+      <TfmSpecificDebugSymbolsFile
+          Include="@(_CompanionAssembly->'%(RootDir)%(Directory)%(Filename).pdb')"
+          TargetPath="/lib/$(TargetFramework)/%(Filename).pdb"
+          TargetFramework="$(TargetFramework)" />
+    </ItemGroup>
+  </Target>
 
 </Project>

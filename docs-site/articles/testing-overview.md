@@ -80,7 +80,7 @@ The rules have teeth, and an audit routinely ends with *fewer* cases asserting *
 They live in `Techniques/` alongside four contract guards that use the same machinery: the
 member-level public-API baseline, the claims-vocabulary check behind
 [`doc/CLAIMS.md`](https://github.com/AlexanderV/LogicalOptimizer/blob/main/doc/CLAIMS.md), the
-meta-package bundle check, and the suite-layout guard that keeps a test class in a file named
+package-forwarding contract check, and the suite-layout guard that keeps a test class in a file named
 after it, under the folder for its subject — 101 cases in total.
 
 The two **external** oracles no longer skip silently. `LOGICALOPTIMIZER_REQUIRE_SYMPY` and

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>LogicalOptimizer.Sat</id>
+    <version>$version$</version>
+    <authors>Oleksandr Panasenko</authors>
+    <license type="expression">Apache-2.0</license>
+    <projectUrl>https://AlexanderV.github.io/LogicalOptimizer/</projectUrl>
+    <repository type="git" url="https://github.com/AlexanderV/LogicalOptimizer.git" />
+    <readme>README.md</readme>
+    <description>DEPRECATED since v4.0 - forwarding package. The whole LogicalOptimizer toolkit now ships as the single package "LogicalOptimizer"; LogicalOptimizer.Sat only forwards to it so existing references keep working. Install LogicalOptimizer instead.</description>
+    <tags>deprecated forwarding boolean logic</tags>
+    <dependencies>
+      <group targetFramework="net8.0">
+        <dependency id="LogicalOptimizer" version="[$version$]" />
+      </group>
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="README.md" target="README.md" />
+  </files>
+</package>

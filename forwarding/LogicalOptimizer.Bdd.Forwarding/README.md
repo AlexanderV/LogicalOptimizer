@@ -1,15 +1,14 @@
-# LogicalOptimizer.Full (deprecated forwarding package)
+# LogicalOptimizer.Bdd (deprecated forwarding package)
 
 **Since v4.0 the whole toolkit ships as the single package
 [LogicalOptimizer](https://www.nuget.org/packages/LogicalOptimizer/).**
 
-LogicalOptimizer.Full used to be the "everything in one install" meta-package. That is
-now what `LogicalOptimizer` itself is, so this ID contains no code and only depends on
-`LogicalOptimizer` — existing references keep compiling unchanged (all types stay in the
+LogicalOptimizer.Bdd contains no code anymore: it only depends on `LogicalOptimizer`,
+so existing project references keep compiling unchanged (all types stay in the
 `LogicalOptimizer` namespace). Replace it at your convenience:
 
 ```bash
-dotnet remove package LogicalOptimizer.Full
+dotnet remove package LogicalOptimizer.Bdd
 dotnet add package LogicalOptimizer
 ```
 

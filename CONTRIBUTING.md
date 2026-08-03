@@ -5,7 +5,7 @@ finished when the tests prove it, not when it happens to work.
 
 ## Getting set up
 
-Requires the **.NET 10 SDK** (the library packages target `net8.0;net10.0`).
+Requires the **.NET 10 SDK** (the library packages target `net8.0`; the CLI, tests and benchmarks target `net10.0`).
 
 ```bash
 git clone https://github.com/AlexanderV/LogicalOptimizer.git

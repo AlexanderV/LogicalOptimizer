@@ -28,8 +28,7 @@ Each of those three words is defined, and linked to the test or CI check that ba
 ## Install
 
 ```bash
-dotnet add package LogicalOptimizer            # facade: Core + Sat + Bdd + Minimization
-# dotnet add package LogicalOptimizer.Full     # everything in one install
+dotnet add package LogicalOptimizer            # the whole library, one package (since v4.0)
 # dotnet tool install -g LogicalOptimizer.Cli  # CLI, command: logical-optimizer
 ```
 
@@ -106,7 +105,7 @@ LogicalOptimizer is a lightweight .NET library and CLI, with no third-party runt
 - ✅ **ROBDD Engine**: canonical binary decision diagrams with hash-consing, model counting, lazy assignment enumeration, existential/universal quantification, restriction, functional composition, variable-order optimization (`BuildWithBestOrder` heuristics + `BuildWithSiftedOrder` sifting), node budget
 - ✅ **d-DNNF Knowledge Compilation**: `LogicalOptimizer.Dnnf` compiles a formula to a deterministic, decomposable NNF circuit (top-down decision-DNNF with component caching), giving exact `#SAT` model counting (`CountModels`, `BigInteger`), weighted model counting (`WeightedModelCount`), conditioning and evidence queries (`Condition`, `CountModels(evidence)`, `WeightedModelCount(weights, evidence)`) and lazy model enumeration (`EnumerateModels`) — all linear in the compiled circuit; counts verified exactly against the ROBDD oracle
 - ✅ **Formula Factory**: LogicNG-style construction (`FormulaFactory`) — the single **canonical** construction path for building and parsing formulas (`Parse`, `And`/`Or`/`Not`/`Variable`, `Import`); n-ary And/Or with flattening, canonical operand ordering, duplicate removal, constant/complement folding and structural interning (equal formulas are the same instance — reference equality). The public low-level `AndNode`/`OrNode` constructors remain available for raw, non-canonical AST
-- ✅ **Modular Packages**: `LogicalOptimizer.Core` / `.Sat` / `.Bdd` / `.Dnnf` / `.Formats` / `.Minimization` are independently usable NuGet packages; the `LogicalOptimizer` facade ties them together (and `LogicalOptimizer.Full` bundles everything in one install); the layering is enforced by an architecture test
+- ✅ **One Package, Layered Inside**: since v4.0 the whole library ships as the single `LogicalOptimizer` package (seven assemblies: Core / Sat / Bdd / Dnnf / Formats / Minimization / facade); the acyclic layering is enforced by an architecture test, and the pre-4.0 per-layer package IDs remain installable as deprecated forwarding shells
 - ✅ **Multi-Output Minimization**: CSV tables with several output columns (`--outputs=Sum,Carry`), shared don't-cares and PLA-style cube sharing across outputs
 - ✅ **Budgets & Cancellation**: `ResourceBudget` + `CancellationToken` on every expensive engine
 - ✅ **Normal Forms**: Conversion to CNF (Conjunctive) and DNF (Disjunctive)
@@ -142,28 +141,22 @@ SOP is required, the `--dnf` path matches them cube for cube.)
 
 ### Installation
 
-As NuGet packages, published by the release workflow on version tags. There are three
-ways to install, depending on how much you want:
+As NuGet packages, published by the release workflow on version tags. Since v4.0 there
+are exactly two packages — the library and the CLI tool:
 
 ```bash
-# 1. Everything, one install: the LogicalOptimizer.Full meta-package. It ships no code,
-#    it just pulls in every managed package (facade + Dnnf + Formats, so all engines below).
-dotnet add package LogicalOptimizer.Full
-
-# 2. The facade: the four core engine packages (Core/Sat/Bdd/Minimization) without d-DNNF.
-dotnet add package LogicalOptimizer          # add LogicalOptimizer.Dnnf/.Formats too if you need them
-
-# 3. Individual layers, for a minimal dependency set:
-dotnet add package LogicalOptimizer.Core     # n-ary AST, FormulaFactory (parse + canonicalize), AstFormatter, truth tables
-dotnet add package LogicalOptimizer.Sat      # CDCL solver, CNF encodings, MaxSAT
-dotnet add package LogicalOptimizer.Bdd      # ROBDD
-dotnet add package LogicalOptimizer.Dnnf     # d-DNNF knowledge compilation, exact/weighted model counting
-dotnet add package LogicalOptimizer.Formats  # DIMACS/WCNF/OPB import + round-trip writers
-dotnet add package LogicalOptimizer.Minimization  # QM, Espresso-lite, multi-output
+# The library: the whole toolkit (all seven assemblies) in one package.
+dotnet add package LogicalOptimizer
 
 # CLI as a global dotnet tool
 dotnet tool install -g LogicalOptimizer.Cli  # command: logical-optimizer
 ```
+
+Upgrading from pre-4.0? The former layer packages (`LogicalOptimizer.Core` / `.Sat` /
+`.Bdd` / `.Dnnf` / `.Formats` / `.Minimization` / `.Full`) still exist as deprecated
+forwarding shells that depend on `LogicalOptimizer`, so existing references keep
+compiling — replace them at your convenience
+([decision record](doc/decisions/package-consolidation-v4.md)).
 
 From source (requires the .NET 10 SDK):
 
@@ -489,15 +482,35 @@ string csv = BooleanExpressionExporter.TruthTableToCsv(expression);
 
 ## Testing
 
-```bash
-# Full test suite
-dotnet test
+The everyday loop is the fast gate — the exact filter CI runs (~1370 tests, well under
+a minute):
+
+```powershell
+# Fast gate (the CI filter). This is the command to run while developing.
+.\tools\test.ps1               # Windows - works in Windows PowerShell and pwsh alike
+pwsh tools/test.ps1            # Linux/macOS (PowerShell 7)
+# ... or the same thing spelled out, shell-neutral:
+dotnet test --filter "Category!=Performance&Category!=Exhaustive"
 
 # Filtered tests
 dotnet test --filter "TruthTable"
+```
 
-# Performance tests
-dotnet test --filter "Performance"
+A bare `dotnet test` with no filter also runs the `Performance` and `Exhaustive`
+categories — CPU-bound sweeps over entire function spaces (all 65 534 non-constant
+4-variable functions, several times over). That takes tens of minutes and, run in
+parallel, looks like a hang. Run the expensive categories deliberately, one at a time:
+
+```powershell
+# (On Linux/macOS prefix these with pwsh; on Windows either shell runs them as-is.)
+# Exhaustive sweeps, sequential (~20-40 min; do not run these in parallel)
+.\tools\test.ps1 -Exhaustive
+
+# Timing-sensitive performance suites (~minutes)
+.\tools\test.ps1 -Performance
+
+# Everything: gate, then Performance, then Exhaustive
+.\tools\test.ps1 -Full
 
 # Mutation testing (Stryker.NET; report in StrykerOutput/)
 dotnet tool restore
@@ -548,7 +561,7 @@ is a separate heuristic quality rating and does not, on its own, assert optimali
 
 ## Requirements
 
-- **Library packages**: .NET 8.0 or higher (multi-targeted `net8.0;net10.0`)
+- **Library packages**: .NET 8.0 or higher (single `net8.0` asset, consumable from any newer runtime)
 - **CLI tool / building from source**: .NET 10 SDK
 - **Operating System**: Windows, Linux, or macOS
 - **Memory**: Minimum 512MB RAM (1GB+ recommended for large expressions)
@@ -618,15 +631,15 @@ article; the examples are executed and asserted in
 
 ## Architecture
 
-### Package layering
+### Assembly layering
 
-Nine NuGet packages. Eight carry code — the seven libraries plus the
-`logical-optimizer` CLI tool — with acyclic, downward-only dependencies (the
-seven-library layering is enforced by an architecture test); the ninth,
-`LogicalOptimizer.Full`, is a code-less meta-package that bundles the facade with
-`.Dnnf` and `.Formats` for a one-line install. The `LogicalOptimizer.Dnnf`
-knowledge-compilation and `LogicalOptimizer.Formats` import/export packages sit beside
-`.Bdd` on Core+Sat and are consumed directly (not pulled in by the facade):
+Since v4.0 the library ships as ONE NuGet package (`LogicalOptimizer`) carrying seven
+assemblies with acyclic, downward-only dependencies — the layering below is an
+*internal architecture* contract, enforced by an architecture test, not a package
+boundary (the pre-4.0 per-layer package IDs live on only as deprecated forwarding
+shells; see [the decision record](doc/decisions/package-consolidation-v4.md)). The
+`Dnnf` knowledge-compilation and `Formats` import/export assemblies sit beside `Bdd`
+on Core+Sat and are consumed directly (not referenced by the facade's own code):
 
 ```mermaid
 graph TD
@@ -752,7 +765,7 @@ graph LR
 - **Truth table capacity**: Up to 20 variables (1M+ combinations)
 - **Public API surface**: 80 public types across the seven library assemblies (Core 27 · Sat 14 · Bdd 1 · Dnnf 2 · Formats 9 · Minimization 5 · facade 22), pinned member-by-member by `ApiSurfaceTests` and type-by-type by `ArchitectureTests.PublicSurface_IsTheDocumentedSet`
 - **CLI surface**: the expression flags (documented and parse-checked by `DocExamplesTests.Cli_RecognizesEveryDocumentedFlag`) plus four standard-format verbs — `solve`, `maxsat`, `solve-pb`, `count`
-- **Platform support**: Cross-platform (packages net8.0/net10.0; CLI net10.0)
+- **Platform support**: Cross-platform (packages net8.0; CLI net10.0)
 
 ## AI-assisted development
 
@@ -791,11 +804,12 @@ and a separate `.snupkg` symbol package, carries SHA-256 checksums and a GitHub
 Before anything is pushed, [`tools/verify_package_contract.ps1`](tools/verify_package_contract.ps1)
 opens every `.nupkg` and audits its contents — package-specific README, distinct description, tags,
 project/repository URLs, Apache-2.0 SPDX expression, symbols with a `.pdb`, the documented target
-frameworks, and **no third-party runtime dependency anywhere**. A published package cannot be
-withdrawn, so this gates the publish rather than reporting on it afterwards. After the push the
-release verifies that every package is indexed on nuget.org, that each modular package works
-installed on its own into a clean project outside the repository, and that a **Native AOT** binary
-built against the *published* package produces the right answer.
+frameworks, and **no third-party runtime dependency anywhere** — and
+[`tools/smoke_install.ps1`](tools/smoke_install.ps1) installs those exact packed bytes into
+throwaway projects outside the repository (the consolidated package and every forwarding shell)
+and proves that a **Native AOT** binary built against them produces the right answer. A published
+package cannot be withdrawn, so every check that can refuse the release runs before the push;
+after it, the release only verifies that every package ID is indexed on nuget.org.
 
 All of that lands in a single **release evidence bundle** attached to the release: the contract
 audit, the index check, the AOT result, test counts, checksums, this version's claim changes, and

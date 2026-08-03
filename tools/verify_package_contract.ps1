@@ -71,20 +71,26 @@ $expectedLicense = 'Apache-2.0'
 $minimumDescriptionLength = 60
 $minimumTagCount = 4
 
-# The nine published packages and what each one is expected to contain.
-#   Kind 'library' -> assemblies under lib/<tfm>/
-#   Kind 'tool'    -> a .NET tool under tools/<tfm>/any/
-#   Kind 'meta'    -> dependencies only, no assemblies of its own
+# The v4.0 package matrix (doc/decisions/package-consolidation-v4.md): ONE real library
+# package carrying all seven assemblies, the CLI tool, and seven deprecated forwarding
+# shells that keep the pre-4.0 IDs installable during the transition period.
+#   Kind 'library'    -> the contracted assemblies under lib/<tfm>/
+#   Kind 'tool'       -> a .NET tool under tools/<tfm>/any/
+#   Kind 'forwarding' -> no assemblies; exactly one dependency on LogicalOptimizer
+$libraryAssemblies = @(
+    'LogicalOptimizer', 'LogicalOptimizer.Core', 'LogicalOptimizer.Sat',
+    'LogicalOptimizer.Bdd', 'LogicalOptimizer.Dnnf', 'LogicalOptimizer.Formats',
+    'LogicalOptimizer.Minimization')
 $contract = @(
-    @{ Id = 'LogicalOptimizer.Core';         Kind = 'library'; Frameworks = @('net8.0', 'net10.0') }
-    @{ Id = 'LogicalOptimizer.Sat';          Kind = 'library'; Frameworks = @('net8.0', 'net10.0') }
-    @{ Id = 'LogicalOptimizer.Bdd';          Kind = 'library'; Frameworks = @('net8.0', 'net10.0') }
-    @{ Id = 'LogicalOptimizer.Dnnf';         Kind = 'library'; Frameworks = @('net8.0', 'net10.0') }
-    @{ Id = 'LogicalOptimizer.Formats';      Kind = 'library'; Frameworks = @('net8.0', 'net10.0') }
-    @{ Id = 'LogicalOptimizer.Minimization'; Kind = 'library'; Frameworks = @('net8.0', 'net10.0') }
-    @{ Id = 'LogicalOptimizer';              Kind = 'library'; Frameworks = @('net8.0', 'net10.0') }
-    @{ Id = 'LogicalOptimizer.Cli';          Kind = 'tool';    Frameworks = @('net10.0') }
-    @{ Id = 'LogicalOptimizer.Full';         Kind = 'meta';    Frameworks = @() }
+    @{ Id = 'LogicalOptimizer';              Kind = 'library';    Frameworks = @('net8.0'); Assemblies = $libraryAssemblies }
+    @{ Id = 'LogicalOptimizer.Cli';          Kind = 'tool';       Frameworks = @('net10.0') }
+    @{ Id = 'LogicalOptimizer.Core';         Kind = 'forwarding'; Frameworks = @() }
+    @{ Id = 'LogicalOptimizer.Sat';          Kind = 'forwarding'; Frameworks = @() }
+    @{ Id = 'LogicalOptimizer.Bdd';          Kind = 'forwarding'; Frameworks = @() }
+    @{ Id = 'LogicalOptimizer.Dnnf';         Kind = 'forwarding'; Frameworks = @() }
+    @{ Id = 'LogicalOptimizer.Formats';      Kind = 'forwarding'; Frameworks = @() }
+    @{ Id = 'LogicalOptimizer.Minimization'; Kind = 'forwarding'; Frameworks = @() }
+    @{ Id = 'LogicalOptimizer.Full';         Kind = 'forwarding'; Frameworks = @() }
 )
 
 # ---------------------------------------------------------------------------------------------
@@ -286,7 +292,9 @@ foreach ($entry in $contract) {
             -Ok ($repoUrl -eq $expectedRepositoryUrl -and $repoType -eq 'git') `
             -Detail "type=$repoType, url=$repoUrl"))
 
-        if (-not $SkipRepositoryCommit) {
+        # Forwarding shells pack from a hand-written nuspec, so the SDK never stamps a
+        # SourceLink commit into them - and there are no sources to resolve anyway.
+        if (-not $SkipRepositoryCommit -and $entry.Kind -ne 'forwarding') {
             $commitOk = $repoCommit -match '^[0-9a-f]{40}$'
             $checks.Add((New-Check -Name 'repository-commit' -Ok ([bool]$commitOk) `
                 -Detail $(if ($commitOk) { "commit=$repoCommit" }
@@ -334,6 +342,25 @@ foreach ($entry in $contract) {
                 $checks.Add((New-Check -Name 'xml-documentation' -Ok ($missingDocs.Count -eq 0) `
                     -Detail $(if ($missingDocs.Count -eq 0) { 'XML docs present for every framework' }
                               else { "no XML doc file for: $($missingDocs -join ', ')" })))
+
+                # The single-package contract: every one of the seven assemblies (and its XML
+                # doc) must be inside lib/ - a dropped companion assembly would surface only
+                # as a consumer's MissingMethodException otherwise.
+                if ($entry.ContainsKey('Assemblies')) {
+                    $missingAssemblies = @()
+                    foreach ($tfm in $entry.Frameworks) {
+                        foreach ($asm in $entry.Assemblies) {
+                            if ($files -notcontains "lib/$tfm/$asm.dll") { $missingAssemblies += "$asm.dll ($tfm)" }
+                            if ($files -notcontains "lib/$tfm/$asm.xml") { $missingAssemblies += "$asm.xml ($tfm)" }
+                        }
+                    }
+                    $checks.Add((New-Check -Name 'bundled-assemblies-complete' -Ok ($missingAssemblies.Count -eq 0) `
+                        -Detail $(if ($missingAssemblies.Count -eq 0) {
+                                "all $($entry.Assemblies.Count) assemblies + XML docs in lib/"
+                            } else {
+                                "missing from lib/: $($missingAssemblies -join ', ')"
+                            })))
+                }
             }
             'tool' {
                 $tfm = $entry.Frameworks[0]
@@ -353,14 +380,31 @@ foreach ($entry in $contract) {
                     -Ok ($packageTypes -contains 'DotnetTool') `
                     -Detail "packageType(s): $($packageTypes -join ', ')"))
             }
-            'meta' {
+            'forwarding' {
                 $hasLib = [bool]($files | Where-Object { $_ -like 'lib/*' })
-                $checks.Add((New-Check -Name 'no-assemblies-in-meta-package' -Ok (-not $hasLib) `
-                    -Detail $(if ($hasLib) { 'meta-package unexpectedly ships assemblies' }
-                              else { 'dependencies only, as documented' })))
-                # The meta-package's own dependency list is deliberately short (the facade already
-                # pulls Core/Sat/Bdd/Minimization); whether it really bundles everything is a
-                # transitive question, checked as a global check once every nuspec has been read.
+                $checks.Add((New-Check -Name 'no-assemblies-in-forwarding-package' -Ok (-not $hasLib) `
+                    -Detail $(if ($hasLib) { 'forwarding package unexpectedly ships assemblies' }
+                              else { 'no assemblies, as documented' })))
+
+                # The whole contract of a forwarding shell: exactly one dependency, and it is
+                # the consolidated package pinned to EXACTLY this version — "[X]" in NuGet
+                # range syntax. A bare "X" would mean ">= X" and let a 4.0.0 shell resolve to
+                # any newer LogicalOptimizer, which is not what the shell's version promises.
+                $depNodes = @($nuspec.SelectNodes("//*[local-name()='dependency']"))
+                $forwardOk = $depNodes.Count -eq 1 -and
+                             [string]$depNodes[0].id -eq 'LogicalOptimizer' -and
+                             [string]$depNodes[0].version -eq "[$Version]"
+                $checks.Add((New-Check -Name 'forwards-to-consolidated-package' -Ok $forwardOk `
+                    -Detail $(if ($forwardOk) { "single dependency: LogicalOptimizer [$Version] (exact)" }
+                              else {
+                                  "expected exactly one dependency 'LogicalOptimizer [$Version]', got: " +
+                                  (($depNodes | ForEach-Object { "$([string]$_.id) $([string]$_.version)" }) -join ', ')
+                              })))
+
+                $deprecatedOk = $null -ne $description -and $description.Contains('DEPRECATED')
+                $checks.Add((New-Check -Name 'deprecation-is-explicit' -Ok $deprecatedOk `
+                    -Detail $(if ($deprecatedOk) { 'description says DEPRECATED' }
+                              else { 'description does not say DEPRECATED' })))
             }
         }
     }
@@ -432,35 +476,10 @@ foreach ($entry in $contract) {
     })
 }
 
-# "Everything in one reference" is the whole point of the Full meta-package, so verify the
-# TRANSITIVE closure of its dependencies really reaches every other library package - a direct
-# dependency count would pass even if a package silently dropped out of the bundle.
-$metaId = 'LogicalOptimizer.Full'
-if ($dependencyMap.ContainsKey($metaId)) {
-    $closure = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-    $queue = [System.Collections.Generic.Queue[string]]::new()
-    foreach ($d in $dependencyMap[$metaId]) { $queue.Enqueue($d) | Out-Null }
-    while ($queue.Count -gt 0) {
-        $current = $queue.Dequeue()
-        if (-not $closure.Add($current)) { continue }
-        if ($dependencyMap.ContainsKey($current)) {
-            foreach ($d in $dependencyMap[$current]) { $queue.Enqueue($d) | Out-Null }
-        }
-    }
-
-    # The CLI is a tool, not something a library bundle should reference.
-    $shouldBeBundled = @($contract | Where-Object { $_.Id -ne $metaId -and $_.Kind -eq 'library' } |
-        ForEach-Object { $_.Id })
-    $notBundled = @($shouldBeBundled | Where-Object { -not $closure.Contains($_) })
-
-    $script:globalChecks.Add((New-Check -Name 'meta-package-bundles-every-library' `
-        -Ok ($notBundled.Count -eq 0) `
-        -Detail $(if ($notBundled.Count -eq 0) {
-                "transitively references all $($shouldBeBundled.Count) library packages"
-            } else {
-                "not reachable from $metaId : $($notBundled -join ', ')"
-            })))
-}
+# Pre-4.0 the Full meta-package needed a transitive-closure check ("does the bundle really
+# reach every library?"). Since v4.0 the consolidated LogicalOptimizer package IS the bundle
+# and its completeness is asserted directly by 'bundled-assemblies-complete'; every
+# forwarding shell is pinned to it by 'forwards-to-consolidated-package'.
 
 # A copy-pasted description makes every package look the same on nuget.org, which is the exact
 # discoverability problem per-package metadata is meant to solve.

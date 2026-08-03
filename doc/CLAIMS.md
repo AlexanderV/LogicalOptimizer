@@ -128,8 +128,9 @@ The returned multi-level expression never has more literals than that cover.
 > other LogicalOptimizer packages.
 
 **Meaning.** No package that ships references any package outside the `LogicalOptimizer.*` family.
-The nine packages depend on each other along an acyclic, downward-only graph — that is the modular
-split working as designed, not a hidden dependency.
+Since v4.0 the library is ONE package carrying seven assemblies whose internal dependency graph is
+acyclic and downward-only; the deprecated forwarding shells reference only `LogicalOptimizer`.
+That family-internal referencing is the design working as intended, not a hidden dependency.
 
 **Evidence.**
 
@@ -138,7 +139,7 @@ split working as designed, not a hidden dependency.
 | Every dependency in every packed `.nupkg` is a LogicalOptimizer package — audited by opening the nuspec, on every pull request **and** as a gate before `nuget push` | check `no-third-party-dependencies` in [`tools/verify_package_contract.ps1`](../tools/verify_package_contract.ps1) |
 | Package layering is acyclic and points downward | [`ArchitectureTests.PackageLayering_IsAcyclicAndPointsDownward`](../LogicalOptimizer.Tests/Techniques/ArchitectureTests.cs) |
 | Library code does not reach into test frameworks or the CLI | [`ArchitectureTests.Library_DoesNotDependOnTestFrameworksOrCli`](../LogicalOptimizer.Tests/Techniques/ArchitectureTests.cs) |
-| The meta-package transitively reaches every library package (bundle promise) | check `meta-package-bundles-every-library` in [`tools/verify_package_contract.ps1`](../tools/verify_package_contract.ps1) |
+| The consolidated package really carries all seven assemblies, and every forwarding shell points at it | checks `bundled-assemblies-complete` and `forwards-to-consolidated-package` in [`tools/verify_package_contract.ps1`](../tools/verify_package_contract.ps1) |
 
 **Limits.**
 
@@ -165,7 +166,7 @@ than degrading at runtime.
 |---|---|
 | `LogicalOptimizer.AotSmoke` is published with `PublishAot` for `linux-x64` and `win-x64`, and the resulting **native binary is executed**; it asserts every engine and exits non-zero on any mismatch | [`.github/workflows/aot.yml`](../.github/workflows/aot.yml) |
 | `IL2026` / `IL3050` / `IL3053` are fatal through publish (`-warnaserror`), so an AOT-hostile change cannot merge quietly | [`.github/workflows/aot.yml`](../.github/workflows/aot.yml), [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) |
-| A Native AOT binary built against the **published NuGet package** — not an in-repo project reference — produces the expected optimized expression, equivalence proof and `MinimalProven` status | `-IncludeAot` in [`tools/smoke_install.ps1`](../tools/smoke_install.ps1), run by [`.github/workflows/release.yml`](../.github/workflows/release.yml) |
+| A Native AOT binary built against the **packaged NuGet bytes** — not an in-repo project reference — produces the expected optimized expression, equivalence proof and `MinimalProven` status. The release gate runs it on the local pre-publish artifacts (the exact bytes then pushed); the same script runs against the published nuget.org package post-release, and its report's `source` field names which it was | `-IncludeAot` in [`tools/smoke_install.ps1`](../tools/smoke_install.ps1), run pre-publish by [`.github/workflows/release.yml`](../.github/workflows/release.yml) |
 
 **Limits.**
 
@@ -254,7 +255,7 @@ If a sentence genuinely needs a banned phrase — quoting someone, or stating a 
 "this is not the fastest solver" — append `<!-- claim-ok: reason -->` on that line. The escape is
 deliberately visible so it shows up in review.
 
-**Scope of the check.** The public surface: [`README.md`](../README.md), the nine package READMEs,
+**Scope of the check.** The public surface: [`README.md`](../README.md), the package READMEs (the consolidated library, the CLI tool, and the forwarding shells),
 `<Description>` in every packable `.csproj`, [`SUPPORT.md`](../SUPPORT.md),
 [`SECURITY.md`](../SECURITY.md), [`schema/README.md`](../schema/README.md), and the documentation
 site (`docs-site/index.md`, `docs-site/articles/`). Historical analysis documents

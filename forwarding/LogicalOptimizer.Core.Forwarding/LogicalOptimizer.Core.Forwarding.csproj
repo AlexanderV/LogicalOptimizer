@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!-- Deprecated forwarding shell (doc/decisions/package-consolidation-v4.md): keeps the
+         pre-4.0 package ID installable while the code ships in the single LogicalOptimizer
+         package. The package content comes ENTIRELY from the hand-written .nuspec next to
+         this file: a ProjectReference to the facade would collide with the real
+         LogicalOptimizer.Core project in the restore graph ("ambiguous project name"), so
+         the LogicalOptimizer dependency is declared in the nuspec instead. -->
+    <NuspecFile>LogicalOptimizer.Core.nuspec</NuspecFile>
+    <NuspecProperties>version=$(Version)</NuspecProperties>
+    <IncludeSymbols>false</IncludeSymbols>
+    <IsPackable>true</IsPackable>
+    <!-- NU5128 is the expected "dependencies but no lib/" warning for a forwarding shell. -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <!-- Nothing to validate: no assemblies ship, and the SDK validator resolves the package
+         by project name, which deliberately differs from the forwarded package id. -->
+    <EnablePackageValidation>false</EnablePackageValidation>
+  </PropertyGroup>
+
+</Project>

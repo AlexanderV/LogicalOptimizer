@@ -1,44 +1,24 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TargetFramework>net8.0</TargetFramework>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 
-    <!-- Convenience meta-package: it carries NO code, only aggregates the managed
-         packages so `dotnet add package LogicalOptimizer.Full` brings in the whole
-         toolkit. No assembly ships in the package. -->
-    <IncludeBuildOutput>false</IncludeBuildOutput>
-    <!-- NU5128: "package has dependencies but no lib/ or ref/ assembly" - that is
-         exactly what a meta-package is, so suppress it (TreatWarningsAsErrors would
-         otherwise turn the expected pack warning into a build failure). -->
-    <NoWarn>$(NoWarn);NU5128</NoWarn>
-    <!-- No code means no symbols. Directory.Build.props turns IncludeSymbols on for every
-         package, which is right for the seven libraries and the CLI but produces an EMPTY
-         .snupkg here - and nuget.org rejects a symbol package with no .pdb outright
-         (400 "The package does not contain any symbol (.pdb) files."). Since `dotnet nuget
-         push` walks the glob in order and aborts on the first failure, that rejection halts
-         the whole publish part-way through, which is how 3.2.0 shipped 3 of 9 packages.
-         Opt this project out rather than weakening the setting for the packages that need it. -->
+    <!-- Deprecated forwarding shell (doc/decisions/package-consolidation-v4.md): before
+         v4.0 this was the "everything" meta-package; since v4.0 the single LogicalOptimizer
+         package IS everything, so this ID only forwards to it. Packed from the hand-written
+         .nuspec, same as the shells under forwarding/: a ProjectReference dependency cannot
+         express the EXACT [version] range the forwarding contract promises. No code means no
+         symbols either - nuget.org rejects an empty .snupkg outright, which once halted a
+         publish part-way (3.2.0 shipped 3 of 9 packages), so IncludeSymbols stays off. -->
+    <NuspecFile>LogicalOptimizer.Full.nuspec</NuspecFile>
+    <NuspecProperties>version=$(Version)</NuspecProperties>
     <IncludeSymbols>false</IncludeSymbols>
-
-    <!-- Shared package metadata is centralized in ..\Directory.Build.props. -->
-    <PackageId>LogicalOptimizer.Full</PackageId>
-    <Description>Convenience meta-package for the LogicalOptimizer toolkit. It contains no code: it depends on the LogicalOptimizer facade, LogicalOptimizer.Dnnf and LogicalOptimizer.Formats so a single `dotnet add package LogicalOptimizer.Full` pulls in every managed package (optimizer, SAT, BDD, minimization, d-DNNF knowledge compilation and DIMACS/WCNF/OPB import/export). Modular users can keep referencing the individual layer packages instead.</Description>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>meta;bundle;boolean;sat;bdd;dnnf;boolean-expression;native-aot;pure-managed</PackageTags>
+    <IsPackable>true</IsPackable>
+    <!-- NU5128 is the expected "dependencies but no lib/" warning for a forwarding shell. -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <!-- Nothing to validate: no assemblies ship. -->
+    <EnablePackageValidation>false</EnablePackageValidation>
   </PropertyGroup>
-
-  <ItemGroup>
-    <None Include="README.md" Pack="true" PackagePath="\" />
-  </ItemGroup>
-
-  <!-- Packable ProjectReferences become NuGet <dependency> entries in the produced
-       package: the facade transitively covers Core/Sat/Bdd/Minimization, while Dnnf and
-       Formats are the managed packages the facade does not already pull in. -->
-  <ItemGroup>
-    <ProjectReference Include="..\LogicalOptimizer\LogicalOptimizer.csproj" />
-    <ProjectReference Include="..\LogicalOptimizer.Dnnf\LogicalOptimizer.Dnnf.csproj" />
-    <ProjectReference Include="..\LogicalOptimizer.Formats\LogicalOptimizer.Formats.csproj" />
-  </ItemGroup>
 
 </Project>

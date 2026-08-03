@@ -10,7 +10,7 @@
     TreatWarningsAsErrors.
   -->
   <PropertyGroup>
-    <Version>3.2.2</Version>
+    <Version>4.0.0</Version>
     <Authors>Oleksandr Panasenko</Authors>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageProjectUrl>https://AlexanderV.github.io/LogicalOptimizer/</PackageProjectUrl>

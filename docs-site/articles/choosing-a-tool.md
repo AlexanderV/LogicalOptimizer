@@ -9,7 +9,7 @@ because they are separate claims: **features**, **output quality**, **performanc
 
 | Scenario | Why it wins |
 |---|---|
-| A **managed .NET** application that must reason about Boolean logic | No third-party runtime dependency, `net8.0`/`net10.0`, Native-AOT- and trim-verified in CI. No native binary, no JVM, no Python, no P/Invoke. |
+| A **managed .NET** application that must reason about Boolean logic | No third-party runtime dependency, `net8.0` (runs on .NET 8 and newer), Native-AOT- and trim-verified in CI. No native binary, no JVM, no Python, no P/Invoke. |
 | You must **prove** an optimization did not change behaviour | Every result is equivalence-verified before it is returned (truth table ≤12 variables, SAT miter beyond), and a failed check rolls back to the input instead of shipping an unverified result. |
 | You need to know **whether the result is optimal** | `MinimizationStatus` reports `MinimalProven` / `BudgetExceeded` / `Heuristic`. Most tools return a smaller expression and say nothing about optimality. |
 | **Equivalence checking with a counterexample** between two rule versions | `EquivalenceChecker.Check` returns the concrete assignment where old and new disagree — a ready-made regression test. The CLI [`check` verb](cli-usage.md#equivalence-check-check) does the same from a script, with the verdict in the exit code. |

@@ -5,48 +5,61 @@ using Xunit;
 namespace LogicalOptimizer.Tests;
 
 /// <summary>
-///     Guards the LogicalOptimizer.Full meta-package contract (roadmap P3.1). The package
-///     ships no code, so there is nothing to reflect over; the two things worth protecting
-///     are its dependency closure and the promise that the aggregated surface really does
-///     cover optimizer + SAT + BDD + d-DNNF.
+///     Guards the v4.0 package-consolidation contract (doc/decisions/package-consolidation-v4.md):
+///     the pre-4.0 package IDs survive only as deprecated forwarding shells whose single
+///     dependency is the consolidated LogicalOptimizer package, and the consolidated package
+///     really does cover optimizer + SAT + BDD + d-DNNF + formats.
 /// </summary>
 public class MetaPackageTests
 {
     /// <summary>
-    ///     The meta-package must depend on exactly the facade, Dnnf and Formats: the facade
-    ///     transitively pulls in Core/Sat/Bdd/Minimization, and Dnnf and Formats are the
-    ///     managed packages it does not already cover. A drift here (an extra or missing
-    ///     reference) silently changes what `dotnet add package LogicalOptimizer.Full` installs.
+    ///     Every forwarding shell must declare exactly one dependency — the consolidated
+    ///     package, pinned to the EXACT version ("[$version$]" in NuGet range syntax; a bare
+    ///     "$version$" would mean "&gt;=") — and say DEPRECATED. A second dependency, a wrong
+    ///     id, a floating range, or a silent un-deprecation would change what the
+    ///     transition-period IDs install.
     /// </summary>
     [Fact]
-    public void FullMetaPackage_ReferencesExactlyFacadeDnnfAndFormats()
+    public void ForwardingShells_ForwardExactlyToTheConsolidatedPackage()
     {
-        var csprojPath = Path.Combine(RepositoryRoot(), "LogicalOptimizer.Full", "LogicalOptimizer.Full.csproj");
-        Assert.True(File.Exists(csprojPath), $"Meta-package project not found at {csprojPath}");
+        var root = RepositoryRoot();
+        var shells = new Dictionary<string, string>
+        {
+            ["LogicalOptimizer.Core"] = Path.Combine(root, "forwarding", "LogicalOptimizer.Core.Forwarding"),
+            ["LogicalOptimizer.Sat"] = Path.Combine(root, "forwarding", "LogicalOptimizer.Sat.Forwarding"),
+            ["LogicalOptimizer.Bdd"] = Path.Combine(root, "forwarding", "LogicalOptimizer.Bdd.Forwarding"),
+            ["LogicalOptimizer.Dnnf"] = Path.Combine(root, "forwarding", "LogicalOptimizer.Dnnf.Forwarding"),
+            ["LogicalOptimizer.Formats"] = Path.Combine(root, "forwarding", "LogicalOptimizer.Formats.Forwarding"),
+            ["LogicalOptimizer.Minimization"] = Path.Combine(root, "forwarding", "LogicalOptimizer.Minimization.Forwarding"),
+            ["LogicalOptimizer.Full"] = Path.Combine(root, "LogicalOptimizer.Full")
+        };
 
-        var project = XDocument.Load(csprojPath);
+        foreach (var (id, directory) in shells)
+        {
+            var nuspecPath = Path.Combine(directory, $"{id}.nuspec");
+            Assert.True(File.Exists(nuspecPath), $"Forwarding nuspec not found at {nuspecPath}");
 
-        var referencedProjects = project.Descendants("ProjectReference")
-            .Select(r => Path.GetFileNameWithoutExtension(
-                r.Attribute("Include")!.Value.Replace('\\', Path.DirectorySeparatorChar)))
-            .OrderBy(n => n, StringComparer.Ordinal)
-            .ToList();
+            var nuspec = XDocument.Load(nuspecPath);
+            XNamespace ns = nuspec.Root!.GetDefaultNamespace();
 
-        Assert.Equal(new[] { "LogicalOptimizer", "LogicalOptimizer.Dnnf", "LogicalOptimizer.Formats" },
-            referencedProjects);
+            Assert.Equal(id, nuspec.Descendants(ns + "id").Single().Value);
 
-        // Pure metadata package: no assembly must be packed.
-        var includeBuildOutput = project.Descendants("IncludeBuildOutput").SingleOrDefault()?.Value;
-        Assert.Equal("false", includeBuildOutput, ignoreCase: true);
+            var dependencies = nuspec.Descendants(ns + "dependency").ToList();
+            var single = Assert.Single(dependencies);
+            Assert.Equal("LogicalOptimizer", single.Attribute("id")!.Value);
+            Assert.Equal("[$version$]", single.Attribute("version")!.Value);
+
+            Assert.Contains("DEPRECATED", nuspec.Descendants(ns + "description").Single().Value);
+        }
     }
 
     /// <summary>
-    ///     Smoke test: exercise every engine the bundle promises, through the very
-    ///     assemblies the meta-package aggregates. If any engine stopped being reachable
-    ///     from the facade + Dnnf + Formats closure this would fail to compile or run.
+    ///     Smoke test: exercise every engine the consolidated package promises, through the
+    ///     very assemblies it bundles. If any engine stopped being reachable from the
+    ///     seven-assembly closure this would fail to compile or run.
     /// </summary>
     [Fact]
-    public void FullMetaPackage_SurfaceExercisesEveryEngine()
+    public void ConsolidatedPackage_SurfaceExercisesEveryEngine()
     {
         var formula = "a & b | a & c";
         var ast = new FormulaFactory().Parse(formula);

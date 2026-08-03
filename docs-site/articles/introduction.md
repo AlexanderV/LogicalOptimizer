@@ -27,31 +27,23 @@ the better answer.
 
 ## Requirements
 
-- **Library packages**: .NET 8.0 or higher (multi-targeted `net8.0;net10.0`).
+- **Library packages**: .NET 8.0 or higher (single `net8.0` asset, consumable from any newer runtime).
 - **CLI tool / building from source**: .NET 10 SDK.
 - **OS**: Windows, Linux, or macOS.
 
 ## Installation
 
-Add the library as a NuGet package. There are three ways in, depending on how much you
-want:
+Add the library as a NuGet package — since v4.0 there is exactly one:
 
 ```bash
-# 1. Everything in one install: a code-less meta-package that pulls in all seven libraries.
-dotnet add package LogicalOptimizer.Full
-
-# 2. The facade: Core + Sat + Bdd + Minimization. It does NOT pull in .Dnnf or .Formats —
-#    add those alongside it if you need knowledge compilation or DIMACS/WCNF/OPB.
+# The whole toolkit (all seven assemblies) in one package.
 dotnet add package LogicalOptimizer
-
-# 3. Individual layers, for a minimal dependency set:
-dotnet add package LogicalOptimizer.Core          # n-ary AST, FormulaFactory, AstFormatter, truth tables
-dotnet add package LogicalOptimizer.Sat           # CDCL solver, CNF encodings, cardinality/PB, MaxSAT
-dotnet add package LogicalOptimizer.Bdd           # ROBDD
-dotnet add package LogicalOptimizer.Dnnf          # d-DNNF compilation, exact/weighted model counting
-dotnet add package LogicalOptimizer.Formats       # DIMACS / WCNF / OPB parsers and round-trip writers
-dotnet add package LogicalOptimizer.Minimization  # QM, Espresso-lite, multi-output
 ```
+
+Upgrading from pre-4.0? The former per-layer packages (`.Core` / `.Sat` / `.Bdd` /
+`.Dnnf` / `.Formats` / `.Minimization` / `.Full`) remain installable as deprecated
+forwarding shells that depend on `LogicalOptimizer`, so existing references keep
+compiling — see [Packages & Architecture](packages-and-architecture.md).
 
 Install the CLI as a global .NET tool (the command is `logical-optimizer`):
 

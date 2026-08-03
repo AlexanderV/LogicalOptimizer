@@ -21,6 +21,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   step, which runs after `dotnet nuget push`, and failing there would leave the packages
   permanently published with the release unmade.
 
+## [4.0.0] - Unreleased
+
+### Changed (breaking distribution; no API change)
+
+- **One library package.** The whole toolkit now ships as the single `LogicalOptimizer`
+  package carrying all seven assemblies (Core, Sat, Bdd, Dnnf, Formats, Minimization,
+  facade); `LogicalOptimizer.Cli` stays the tool package. The pre-4.0 per-layer IDs
+  (`.Core`/`.Sat`/`.Bdd`/`.Dnnf`/`.Formats`/`.Minimization`/`.Full`) continue to be
+  published as **deprecated forwarding shells** with a single dependency on
+  `LogicalOptimizer`, so upgrading consumers keep compiling without edits. The public API
+  surface, namespaces and assemblies are unchanged. Decision and evidence:
+  `doc/decisions/package-consolidation-v4.md`.
+- **Single `net8.0` target for the libraries.** The seven library assemblies target
+  `net8.0` only (previously `net8.0;net10.0` with identical IL): a `net8.0` asset is
+  consumed unchanged by newer runtimes, and no target-specific code existed. CLI, tests
+  and benchmarks stay on `net10.0`. Decision and measurements:
+  `doc/decisions/net8-single-target.md`.
+
+### Fixed
+
+- **External SAT seam hardened at the trust boundary.** `ExternalSatProblem` rejects
+  `int.MinValue` literals with the documented `ArgumentOutOfRangeException` (previously an
+  `OverflowException` escaped `Math.Abs`), treats an `int.MinValue` in an untrusted model
+  as unsatisfied instead of throwing, snapshots clauses/assumptions before validating them
+  (mutation of the caller's collections after construction can no longer bypass
+  validation), and hands out defensive copies via `Clauses`. `ExternalSatResult.Satisfiable`
+  snapshots the model, so verify-then-decode always sees the verified assignment.
+  `ExternalSatEquivalenceChecker.Check` observes the cancellation token before building
+  the miter and after the adapter returns.
+
+### Infrastructure
+
+- Canonical test entry point `tools/test.ps1` (fast gate by default; `-Performance` /
+  `-Exhaustive` / `-Full` run the expensive categories sequentially with long-running-test
+  diagnostics); CI test jobs gained timeouts, `--blame-hang` and always-uploaded TRX
+  artifacts.
+- DocFX pinned via the tool manifest; the docs site covers all seven assemblies and its
+  workflow triggers on every package directory.
+- GitHub Actions pinned to commit SHAs; Dependabot (NuGet + actions) and a weekly
+  `dotnet list package --vulnerable` audit workflow added.
+
 ## [3.2.2] - 2026-07-31
 
 ### Performance

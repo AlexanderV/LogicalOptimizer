@@ -1,9 +1,10 @@
 # LogicalOptimizer
 
-**Verified Boolean expression optimizer for .NET** — the facade package. It ties the
-Core, SAT, BDD and Minimization layers together behind one entry point,
-`BooleanExpressionOptimizer`. It references those four LogicalOptimizer packages and
-no third-party package.
+**Verified Boolean expression toolkit for .NET — the whole library in one package.**
+Since v4.0 this single package ships all seven assemblies: the optimizer facade, Core
+(parser/AST/truth tables), SAT (CDCL solver, Tseitin, MaxSAT), BDD, d-DNNF knowledge
+compilation, Minimization (Quine–McCluskey, Espresso-lite) and Formats
+(DIMACS/WCNF/OPB/BLIF/Verilog). No third-party runtime dependency.
 
 ```bash
 dotnet add package LogicalOptimizer
@@ -23,13 +24,11 @@ Every result is checked equivalent to the input before it is returned (truth tab
 12 variables, built-in SAT miter beyond), and minimality is reported explicitly —
 `MinimalProven` / `BudgetExceeded` / `Heuristic`, never silently downgraded.
 
-## When to choose this package
+## Upgrading from the pre-4.0 packages
 
-Start here for most uses: one type covering parsing, optimization, equivalence checking
-with counterexamples, CNF/DNF, exporters and analysis. Add `LogicalOptimizer.Dnnf` and
-`LogicalOptimizer.Formats` for d-DNNF model counting or DIMACS/WCNF/OPB interchange, or
-install `LogicalOptimizer.Full` to get everything in one line. For a minimal dependency
-set, reference the individual layer packages (`.Core` / `.Sat` / `.Bdd` /
-`.Minimization`) directly.
+The former layer packages (`LogicalOptimizer.Core` / `.Sat` / `.Bdd` / `.Dnnf` /
+`.Formats` / `.Minimization` / `.Full`) are deprecated forwarding shells that depend on
+this package, so existing references keep compiling — replace them with a single
+`dotnet add package LogicalOptimizer` at your convenience.
 
 📚 Full documentation: <https://AlexanderV.github.io/LogicalOptimizer/>
