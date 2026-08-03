@@ -54,6 +54,50 @@ construction-time canonicalization)
 
 ---
 
+## Part 0: Running the suite
+
+The canonical commands, fastest first. `tools/test.ps1` is the single entry point; the
+raw `dotnet test` equivalents are listed for environments without PowerShell.
+
+| Command | What runs | Expected time |
+|---|---|---|
+| `./tools/test.ps1` | the fast gate — the CI filter `Category!=Performance&Category!=Exhaustive` | tens of seconds |
+| `./tools/test.ps1 -Performance` | `Category=Performance`, collections sequential | minutes |
+| `./tools/test.ps1 -Exhaustive` | `Category=Exhaustive`, collections sequential | ~20-40 min |
+| `./tools/test.ps1 -Full` | gate, then Performance, then Exhaustive — three separate runs | ~30-50 min |
+
+Shells: on Windows the script runs as-is in **either** Windows PowerShell 5.1 or
+PowerShell 7 (`pwsh`) — installing PowerShell 7 is NOT required (verified:
+`powershell -File tools\test.ps1 -NoBuild`, 1376/1376). On Linux/macOS run it via
+`pwsh tools/test.ps1`.
+
+Rules the script encodes (follow them when running `dotnet test` by hand):
+
+- **The fast gate is the default loop.** A bare unfiltered `dotnet test` is a trap: it
+  starts the exhaustive whole-function-space sweeps IN PARALLEL with everything else,
+  which is CPU-thrash that looks exactly like a hang (during the 2026-07-31 audit, five
+  4-variable sweeps ran concurrently and the run had no visible progress for minutes).
+- **Expensive categories run sequentially**, via
+  `dotnet test ... -- xUnit.ParallelizeTestCollections=false`. Same total CPU work,
+  readable timeline.
+- **Long tests announce themselves.** `xunit.runner.json` sets
+  `longRunningTestSeconds: 60`; the script's expensive runs add
+  `xUnit.DiagnosticMessages=true` and console verbosity `normal`, so the runner
+  periodically names every test that has been executing longer than a minute — a
+  working sweep is distinguishable from a wedged one. (Diagnostics stay off in the
+  fast gate, where they are only noise.)
+- **If you kill a test run, check for a leftover `testhost`.** An interrupted run can
+  leave a `testhost` process holding the output DLLs, which makes the NEXT build fail
+  with a file-lock error that has nothing to do with the code. End the process
+  (`Get-Process testhost | Stop-Process`) and rebuild.
+
+CI mapping: `ci.yml` runs the fast gate (with `--blame-hang`, 20 min, and always-uploaded
+.trx/sequence artifacts); `exhaustive.yml` runs the whole Exhaustive category nightly,
+sequential; `release.yml` runs the gate plus the `ReleaseEvidence` subset, sequential, as
+a publish gate.
+
+---
+
 ## Part 1: Summary Matrix
 
 This matrix covers the **cross-cutting layer only**. It sits on top of the structured functional

@@ -50,6 +50,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Runner diagnostics: any test running past longRunningTestSeconds is named in the
+         console (visible at console verbosity "normal"+), so a CPU-bound exhaustive sweep
+         reads as progress, not as a hang. tools/test.ps1 relies on this. -->
+    <None Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="TestData\**" CopyToOutputDirectory="PreserveNewest" />
     <!-- The published CLI JSON Schema and its golden example reports, copied to the test output
          so CliReportSchemaTests can load them independently of the working directory. -->

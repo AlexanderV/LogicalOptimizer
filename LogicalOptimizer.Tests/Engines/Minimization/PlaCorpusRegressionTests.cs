@@ -25,6 +25,11 @@ namespace LogicalOptimizer.Tests;
 ///             <c>dotnet run -c Release --project LogicalOptimizer.Benchmarks -- generate-corpora</c>).</item>
 ///     </list>
 /// </summary>
+/// <remarks>
+///     In <see cref="TimeSensitiveCollection" /> because the dense 8-input member runs close
+///     to the facade's 10 s wall-clock cap when CPU-starved by the parallel gate.
+/// </remarks>
+[Collection(TimeSensitiveCollection.Name)]
 public class PlaCorpusRegressionTests
 {
     /// <summary>
