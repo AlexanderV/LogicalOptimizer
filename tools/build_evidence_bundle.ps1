@@ -7,19 +7,21 @@
 
 .DESCRIPTION
     A release already produces the evidence - a package contract audit, a nuget.org index check, an
-    installation and Native AOT smoke test from the published packages, a test run, checksums, and
-    a build provenance attestation - but each piece lives somewhere different and expires with the
-    workflow logs. This script collects them into one bundle:
+    installation and Native AOT smoke test of the packaged bytes (run on the local artifacts as a
+    pre-publish gate; the same script runs against nuget.org post-release), a test run, checksums,
+    and a build provenance attestation - but each piece lives somewhere different and expires with
+    the workflow logs. This script collects them into one bundle:
 
         evidence/
           INDEX.md                     what each file proves, and what it does NOT prove
           manifest.json                machine-readable index + SHA-256 of every bundled file
           package-contract-report.json contents audit of every .nupkg  (verify_package_contract.ps1)
           nuget-index-report.json      packages present on nuget.org   (verify_nuget.ps1)
-          aot-package-smoke.json       native binary built from the PUBLISHED package
+          aot-package-smoke.json       native binary built from the packaged bytes; the report
+                                       names its source (pre-publish artifacts or nuget.org)
           test-summary.json            per-push suite counts parsed from the .trx
           exhaustive-evidence.json     the claim-critical exhaustive sweeps, re-run for this commit
-          SHA256SUMS.txt               checksums of the published .nupkg/.snupkg
+          SHA256SUMS.txt               checksums of the .nupkg/.snupkg bytes that get pushed
           claim-changes.md             the CHANGELOG section for this version
           verifying-provenance.md      how to verify the signed build attestation yourself
 
@@ -37,7 +39,10 @@
     JSON report from tools/verify_package_contract.ps1.
 
 .PARAMETER NuGetIndexReport
-    JSON report from tools/verify_nuget.ps1 -ReportPath.
+    JSON report from tools/verify_nuget.ps1 -ReportPath. May be OMITTED in the pre-publish
+    evidence gate: the index report can only exist after `dotnet nuget push`, so -RequireAll
+    demands it only when the parameter is actually passed (OE-05 — every check that can refuse
+    the release runs before the push; the index report is post-push visibility evidence).
 
 .PARAMETER AotReport
     JSON report from tools/smoke_install.ps1 -IncludeAot -AotReportPath.
@@ -63,8 +68,8 @@
     owner/repo used in the provenance verification instructions.
 
 .PARAMETER RequireAll
-    Fail if any of the four core inputs (package contract, nuget index, AOT, checksums) is absent.
-    Intended for the release workflow; leave off for a local dry run.
+    Fail if any core input (package contract, AOT, checksums — plus nuget index when passed) is
+    absent. Intended for the release workflow; leave off for a local dry run.
 
 .EXAMPLE
     pwsh tools/build_evidence_bundle.ps1 -Version 3.1.0 `
@@ -158,14 +163,33 @@ function Add-BundleItem {
 Add-BundleItem -SourcePath $PackageContractReport -TargetName 'package-contract-report.json' -Required:$RequireAll `
     -Proves 'Every published .nupkg was opened and audited: package-specific README present, distinct substantial description, tags, project/repository URLs, Apache-2.0 SPDX expression, symbols .snupkg with a .pdb, contracted target frameworks, and no third-party runtime dependency.'
 
-Add-BundleItem -SourcePath $NuGetIndexReport -TargetName 'nuget-index-report.json' -Required:$RequireAll `
-    -Proves 'All nine packages are present in the nuget.org flat-container index at this version.'
+# Required only when passed: the index report cannot exist before the push, and the
+# pre-publish evidence gate runs this script without it (see the parameter doc).
+Add-BundleItem -SourcePath $NuGetIndexReport -TargetName 'nuget-index-report.json' `
+    -Required:($RequireAll -and '' -ne $NuGetIndexReport) `
+    -Proves 'All nine package IDs are present in the nuget.org flat-container index at this version.'
 
 Add-BundleItem -SourcePath $AotReport -TargetName 'aot-package-smoke.json' -Required:$RequireAll `
-    -Proves 'A Native AOT binary was compiled against the PUBLISHED package (not an in-repo project reference) and produced the expected optimized expression, equivalence proof and MinimalProven status.'
+    -Proves 'A Native AOT binary was compiled against the exact packaged bytes (not an in-repo project reference) and produced the expected optimized expression, equivalence proof and MinimalProven status; the report names its package source (local pre-publish artifacts or nuget.org).'
 
 Add-BundleItem -SourcePath $ChecksumsPath -TargetName 'SHA256SUMS.txt' -Required:$RequireAll `
     -Proves 'SHA-256 of exactly the .nupkg/.snupkg bytes that were pushed, so a downloaded package can be compared byte-for-byte.'
+
+# F-14: an AOT report that is PRESENT must have consistent provenance — a pre-publish report's
+# consolidatedPackageSha256 must match SHA256SUMS.txt (same bytes that get pushed), and a
+# nuget.org report must not carry a local hash. Runs whenever the report exists, RequireAll or
+# not: an inconsistent report is worse than an absent one.
+if ($AotReport -and (Test-Path $AotReport)) {
+    . (Join-Path $PSScriptRoot 'AotProvenanceCheck.ps1')
+    $checksumsForCheck = if ($ChecksumsPath -and (Test-Path $ChecksumsPath)) { $ChecksumsPath } else { '' }
+    $provenanceFailure = Test-AotProvenance -AotReportPath $AotReport `
+        -ChecksumsPath $checksumsForCheck -Version $Version
+    if ($null -ne $provenanceFailure) {
+        Write-Error ("AOT provenance check failed: {0}" -f $provenanceFailure)
+        exit 1
+    }
+    Write-Host 'AOT provenance check passed: report source and package checksum are consistent.'
+}
 
 # Recorded unconditionally: skipping the item when the caller passes nothing would let a bundle
 # omit the benchmark provenance silently, which is exactly the "looks complete but is not" failure
@@ -451,7 +475,9 @@ in the bundle.
 1. ``claim-changes.md`` - what this release claims that the previous one did not.
 2. ``package-contract-report.json`` - whether the packages actually ship what is claimed.
 3. ``nuget-index-report.json`` and ``SHA256SUMS.txt`` - that those exact bytes were published.
-4. ``aot-package-smoke.json`` and ``test-summary.json`` - that the published artifacts work.
+4. ``aot-package-smoke.json`` and ``test-summary.json`` - that the packaged artifacts work
+   (the AOT report's ``source`` field names what it ran against: the local pre-publish
+   artifacts in the release gate, or the published nuget.org package).
 5. ``verifying-provenance.md`` - how to redo all of it independently.
 
 Definitions of *verified*, *minimal*, *dependency-free* and *Native AOT support*, each linked to

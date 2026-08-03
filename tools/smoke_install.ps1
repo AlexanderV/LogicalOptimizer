@@ -1,8 +1,9 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Reproducible installation smoke test: install the PUBLISHED packages from nuget.org into a
-    throwaway project and prove they actually work for a consumer.
+    Reproducible installation smoke test: install the packed packages into a throwaway project
+    and prove they actually work for a consumer. Runs against nuget.org by default, or against
+    a local folder of freshly packed artifacts via -Source (the pre-publish release gate).
 
 .DESCRIPTION
     Verifying that a package is present in the nuget.org index (tools/verify_nuget.ps1) does not
@@ -11,21 +12,23 @@
 
       1. creates a temporary console project OUTSIDE the repository (so the repo's
          Directory.Build.props and project references cannot influence the result);
-      2. installs the requested package version explicitly from nuget.org;
+      2. installs the requested package version explicitly from the requested source
+         (nuget.org, or the local pre-publish artifacts);
       3. runs a program that optimizes an expression through the public API and asserts the
          result, the equivalence proof and the minimality status;
       4. installs the CLI as a global tool and asserts its --format=json report;
-      5. installs EVERY modular package into its own separate project and asserts that the
-         assemblies it should bring load with public types on them - including the full bundle,
-         from which all seven library assemblies must be reachable through one reference;
+      5. installs EVERY forwarding-shell ID into its own separate project and asserts that the
+         full assembly set loads with public types on it (the v4.0 forwarding contract);
       6. optionally (-IncludeAot) publishes that consumer project with PublishAot=true and runs
-         the resulting NATIVE binary, so Native AOT support is proven from the published PACKAGE
-         and not only from the in-repo project reference that .github/workflows/aot.yml covers.
+         the resulting NATIVE binary, so Native AOT support is proven from the PACKAGE bytes
+         under test — local pre-publish artifacts or the published nuget.org package — and not
+         only from the in-repo project reference that .github/workflows/aot.yml covers.
 
-    Exits non-zero on the first failure. Safe to run locally against any published version.
+    Exits non-zero on the first failure. Safe to run locally against any published version, or
+    pre-publish against a folder of packed artifacts.
 
 .PARAMETER Version
-    The published package version to install, e.g. 3.1.0. Required.
+    The package version to install, e.g. 4.0.0. Required.
 
 .PARAMETER SkipTool
     Skip the global-tool part (useful where the tool path is not on PATH for the session).
@@ -37,11 +40,21 @@
 .PARAMETER AotReportPath
     Write a small JSON result for the AOT step here, for inclusion in a release evidence bundle.
 
+.PARAMETER Source
+    NuGet source to install from. Defaults to nuget.org (the post-publish scenario). Point it at a
+    local folder of packed .nupkg files to run the SAME consumer-path proof BEFORE anything is
+    pushed — the pre-publish gate the release workflow runs (OE-05: every check that can refuse a
+    release must run before the irreversible push).
+
 .EXAMPLE
     pwsh tools/smoke_install.ps1 -Version 3.1.0
 
 .EXAMPLE
     pwsh tools/smoke_install.ps1 -Version 3.1.0 -IncludeAot -AotReportPath aot-package-smoke.json
+
+.EXAMPLE
+    # Pre-publish: prove the freshly packed artifacts install and run, before any push.
+    pwsh tools/smoke_install.ps1 -Version 4.0.0 -Source artifacts -IncludeAot
 #>
 [CmdletBinding()]
 param(
@@ -53,13 +66,19 @@ param(
 
     [switch] $IncludeAot,
 
-    [string] $AotReportPath
+    [string] $AotReportPath,
+
+    [string] $Source = 'https://api.nuget.org/v3/index.json'
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$nugetSource = 'https://api.nuget.org/v3/index.json'
+# A local folder source must survive the Push-Location into the throwaway work directory.
+$nugetSource = if (Test-Path $Source) { (Resolve-Path $Source).Path } else { $Source }
+
+# Set when this run globally installs the CLI tool, so the finally block can undo it.
+$script:cliToolInstalled = $false
 
 # Resolved against the CURRENT directory before we Push-Location into the throwaway work
 # directory, which is deleted on exit - a relative report path would vanish with it.
@@ -151,12 +170,30 @@ return 0;
     }
 }
 
-Write-Host ("Smoke-testing published LogicalOptimizer {0} from nuget.org" -f $Version)
+Write-Host ("Smoke-testing LogicalOptimizer {0} from {1}" -f $Version, $nugetSource)
 Write-Host ("Work directory: {0}" -f $workDir)
 Write-Host ''
 
 try {
     New-Item -ItemType Directory -Path $workDir -Force | Out-Null
+
+    # The probe projects restore during `dotnet run`, not only at `dotnet add package` time, so
+    # the source must be visible to restore as well: a NuGet.config at the work-directory root
+    # governs every probe underneath it. nuget.org stays listed for the SDK's own needs.
+    $sourcesXml = "    <add key=`"smoke-source`" value=`"$nugetSource`" />"
+    if ($nugetSource -ne 'https://api.nuget.org/v3/index.json') {
+        $sourcesXml += "`n    <add key=`"nuget.org`" value=`"https://api.nuget.org/v3/index.json`" />"
+    }
+    @"
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+$sourcesXml
+  </packageSources>
+</configuration>
+"@ | Set-Content -Path (Join-Path $workDir 'NuGet.config') -Encoding utf8
+
     Push-Location $workDir
     try {
         Invoke-Step 'dotnet new console' { dotnet new console -o Probe --no-restore }
@@ -207,7 +244,7 @@ return 0;
             for ($attempt = 1; $attempt -le $toolAttempts; $attempt++) {
                 Write-Host ("==> dotnet tool install LogicalOptimizer.Cli {0} (attempt {1}/{2})" -f $Version, $attempt, $toolAttempts)
                 dotnet tool install --global LogicalOptimizer.Cli --version $Version --add-source $nugetSource
-                if ($LASTEXITCODE -eq 0) { break }
+                if ($LASTEXITCODE -eq 0) { $script:cliToolInstalled = $true; break }
                 if ($attempt -eq $toolAttempts) {
                     throw ("dotnet tool install LogicalOptimizer.Cli {0} failed after {1} attempt(s)" -f $Version, $toolAttempts)
                 }
@@ -228,19 +265,21 @@ return 0;
             }
         }
 
-        # Every modular package, the facade, and the full bundle - each installed on its own.
+        # v4.0 (doc/decisions/package-consolidation-v4.md): every forwarding shell must still
+        # deliver the FULL assembly set (its single dependency is the consolidated package),
+        # so a pre-4.0 consumer who only upgrades the version keeps compiling.
+        $allAssemblies = @(
+            'LogicalOptimizer', 'LogicalOptimizer.Core', 'LogicalOptimizer.Sat',
+            'LogicalOptimizer.Bdd', 'LogicalOptimizer.Dnnf', 'LogicalOptimizer.Formats',
+            'LogicalOptimizer.Minimization')
         $modular = @(
-            @{ Id = 'LogicalOptimizer.Core';         Assemblies = @('LogicalOptimizer.Core') }
-            @{ Id = 'LogicalOptimizer.Sat';          Assemblies = @('LogicalOptimizer.Sat') }
-            @{ Id = 'LogicalOptimizer.Bdd';          Assemblies = @('LogicalOptimizer.Bdd') }
-            @{ Id = 'LogicalOptimizer.Dnnf';         Assemblies = @('LogicalOptimizer.Dnnf') }
-            @{ Id = 'LogicalOptimizer.Formats';      Assemblies = @('LogicalOptimizer.Formats') }
-            @{ Id = 'LogicalOptimizer.Minimization'; Assemblies = @('LogicalOptimizer.Minimization') }
-            # The bundle's whole promise is "one reference, everything available".
-            @{ Id = 'LogicalOptimizer.Full';         Assemblies = @(
-                    'LogicalOptimizer', 'LogicalOptimizer.Core', 'LogicalOptimizer.Sat',
-                    'LogicalOptimizer.Bdd', 'LogicalOptimizer.Dnnf', 'LogicalOptimizer.Formats',
-                    'LogicalOptimizer.Minimization') }
+            @{ Id = 'LogicalOptimizer.Core';         Assemblies = $allAssemblies }
+            @{ Id = 'LogicalOptimizer.Sat';          Assemblies = $allAssemblies }
+            @{ Id = 'LogicalOptimizer.Bdd';          Assemblies = $allAssemblies }
+            @{ Id = 'LogicalOptimizer.Dnnf';         Assemblies = $allAssemblies }
+            @{ Id = 'LogicalOptimizer.Formats';      Assemblies = $allAssemblies }
+            @{ Id = 'LogicalOptimizer.Minimization'; Assemblies = $allAssemblies }
+            @{ Id = 'LogicalOptimizer.Full';         Assemblies = $allAssemblies }
         )
 
         foreach ($package in $modular) {
@@ -251,7 +290,8 @@ return 0;
             # The AOT/trim analyzers gating ordinary builds and the in-repo aot.yml both work from a
             # PROJECT REFERENCE. A package can still break AOT (missing trim annotations in the
             # packed assembly, a framework reference that pulls in reflection). Compile the same
-            # consumer program natively against the PUBLISHED package to close that gap.
+            # consumer program natively against the PACKAGE under test (local pre-publish artifacts
+            # or the published nuget.org copy — the report records which) to close that gap.
             $rid = if ($isWindowsHost) { 'win-x64' } else { 'linux-x64' }
             $aotOut = Join-Path $workDir 'aot-publish'
 
@@ -278,7 +318,22 @@ return 0;
                     tool           = 'tools/smoke_install.ps1 -IncludeAot'
                     version        = $Version
                     runtimeId      = $rid
-                    source         = 'published nuget.org package'
+                    # Provenance must state where the bytes actually came from: local packed
+                    # artifacts in the pre-publish gate, nuget.org in the post-publish check.
+                    source         = $(if ($nugetSource -eq 'https://api.nuget.org/v3/index.json') {
+                                          'published nuget.org package'
+                                      } else {
+                                          "local packed artifacts (pre-publish): $nugetSource"
+                                      })
+                    # For the local mode, tie this evidence to the exact bytes that will be
+                    # pushed: the consolidated package's SHA-256 must match SHA256SUMS.txt in
+                    # the same release. null when testing the published nuget.org copy
+                    # (nuget.org repository-signs packages, so its bytes differ by design).
+                    consolidatedPackageSha256 = $(
+                        $localNupkg = Join-Path $nugetSource "LogicalOptimizer.$Version.nupkg"
+                        if ((Test-Path $nugetSource -PathType Container) -and (Test-Path $localNupkg)) {
+                            (Get-FileHash $localNupkg -Algorithm SHA256).Hash.ToLowerInvariant()
+                        } else { $null })
                     binaryBytes    = $sizeBytes
                     exitCode       = $aotExit
                     result         = $(if ($aotOk) { 'pass' } else { 'fail' })
@@ -311,6 +366,12 @@ catch {
     exit 1
 }
 finally {
+    # A smoke test must not change the machine it ran on: uninstall the CLI tool this run
+    # installed globally (best-effort — a failed uninstall must not mask the real verdict).
+    if ($script:cliToolInstalled) {
+        Write-Host '==> dotnet tool uninstall LogicalOptimizer.Cli (cleanup)'
+        try { dotnet tool uninstall --global LogicalOptimizer.Cli | Out-Null } catch { }
+    }
     if (Test-Path $workDir) {
         try { Remove-Item -Recurse -Force $workDir -ErrorAction Stop } catch { }
     }
