@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CsCheck" Version="4.1.0" />
+    <PackageReference Include="CsCheck" Version="4.8.0" />
     <!-- Draft 2020-12 validator used by CliReportSchemaTests to check the published CLI JSON
          Schema against real reports. TEST-ONLY: the shipped packages stay free of third-party
          runtime dependencies. -->
