@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.1] - 2026-09-25
+
 ### Changed
 
 - **Dependencies brought current.** SourceLink 10.0.401 (build-only, `PrivateAssets="All"`), and
