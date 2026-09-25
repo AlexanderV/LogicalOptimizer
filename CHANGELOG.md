@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+## [4.0.1] - 2026-09-25
+
+### Changed
+
+- **Dependencies brought current.** SourceLink 10.0.401 (build-only, `PrivateAssets="All"`), and
+  in the non-shipping projects CsCheck 4.9.1, Microsoft.NET.Test.Sdk 18.10.1,
+  xunit.runner.visualstudio 4.0.0, TngTech.ArchUnitNET.xUnit 0.13.4, BenchmarkDotNet 0.15.8;
+  tool manifest docfx 2.81.0 and dotnet-stryker 5.0.0; workflow actions checkout v7.0.1,
+  setup-dotnet v6.0.0, upload-artifact v7.0.1, upload-pages-artifact v5.0.0, deploy-pages v5.0.1
+  and attest-build-provenance v4.2.2 (still SHA-pinned). JsonSchema.Net moves to 8.0.5, the last
+  MIT-licensed line: 9.x ships under the Open Source Maintenance Fee EULA, so Dependabot ignores
+  it. The library's own dependency graph is unchanged.
+- **Dependabot groups its PRs.** Monthly, with minor/patch bumps, majors, security fixes and
+  GitHub Actions each arriving as one grouped PR instead of one PR per package.
 
 - **The release workflow no longer finishes green without a GitHub release.** Its last step
   attached the evidence bundle and the attested `.nupkg`/`.snupkg`/`SHA256SUMS.txt` only when a

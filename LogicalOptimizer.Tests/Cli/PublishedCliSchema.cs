@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Json.Schema;
 using Xunit;
@@ -18,9 +19,15 @@ internal static class PublishedCliSchema
 {
     public static string Directory => Path.Combine(AppContext.BaseDirectory, "Schema");
 
-    public static JsonSchema Schema => Load("cli-report-v1.schema.json");
+    // Built once per test run: JsonSchema.Net registers every built schema under its `$id` in the
+    // process-wide SchemaRegistry and refuses to register the same `$id` twice.
+    private static readonly Lazy<JsonSchema> ReportSchema = new(() => Load("cli-report-v1.schema.json"));
 
-    public static JsonSchema CheckSchema => Load("cli-check-report-v1.schema.json");
+    private static readonly Lazy<JsonSchema> CheckReportSchema = new(() => Load("cli-check-report-v1.schema.json"));
+
+    public static JsonSchema Schema => ReportSchema.Value;
+
+    public static JsonSchema CheckSchema => CheckReportSchema.Value;
 
     private static JsonSchema Load(string fileName)
     {
@@ -55,13 +62,20 @@ internal static class PublishedCliSchema
         var evaluation = schema.Evaluate(instance, StrictEvaluation);
         if (evaluation.IsValid) return;
 
-        var errors = evaluation.Details
-            .Where(d => d.HasErrors)
+        var errors = (evaluation.Details ?? [evaluation])
+            .Where(d => d.Errors is { Count: > 0 })
             .SelectMany(d => d.Errors!.Select(e => $"  {d.InstanceLocation}: {e.Key} -> {e.Value}"))
             .ToArray();
         Assert.Fail($"{what} does not satisfy schema/{schemaName}:\n" +
                     string.Join("\n", errors) + "\n\nDocument was:\n" + json);
     }
+
+    /// <summary>
+    ///     JsonSchema.Net 8 evaluates <see cref="JsonElement" /> instances only; the suites build and
+    ///     mutate their documents as <see cref="JsonNode" />, so this bridges the two at the call site.
+    /// </summary>
+    public static EvaluationResults Evaluate(this JsonSchema schema, JsonNode? instance, EvaluationOptions options) =>
+        schema.Evaluate(JsonSerializer.SerializeToElement(instance), options);
 
     public static string RepositoryRoot()
     {
