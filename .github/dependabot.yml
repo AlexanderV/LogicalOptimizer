@@ -1,19 +1,49 @@
 # Automated dependency update PRs. Complements .github/workflows/dependency-audit.yml
 # (the scheduled vulnerability scan): Dependabot proposes upgrades, the audit fails loudly
 # when a currently-referenced package acquires a known advisory.
+#
+# Updates are GROUPED so a normal month produces a couple of PRs, not one per package:
+# every bump still lands as an exact pinned version and still has to pass the full CI
+# matrix, but related bumps are reviewed (and fixed up, when a major breaks the build) together.
+# Security updates are not delayed by the schedule — Dependabot raises them as soon as an
+# advisory is published, in their own group.
 version: 2
 updates:
   - package-ecosystem: nuget
     directory: /
     schedule:
-      interval: weekly
-    # One PR per dependency; the repo pins exact versions, so every bump is reviewed.
-    open-pull-requests-limit: 10
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      # SourceLink and the test/benchmark stack: minor and patch bumps travel together.
+      nuget-minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+      # Majors get their own grouped PR: they are the ones that can need code changes.
+      nuget-major:
+        applies-to: version-updates
+        update-types:
+          - major
+      nuget-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+    ignore:
+      # 9.x moved from MIT to the Open Source Maintenance Fee EULA; 8.x is the last
+      # MIT-licensed line. Test-only dependency, pinned there on purpose.
+      - dependency-name: JsonSchema.Net
+        versions: [">= 9.0.0"]
 
   # Keeps the SHA-pinned actions current: Dependabot updates the pinned commit and the
   # human-readable version comment together, which is the only sane way to maintain
-  # SHA pinning by hand-edited workflows.
+  # SHA pinning by hand-edited workflows. All action bumps arrive as one PR.
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
+    groups:
+      github-actions:
+        patterns:
+          - "*"
