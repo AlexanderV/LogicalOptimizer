@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dependabot groups its PRs.** Monthly, with minor/patch bumps, majors, security fixes and
   GitHub Actions each arriving as one grouped PR instead of one PR per package.
 
+### Fixed
+
 - **The release workflow no longer finishes green without a GitHub release.** Its last step
   attached the evidence bundle and the attested `.nupkg`/`.snupkg`/`SHA256SUMS.txt` only when a
   release for the tag already existed, and otherwise printed a note and succeeded. So v3.2.2
