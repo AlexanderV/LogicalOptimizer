@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.2] - 2026-11-02
+
+### Changed
+
+- Update build-only Microsoft.SourceLink.GitHub to 10.0.403 across all library projects.
+- Update test dependencies: Microsoft.NET.Test.Sdk 18.11.0,
+  TngTech.ArchUnitNET.xUnit 0.13.5, xunit.runner.visualstudio 4.0.1, and
+  coverlet.collector / coverlet.msbuild 10.1.0.
+
 ## [4.0.1] - 2026-09-25
 
 ### Changed
